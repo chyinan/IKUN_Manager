@@ -1,13 +1,17 @@
 <template>
+  <!-- 图表容器布局 -->
   <div class="chart-container">
+    <!-- 部门人员分布饼图 -->
     <v-chart class="chart" :option="pieOption" />
+    <!-- 部门平均薪资柱状图 -->
     <v-chart class="chart" :option="barOption" />
   </div>
 </template>
 
 <script lang="ts" setup>
+// 导入echarts相关组件
 import { use } from "echarts/core"
-import { CanvasRenderer } from "echarts/renderers"
+import { CanvasRenderer } from "echarts/renderers" 
 import { PieChart, BarChart } from "echarts/charts"
 import {
   TitleComponent,
@@ -18,9 +22,10 @@ import {
 import VChart from "vue-echarts"
 import { ref } from "vue"
 
+// 注册需要使用的 echarts 组件
 use([
   CanvasRenderer,
-  PieChart,
+  PieChart, 
   BarChart,
   TitleComponent,
   TooltipComponent,
@@ -28,10 +33,15 @@ use([
   GridComponent
 ])
 
+// 配置饼图选项
 const pieOption = ref({
+  // 标题配置
   title: { text: '部门人员分布', left: 'center' },
+  // 提示框配置
   tooltip: { trigger: 'item' },
+  // 图例配置
   legend: { orient: 'vertical', left: 'left' },
+  // 图表系列配置
   series: [{
     name: '部门分布',
     type: 'pie',
@@ -46,14 +56,20 @@ const pieOption = ref({
   }]
 })
 
+// 配置柱状图选项
 const barOption = ref({
+  // 标题配置
   title: { text: '各部门平均薪资', left: 'center' },
+  // 提示框配置
   tooltip: { trigger: 'axis' },
+  // x轴配置
   xAxis: {
     type: 'category',
     data: ['技术部', '市场部', '财务部', '销售部', '行政部']
   },
+  // y轴配置
   yAxis: { type: 'value' },
+  // 图表系列配置
   series: [{
     data: [12000, 8000, 9000, 10000, 7000],
     type: 'bar',

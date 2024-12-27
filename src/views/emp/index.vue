@@ -43,60 +43,30 @@ import {ref, onMounted} from 'vue'
 import type {EmpModelArray,EmpModel} from '@/api/model/model'
 import axios from 'axios'
 
+// 定义员工数据列表
 let tableData = ref<EmpModelArray>([])
-  let id1= ref<number>(0)
+let id1= ref<number>(0)
 
-// 发送 GET 请求
+// 获取所有员工数据
 const fetchData = async () => {
-      try {
-        const response = await axios.get('http://127.0.0.1:8080/api/yuangongData');
-        tableData.value = response.data;
-        console.log('GET 请求成功:', response);
-      } catch (error) {
-        console.error('GET 请求失败:', error);
-      }
-    };
+  try {
+    const response = await axios.get('http://127.0.0.1:8080/api/yuangongData');
+    tableData.value = response.data;
+    console.log('GET 请求成功:', response);
+  } catch (error) {
+    console.error('GET 请求失败:', error);
+  }
+};
 
-// 页面加载时获取数据
+// 页面加载时执行数据获取
 onMounted(fetchData);
 
-// const tableData = [
-//   {
-//     入职时间: '2016-05-03',
-//     姓名: 'Mr.Xiong',
-//     住址: '翻斗花园2栋2单元',
+// 新增员工相关状态
+const dialogFormVisible = ref<boolean>(false) // 对话框显示状态
+const deptForm = ref<EmpModel>({name: '',address:'',time:''}) // 表单数据
+const formTitle = ref<string>('') // 对话框标题
 
-//   },
-//   {
-//     入职时间: '2016-05-02',
-//     姓名: 'Mr.Zhao',
-//     住址: '坤坤老家',
-//   },
-//   {
-//     入职时间: '2016-05-04',
-//     姓名: 'Mr.Zeng',
-//     住址: 'No. 189, Grove St, Los Angeles',
-//   },
-//   {
-//     入职时间: '2016-05-01',
-//     姓名: 'Mr.Chen',
-//     住址: 'Man!What can I say?',
-//   },
-//   {
-//     入职时间: '2016-05-01',
-//     姓名: 'Mr.Yin',
-//     住址: 'Earth',
-//   },
-// ]
-
-
-
-//新增部门
-const dialogFormVisible = ref<boolean>(false) 
-const deptForm = ref<EmpModel>({name: '',address:'',time:''})
-const formTitle = ref<string>('')
-
-//定义表单校验规则
+// 表单校验规则定义
 const deptFormRef = ref<FormInstance>()
 const rules = ref<FormRules<EmpModel>>({
   name: [
@@ -105,33 +75,32 @@ const rules = ref<FormRules<EmpModel>>({
   ]
 })
 
-
-//重置表单校验结果
+// 重置表单
 const resetForm = (formEl: FormInstance | undefined) => {
   if (!formEl) return
   formEl.resetFields()
 }
 
-//点击新增按钮触发的函数
+// 新增员工按钮处理函数
 const add = () => {
   formTitle.value = '新增员工'
   dialogFormVisible.value = true
   deptForm.value = {name: '',address:'',time:''}
 }
 
-//点击保存按钮-发送异步请求
+// 保存员工数据
 const save = async () => {
   const form = deptFormRef.value;
   if (!form) return;
   try {
     await form.validate();
     console.log('发送 POST 请求:', deptForm.value);
-      try {
-        const response = await axios.post('http://127.0.0.1:8080/api/addData2', deptForm.value);
-        console.log('POST 请求成功:', response.data);
-      } catch (error) {
-        console.error('POST 请求失败:', error);
-      }
+    try {
+      const response = await axios.post('http://127.0.0.1:8080/api/addData2', deptForm.value);
+      console.log('POST 请求成功:', response.data);
+    } catch (error) {
+      console.error('POST 请求失败:', error);
+    }
     ElMessage.success('操作成功');
     dialogFormVisible.value = false;
     fetchData();
@@ -140,30 +109,31 @@ const save = async () => {
   }
 };
 
-//删除部门
+// 删除员工数据
 const deleteById =async (id:number) => {
-  //弹出确认框
-  ElMessageBox.confirm('您确认删除此部门吗? ', '确认删除').then( async () => {
+  // 删除确认对话框
+  ElMessageBox.confirm('您确认删除此员工吗? ', '确认删除').then(async () => {
     try {
       const idMap={"id":id}
-        const response = await axios.post('http://127.0.0.1:8080/api/delData', idMap);
-        console.log('POST 请求成功:', response.data);
-      } catch (error) {
-        console.error('POST 请求失败:', error);
-      }
-      ElMessage.success('删除成功')
-      fetchData();
-  })//点击新增按钮触发的函数
+      const response = await axios.post('http://127.0.0.1:8080/api/delData', idMap);
+      console.log('POST 请求成功:', response.data);
+    } catch (error) {
+      console.error('POST 请求失败:', error);
+    }
+    ElMessage.success('删除成功')
+    fetchData();
+  })
 }
-
 </script>
 
 <style scoped>
+/* 标题样式 */
 .title {
   font-size: 20px;
   font-weight: bold;
 }
 
+/* 按钮容器样式 */
 .button-container {
   display: flex;
   justify-content: flex-end;

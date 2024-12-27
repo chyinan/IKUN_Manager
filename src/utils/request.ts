@@ -1,18 +1,19 @@
+// Axios请求配置与拦截器
 import axios from 'axios'
 
-//创建axios实例对象
+// 创建axios实例并配置
 const request = axios.create({
-  baseURL: '/api',
-  timeout: 600000
+  baseURL: '/api',    // API基础路径
+  timeout: 600000     // 请求超时时间
 })
 
-//axios的响应 response 拦截器
+// 响应拦截器
 request.interceptors.response.use(
-  (response) => { //成功回调
-    return response.data
+  (response) => {
+    return response.data  // 成功直接返回数据
   },
-  (error) => { //失败回调
-    return Promise.reject(error)
+  (error) => {
+    return Promise.reject(error) // 失败返回错误
   }
 )
 

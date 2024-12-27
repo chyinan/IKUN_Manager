@@ -1,16 +1,14 @@
-//统一响应结果接口
+// 统一接口响应模型
 export interface ResultModel {
-  code: number,
-  msg: string,
-  data: any
+  code: number, // 状态码
+  msg: string,  // 消息
+  data: any     // 数据
 }
 
-
-
-//分页结果接口
+// 分页查询结果模型
 export interface PageModel {
-  total: number,
-  rows: any[]
+  total: number,  // 总记录数
+  rows: any[]     // 数据行
 }
 
 //统一响应结果接口
@@ -30,11 +28,11 @@ export interface PaginationParam {
 
 
 // ----------------------- 部门数据相关接口及类型 ---------------------
-//部门数据接口
+// 部门相关模型
 export interface DeptModel {
   id?: number,
-  name: string,
-  updateTime?: string
+  name: string,        // 部门名称
+  updateTime?: string  // 更新时间
 }
 
 //部门数据数组
@@ -62,23 +60,12 @@ export interface EmpExprModel {
   job: string
 }
 
-//员工数据接口
+// 员工相关模型
 export interface EmpModel {
   id?: number,
-  // username: string,
-  // password: string,
-  name: string,
-  address: string,
-  time: string
-  // gender: string,
-  // phone: string,
-  // job: string,
-  // salary: string,
-  // image: string,
-  // entryDate: string,
-  // deptId: string,
-  // deptName?: string,
-  // exprList: EmpExprModel[]
+  name: string,      // 员工姓名 
+  address: string,   // 地址
+  time: string       // 入职时间
 }
 
 //员工数据数组

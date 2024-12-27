@@ -20,20 +20,6 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-
-const carouselHeight = ref('400px')
-const carouselImg = ref(null)
-
-const handleImageLoad = (e: Event) => {
-  const img = e.target as HTMLImageElement
-  carouselHeight.value = `${img.naturalHeight}px`
-}
-
-const carouselImages = [
-  '/src/assets/images/1.jpg',  // 替换为你的实际图片路径
-  '/src/assets/images/2.jpg',
-  '/src/assets/images/3.jpg'
-]
 </script>
 
 <style scoped>

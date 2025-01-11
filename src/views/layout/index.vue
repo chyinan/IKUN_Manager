@@ -1,5 +1,18 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
+const router = useRouter()
+
+// 退出登录处理函数
+const handleLogout = () => {
+  // 清除token
+  localStorage.removeItem('token')
+  // 显示成功消息
+  ElMessage.success('退出成功')
+  // 跳转到登录页
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -10,7 +23,9 @@
         <span class="title">IKUN智能唱跳RAP篮球辅助系统</span>
         <span class="right_tool">
           <a href=""><el-icon><Lock /></el-icon> 修改玄坤 &nbsp;&nbsp;&nbsp;&nbsp;</a>
-          <a href=""><el-icon><SwitchButton /></el-icon> 退出IKUN&nbsp;&nbsp;&nbsp;&nbsp;</a>
+          <a @click="handleLogout" style="cursor: pointer">
+            <el-icon><SwitchButton /></el-icon> 退出IKUN&nbsp;&nbsp;&nbsp;&nbsp;
+          </a>
         </span>
       </el-header>
       

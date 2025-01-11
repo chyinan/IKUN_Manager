@@ -11,5 +11,7 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
-  }
+  },
+  // 添加静态资源处理
+  assetsInclude: ['**/*.jpg']
 })

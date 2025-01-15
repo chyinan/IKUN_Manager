@@ -1,81 +1,195 @@
 <template>
-  <!-- 数据统计图表容器 -->
-  <div class="chart-container">
-    <!-- 成绩趋势折线图 -->
-    <v-chart class="chart" :option="lineOption" />
-    <!-- 学科能力雷达图 -->
-    <v-chart class="chart" :option="radarOption" />
+  <div class="report-container">
+    <!-- 顶部数据卡片 -->
+    <div class="data-cards">
+      <el-card v-for="(item, index) in summaryData" :key="index">
+        <template #header>
+          <div class="card-header">
+            <el-icon :size="24" :color="item.color">
+              <component :is="item.icon" />
+            </el-icon>
+            <span>{{ item.title }}</span>
+          </div>
+        </template>
+        <div class="card-value">{{ item.value }}</div>
+        <div class="card-compare">
+          较上月 
+          <span :class="item.trend > 0 ? 'up' : 'down'">
+            {{ Math.abs(item.trend) }}%
+            <el-icon>
+              <component :is="item.trend > 0 ? 'ArrowUp' : 'ArrowDown'" />
+            </el-icon>
+          </span>
+        </div>
+      </el-card>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="charts-container">
+      <!-- 左侧图表 -->
+      <el-card class="chart-card">
+        <template #header>
+          <div class="chart-header">
+            <span>班级成绩分布</span>
+            <el-select v-model="selectedClass" placeholder="选择班级">
+              <el-option v-for="item in classList" :key="item" :label="item" :value="item" />
+            </el-select>
+          </div>
+        </template>
+        <v-chart class="chart" :option="gradeDistOption" />
+      </el-card>
+
+      <!-- 右侧图表 -->
+      <el-card class="chart-card">
+        <template #header>
+          <div class="chart-header">
+            <span>各科成绩趋势</span>
+            <el-select v-model="selectedSubject" placeholder="选择科目">
+              <el-option v-for="item in subjectList" :key="item" :label="item" :value="item" />
+            </el-select>
+          </div>
+        </template>
+        <v-chart class="chart" :option="trendOption" />
+      </el-card>
+    </div>
+
+    <!-- 下方图表 -->
+    <div class="bottom-charts">
+      <el-card class="chart-card">
+        <template #header>
+          <span>学科能力分析</span>
+        </template>
+        <v-chart class="chart" :option="radarOption" />
+      </el-card>
+    </div>
   </div>
 </template>
 
-<script lang="ts" setup>
-// 导入echarts相关组件
-import { use } from "echarts/core"
-import { CanvasRenderer } from "echarts/renderers"
-import { LineChart, RadarChart } from "echarts/charts"
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { 
+  LineChart, 
+  BarChart, 
+  RadarChart, 
+  PieChart 
+} from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
-  GridComponent
-} from "echarts/components"
-import VChart from "vue-echarts"
-import { ref } from "vue"
+  GridComponent,
+  DataZoomComponent
+} from 'echarts/components'
+import VChart from 'vue-echarts'
+import { 
+  User, 
+  School, 
+  Trophy, 
+  DataLine 
+} from '@element-plus/icons-vue'
 
-// 注册需要使用的 echarts 组件
+// 注册组件
 use([
   CanvasRenderer,
   LineChart,
+  BarChart,
   RadarChart,
+  PieChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
-  GridComponent
+  GridComponent,
+  DataZoomComponent
 ])
 
-// 配置折线图选项
-const lineOption = ref({
-  title: { text: '近六个月成绩趋势', left: 'center' },
-  tooltip: { trigger: 'axis' },
+// 顶部统计数据
+const summaryData = ref([
+  {
+    title: '总学生数',
+    value: '1,234',
+    trend: 5.2,
+    icon: 'User',
+    color: '#409EFF'
+  },
+  {
+    title: '班级数量',
+    value: '32',
+    trend: 2.1,
+    icon: 'School',
+    color: '#67C23A'
+  },
+  {
+    title: '优秀率',
+    value: '85.6%',
+    trend: 3.4,
+    icon: 'Trophy',
+    color: '#E6A23C'
+  },
+  {
+    title: '平均分',
+    value: '86.2',
+    trend: -1.2,
+    icon: 'DataLine',
+    color: '#F56C6C'
+  }
+])
+
+// 成绩分布图配置
+const gradeDistOption = ref({
+  title: {
+    text: '成绩分布'
+  },
+  tooltip: {
+    trigger: 'axis'
+  },
   xAxis: {
     type: 'category',
-    data: ['1月', '2月', '3月', '4月', '5月', '6月']
+    data: ['<60', '60-70', '70-80', '80-90', '90-100']
   },
-  yAxis: { type: 'value' },
+  yAxis: {
+    type: 'value'
+  },
   series: [{
-    name: '平均分',
-    type: 'line',
-    data: [85, 88, 82, 90, 87, 92],
-    smooth: true, // 启用平滑曲线
-    markPoint: {
-      // 标记最大最小值点
-      data: [
-        { type: 'max', name: '最大值' },
-        { type: 'min', name: '最小值' }
-      ]
+    data: [5, 15, 30, 35, 15],
+    type: 'bar',
+    showBackground: true,
+    backgroundStyle: {
+      color: 'rgba(180, 180, 180, 0.2)'
     }
   }]
 })
 
-// 配置雷达图选项
+// 成绩趋势图配置
+const trendOption = ref({
+  title: {
+    text: '成绩趋势'
+  },
+  tooltip: {
+    trigger: 'axis'
+  },
+  xAxis: {
+    type: 'category',
+    data: ['1月', '2月', '3月', '4月', '5月', '6月']
+  },
+  yAxis: {
+    type: 'value'
+  },
+  series: [{
+    data: [82, 85, 84, 87, 86, 89],
+    type: 'line',
+    smooth: true
+  }]
+})
+
+// 能力雷达图配置
 const radarOption = ref({
-  // 标题配置
-  title: { 
-    text: '学科能力分布', 
-    left: 'center',
-    top: 20
+  title: {
+    text: '学科能力分析'
   },
-  // 图例配置
-  legend: { 
-    data: ['能力值'],
-    top: 50,
-    right: 20
-  },
-  // 雷达图基础配置
   radar: {
-    center: ['50%', '60%'],  // 雷达图中心位置
-    radius: '65%',           // 雷达图半径
-    indicator: [            // 各维度指标
+    indicator: [
       { name: '语文', max: 100 },
       { name: '数学', max: 100 },
       { name: '英语', max: 100 },
@@ -84,34 +198,96 @@ const radarOption = ref({
       { name: '生物', max: 100 }
     ]
   },
-  // 数据系列配置
   series: [{
-    name: '能力分布',
     type: 'radar',
-    data: [{
-      value: [85, 32, 88, 44, 50, 60], // 各科目能力值
-      name: '能力值'
-    }]
+    data: [
+      {
+        value: [85, 90, 88, 82, 86, 84],
+        name: '能力分布'
+      }
+    ]
   }]
 })
+
+const selectedClass = ref('')
+const selectedSubject = ref('')
+const classList = ['高三一班', '高三二班', '高三三班']
+const subjectList = ['语文', '数学', '英语', '物理', '化学', '生物']
 </script>
 
 <style scoped>
-/* 图表容器样式 */
-.chart-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 30px;
-  padding: 30px;
+.report-container {
+  padding: 20px;
+  background: #f5f7fa;
+  min-height: calc(100vh - 84px);
 }
 
-/* 单个图表样式 */
+.data-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  color: #606266;
+}
+
+.card-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #303133;
+  margin: 10px 0;
+}
+
+.card-compare {
+  font-size: 14px;
+  color: #909399;
+}
+
+.up {
+  color: #67C23A;
+}
+
+.down {
+  color: #F56C6C;
+}
+
+.charts-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.chart-card {
+  background: white;
+  border-radius: 8px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .chart {
-  flex: 1;
-  min-width: 500px;    /* 最小宽度 */
-  height: 500px;       /* 固定高度 */
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  height: 300px;
+}
+
+:deep(.el-card) {
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.bottom-charts {
+  margin-top: 20px;
+}
+
+.bottom-charts .chart {
+  height: 400px;
 }
 </style>

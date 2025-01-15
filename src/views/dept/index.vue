@@ -1,169 +1,247 @@
+<template>
+  <div class="dept-container">
+    <!-- 头部搜索和操作区 -->
+    <div class="operation-header">
+      <el-input
+        v-model="searchKey"
+        placeholder="搜索部门名称..."
+        class="search-input"
+        clearable>
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+      
+      <div class="operation-buttons">
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon>新增部门
+        </el-button>
+        <el-button type="success" @click="handleExport">
+          <el-icon><Download /></el-icon>导出数据
+        </el-button>
+      </div>
+    </div>
+
+    <!-- 部门数据表格 -->
+    <el-table
+      :data="filteredTableData"
+      stripe
+      border
+      highlight-current-row
+      class="dept-table"
+      v-loading="loading">
+      <el-table-column type="index" label="#" width="60" align="center" />
+      <el-table-column prop="deptName" label="部门名称" min-width="150">
+        <template #default="{ row }">
+          <el-tag>{{ row.deptName }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="manager" label="部门主管" min-width="120" />
+      <el-table-column prop="memberCount" label="部门人数" width="100" align="center">
+        <template #default="{ row }">
+          <el-badge :value="row.memberCount" type="primary" />
+        </template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" min-width="180" />
+      <el-table-column prop="description" label="部门描述" min-width="200" show-overflow-tooltip />
+      <el-table-column label="操作" width="180" fixed="right">
+        <template #default="{ row }">
+          <el-button-group>
+            <el-button type="primary" @click="handleEdit(row)" :icon="Edit" circle />
+            <el-button type="danger" @click="handleDelete(row)" :icon="Delete" circle />
+          </el-button-group>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 分页器 -->
+    <el-pagination
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :total="total"
+      :page-sizes="[10, 20, 30, 50]"
+      layout="total, sizes, prev, pager, next, jumper"
+      class="pagination" />
+
+    <!-- 新增/编辑对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogType === 'add' ? '新增部门' : '编辑部门'"
+      width="500px">
+      <el-form
+        ref="formRef"
+        :model="formData"
+        :rules="rules"
+        label-width="100px">
+        <el-form-item label="部门名称" prop="deptName">
+          <el-input v-model="formData.deptName" />
+        </el-form-item>
+        <el-form-item label="部门主管" prop="manager">
+          <el-input v-model="formData.manager" />
+        </el-form-item>
+        <el-form-item label="部门描述" prop="description">
+          <el-input
+            v-model="formData.description"
+            type="textarea"
+            :rows="3" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
 <script setup lang="ts">
-import {ref, onMounted} from 'vue'
-import type { DeptModelArray, DeptModel } from '@/api/model/model'
-import {queryAllApi, addApi, queryInfoApi, deleteApi} from '@/api/dept'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
-import axios from 'axios';
+import { ref, computed, reactive } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules } from 'element-plus'
 
+interface DeptData {
+  id?: number
+  deptName: string
+  manager: string
+  memberCount: number
+  description: string
+  createTime: string
+}
 
-//声明列表展示数据
-let tableData = ref<DeptModelArray>([])
-let id1= ref<number>(0)
-// 定义 mock 数据
-// const mockData = {
-//   data: {
-//     data: [
-//       { id: 1, name: 'IT部门', updateTime: '2024-01-01' },
-//       { id: 2, name: '采购部门', updateTime: '2024-01-01' },
-//       { id: 3, name: '人事部门', updateTime: '2024-01-01' }
-//     ]
-//   }
-// };
+const loading = ref(false)
+const searchKey = ref('')
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const dialogVisible = ref(false)
+const dialogType = ref<'add' | 'edit'>('add')
+const formRef = ref<FormInstance>()
 
-// // 使用 mock 数据代替 API 请求
-// tableData.value = mockData.data.data;
+const formData = reactive<DeptData>({
+  deptName: '',
+  manager: '',
+  memberCount: 0,
+  description: '',
+  createTime: ''
+})
 
-// 发送 GET 请求
-const fetchData = async () => {
-      try {
-        const response = await axios.get('http://127.0.0.1:8080/api/data');
-        tableData.value = response.data;
-        console.log('GET 请求成功:', response);
-      } catch (error) {
-        console.error('GET 请求失败:', error);
-      }
-    };
-
-    // 页面加载时获取数据
-    onMounted(fetchData);
-    
- // 发送 POST 请求
-//  const sendData = async () => {
-//   console.log('发送 POST 请求:', deptForm.value);
-//       try {
-//         const response = await axios.post('http://127.0.0.1:8080/api/addData', deptForm.value);
-//         console.log('POST 请求成功:', response.data);
-//       } catch (error) {
-//         console.error('POST 请求失败:', error);
-//       }
-//     };
-
-
-//新增部门
-const dialogFormVisible = ref<boolean>(false) 
-const deptForm = ref<DeptModel>({name: ''})
-const formTitle = ref<string>('')
-
-//定义表单校验规则
-const deptFormRef = ref<FormInstance>()
-const rules = ref<FormRules<DeptModel>>({
-  name: [
-    { required: true, message: '部门名称不能为空', trigger: 'blur' },
-    { min: 2, max: 10, message: '部门名称长度在2-10个字之间', trigger: 'blur' },
+const rules = reactive<FormRules>({
+  deptName: [
+    { required: true, message: '请输入部门名称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+  ],
+  manager: [
+    { required: true, message: '请输入部门主管', trigger: 'blur' }
   ]
 })
 
-//重置表单校验结果
-const resetForm = (formEl: FormInstance | undefined) => {
-  if (!formEl) return
-  formEl.resetFields()
-}
-
-//点击新增按钮触发的函数
-const add = () => {
-  formTitle.value = '新增部门'
-  dialogFormVisible.value = true
-  deptForm.value = {name: ''}
-}
-
-//点击保存按钮-发送异步请求
-const save = async () => {
-  const form = deptFormRef.value;
-  if (!form) return;
-  try {
-    await form.validate();
-    console.log('发送 POST 请求:', deptForm.value);
-    if (id1.value!=0) {
-      deptForm.value={"id":id1.value, "name":deptForm.value.name}
-      id1.value = 0;
-    }
-      try {
-        const response = await axios.post('http://127.0.0.1:8080/api/addData', deptForm.value);
-        console.log('POST 请求成功:', response.data);
-      } catch (error) {
-        console.error('POST 请求失败:', error);
-      }
-    ElMessage.success('操作成功');
-    dialogFormVisible.value = false;
-    fetchData();
-  } catch (error) {
-    ElMessage.error('表单验证失败');
+const tableData = ref<DeptData[]>([
+  {
+    id: 1,
+    deptName: '技术部',
+    manager: '张三',
+    memberCount: 15,
+    description: '负责公司技术研发工作',
+    createTime: '2024-01-01'
   }
-};
+])
 
-//修改部门-查询回显
-const update = async (id:number) => {
-  formTitle.value = '修改部门'
-  dialogFormVisible.value = true
-  deptForm.value = {name: ''}
-  id1.value = id;
-  const result = await queryInfoApi(id)
-  deptForm.value = result.data
+const filteredTableData = computed(() => {
+  return tableData.value.filter(item =>
+    item.deptName.toLowerCase().includes(searchKey.value.toLowerCase()) ||
+    item.manager.toLowerCase().includes(searchKey.value.toLowerCase())
+  )
+})
+
+const handleAdd = () => {
+  dialogType.value = 'add'
+  dialogVisible.value = true
+  formData.deptName = ''
+  formData.manager = ''
+  formData.description = ''
 }
 
-//删除部门
-const deleteById =async (id:number) => {
-  //弹出确认框
-  ElMessageBox.confirm('您确认删除此部门吗? ', '确认删除').then( async () => {
-    try {
-      const idMap={"id":id}
-        const response = await axios.post('http://127.0.0.1:8080/api/delData', idMap);
-        console.log('POST 请求成功:', response.data);
-      } catch (error) {
-        console.error('POST 请求失败:', error);
-      }
-      ElMessage.success('删除成功')
-      fetchData();
+const handleEdit = (row: DeptData) => {
+  dialogType.value = 'edit'
+  dialogVisible.value = true
+  Object.assign(formData, row)
+}
+
+const handleDelete = (row: DeptData) => {
+  ElMessageBox.confirm(
+    `确定要删除部门 ${row.deptName} 吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(() => {
+    ElMessage.success('删除成功')
   })
+}
+
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate((valid) => {
+    if (valid) {
+      dialogVisible.value = false
+      ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
+    }
+  })
+}
+
+const handleExport = () => {
+  ElMessage.success('导出成功')
 }
 </script>
 
-<template>
-  <h1>部门管理</h1>
-  <el-button type="primary" style="float: right" @click="add(); resetForm(deptFormRef);">+ 新增</el-button>
-  <br><br>
-
-  <!-- 部门数据表格 -->
-  <el-table :data="tableData" border style="width: 100%">
-    <el-table-column type="index" label="序号"  width="80"  align="center"/>
-    <el-table-column prop="name" label="部门名称" width="250"  align="center"/>
-    <el-table-column prop="updateTime" label="最后操作时间" width="300"  align="center"/>
-    <el-table-column label="操作"  align="center">
-      <template #default="scope">
-        <el-button size="small" type="primary" @click="update(scope.row.id); resetForm(deptFormRef);">修改</el-button>
-        <el-button size="small" type="danger"  @click="deleteById(scope.row.id)">删除</el-button>
-      </template>
-    </el-table-column>
-  </el-table>
-
-  <!-- 新增部门 / 修改部门对话框 -->
-  <el-dialog v-model="dialogFormVisible" :title="formTitle" width="30%">
-    <el-form :model="deptForm" :rules="rules" ref="deptFormRef">
-      <el-form-item label="部门名称" label-width="80px" prop="name">
-        <el-input v-model="deptForm.name" autocomplete="off" />
-      </el-form-item>
-    </el-form>
-
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">取消</el-button>
-        <el-button type="primary" @click="save">确定</el-button>
-      </span>
-    </template>
-  </el-dialog>
-
-</template>
-
 <style scoped>
+.dept-container {
+  padding: 20px;
+  background: #f5f7fa;
+  min-height: calc(100vh - 84px);
+}
 
+.operation-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.search-input {
+  width: 300px;
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.dept-table {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+:deep(.el-table) {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
 </style>

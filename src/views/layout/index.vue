@@ -20,7 +20,7 @@ const handleLogout = () => {
     <el-container>
       <!-- 顶栏 - header -->
       <el-header class="header">
-        <span class="title">IKUN智能唱跳RAP篮球辅助系统</span>
+        <span class="title">东京都立咒术高专人事管理系统</span>
         <span class="right_tool">
           <a href=""><el-icon><Lock /></el-icon> 修改玄坤 &nbsp;&nbsp;&nbsp;&nbsp;</a>
           <a @click="handleLogout" style="cursor: pointer">
@@ -44,20 +44,20 @@ const handleLogout = () => {
               <!-- 班级管理菜单 -->
               <el-sub-menu index="/manage">
                 <template #title>
-                  <el-icon><Menu /></el-icon> IKUN真爱粉管理
+                  <el-icon><Menu /></el-icon> 班级管理
                 </template>
                 <el-menu-item index="/clazz">
-                  <el-icon><HomeFilled /></el-icon>小黑子管理
+                  <el-icon><HomeFilled /></el-icon>班级管理
                 </el-menu-item>
                 <el-menu-item index="/stu">
-                  <el-icon><UserFilled /></el-icon>IKUN管理
+                  <el-icon><UserFilled /></el-icon>学生管理
                 </el-menu-item>
               </el-sub-menu>
               
               <!-- 系统信息管理 -->
               <el-sub-menu index="/system">
                 <template #title>
-                  <el-icon><Tools /></el-icon>系统信息管理
+                  <el-icon><Tools /></el-icon>人事管理
                 </template>
                 <el-menu-item index="/dept">
                   <el-icon><HelpFilled /></el-icon>部门管理

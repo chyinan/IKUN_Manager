@@ -94,63 +94,48 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Search, View, Download } from '@element-plus/icons-vue'
+import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
 import type { FormInstance, FormRules } from 'element-plus'
+import type { ClassFormData, ClassResponse, ClassItem } from '@/api/class'
+import { exportToExcel } from '@/utils/export'
 
-// 数据接口定义
-interface ClassData {
-  id?: number
-  className: string
-  studentCount: number
-  teacher: string
-  createTime: string
-}
-
-// 状态定义
+// 数据状态
 const loading = ref(false)
 const searchKey = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
+const tableData = ref<ClassFormData[]>([])
 const formRef = ref<FormInstance>()
 
 // 表单数据
-const formData = reactive<ClassData>({
+const formData = reactive<ClassFormData>({
   className: '',
   studentCount: 0,
-  teacher: '',
-  createTime: ''
+  teacher: ''
 })
 
-// 表单验证规则
-const rules = reactive<FormRules>({
-  className: [
-    { required: true, message: '请输入班级名称', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
-  ],
-  teacher: [
-    { required: true, message: '请输入班主任姓名', trigger: 'blur' }
-  ],
-  studentCount: [
-    { required: true, message: '请输入班级人数', trigger: 'blur' }
-  ]
-})
-
-// 模拟数据
-const tableData = ref<ClassData[]>([
-  {
-    id: 1,
-    className: '高三一班',
-    studentCount: 45,
-    teacher: '张老师',
-    createTime: '2024-01-01'
-  },
-  // ...更多数据
-])
+// 获取班级列表
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const res = await getClassList()
+    tableData.value = (res.data as ClassItem[]).map(item => ({
+      id: item.id,
+      className: item.class_name,
+      studentCount: item.student_count,
+      teacher: item.teacher,
+      createTime: new Date(item.create_time).toLocaleDateString()
+    }))
+  } catch (error) {
+    console.error('获取失败:', error)
+    ElMessage.error('获取数据失败')
+  } finally {
+    loading.value = false
+  }
+}
 
 // 搜索过滤
 const filteredTableData = computed(() => {
@@ -186,28 +171,60 @@ const handleDelete = (row: ClassData) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    // TODO: 调用删除API
-    ElMessage.success('删除成功')
-  })
-}
-
-// 处理表单提交
-const handleSubmit = async () => {
-  if (!formRef.value) return
-  
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      // TODO: 调用保存API
-      dialogVisible.value = false
-      ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
+  ).then(async () => {
+    try {
+      await deleteClass(row.id!)
+      ElMessage.success('删除成功')
+      fetchData()
+    } catch (error) {
+      ElMessage.error('删除失败')
     }
   })
 }
 
+// 提交表单
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        if (dialogType.value === 'add') {
+          await addClass(formData)
+          ElMessage.success('新增成功')
+        } else {
+          await updateClass(formData)
+          ElMessage.success('修改成功')
+        }
+        dialogVisible.value = false
+        fetchData()
+      } catch (error) {
+        ElMessage.error(dialogType.value === 'add' ? '新增失败' : '修改失败')
+      }
+    }
+  })
+}
+
+onMounted(() => {
+  fetchData()
+})
+
 // 导出数据
 const handleExport = () => {
-  ElMessage.success('导出成功')
+  try {
+    const exportData = tableData.value.map(item => ({
+      '班级名称': item.className,
+      '班主任': item.teacher,
+      '学生人数': item.studentCount,
+      '创建时间': item.createTime
+    }))
+    
+    exportToExcel(exportData, `班级数据_${new Date().toLocaleDateString()}`)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    ElMessage.error('导出失败')
+  }
 }
 
 // 查看详情

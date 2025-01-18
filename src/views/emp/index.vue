@@ -79,7 +79,6 @@
           <el-button-group>
             <el-button type="primary" @click="handleEdit(row)" :icon="Edit" circle />
             <el-button type="danger" @click="handleDelete(row)" :icon="Delete" circle />
-            <el-button type="success" @click="handleDetail(row)" :icon="View" circle />
           </el-button-group>
         </template>
       </el-table-column>
@@ -164,162 +163,220 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, View, Download, Male, Female } from '@element-plus/icons-vue'
+// 移除 View 图标导入
+import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/api/employee'
+import { getDeptList } from '@/api/dept'
+import type { EmployeeData } from '@/api/employee'
+import type { DeptData } from '@/api/dept'
+import { exportToExcel } from '@/utils/export'
 
-// 数据接口定义
-interface EmpData {
-  id?: number
-  empId: string
-  name: string
-  gender: '男' | '女'
-  position: string
-  age: number
-  department: string
-  joinDate: string
-  salary: number
-  status: '在职' | '离职'
-}
-
-// 基础数据
+// 基础数据状态
 const loading = ref(false)
 const searchKey = ref('')
-const deptFilter = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
+const tableData = ref<EmployeeData[]>([])
 const formRef = ref<FormInstance>()
-
-// 部门选项
-const deptOptions = ['技术部', '市场部', '销售部', '人事部', '财务部']
+const deptFilter = ref('')
+const deptOptions = ref<string[]>([])
 
 // 表单数据
-const formData = reactive<EmpData>({
+const formData = reactive<EmployeeData>({
   empId: '',
   name: '',
   gender: '男',
+  age: 18,
   position: '',
-  age: 25,
   department: '',
-  joinDate: '',
   salary: 0,
-  status: '在职'
+  status: '在职',
+  phone: '',
+  email: '',
+  joinDate: ''
 })
 
 // 表单验证规则
 const rules = reactive<FormRules>({
   empId: [
-    { required: true, message: '请输入工号', trigger: 'blur' },
-    { pattern: /^\d{6}$/, message: '工号必须为6位数字', trigger: 'blur' }
+    { required: true, message: '请输入工号', trigger: 'blur' }
   ],
   name: [
-    { required: true, message: '请输入姓名', trigger: 'blur' },
-    { min: 2, max: 10, message: '长度在 2 到 10 个字符', trigger: 'blur' }
-  ],
-  position: [
-    { required: true, message: '请输入职位', trigger: 'blur' }
+    { required: true, message: '请输入姓名', trigger: 'blur' }
   ],
   department: [
     { required: true, message: '请选择部门', trigger: 'change' }
-  ],
-  joinDate: [
-    { required: true, message: '请选择入职时间', trigger: 'change' }
   ]
 })
 
-// 工具函数
+// 格式化薪资
 const formatSalary = (salary: number) => {
-  return `￥${salary.toLocaleString()}`
+  return `¥ ${salary.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
 }
 
-// 模拟数据
-const tableData = ref<EmpData[]>([
-  {
-    id: 1,
-    empId: '100001',
-    name: '张三',
-    gender: '男',
-    position: '开发工程师',
-    age: 28,
-    department: '技术部',
-    joinDate: '2024-01-01',
-    salary: 15000,
-    status: '在职'
-  }
-])
-
-// 数据过滤计算属性
-const filteredTableData = computed(() => {
-  return tableData.value.filter(item =>
-    (item.empId.includes(searchKey.value) ||
-    item.name.toLowerCase().includes(searchKey.value.toLowerCase())) &&
-    (!deptFilter.value || item.department === deptFilter.value)
-  )
-})
-
-// 新增员工
+// 数据处理函数
 const handleAdd = () => {
   dialogType.value = 'add'
   dialogVisible.value = true
-  // 重置表单数据
-  formData.empId = ''
-  formData.name = ''
-  formData.gender = '男'
-  formData.position = ''
-  formData.age = 25
-  formData.department = ''
-  formData.joinDate = ''
-  formData.salary = 0
-  formData.status = '在职'
+  Object.assign(formData, {
+    empId: '',
+    name: '',
+    gender: '男',
+    age: 18,
+    position: '',
+    department: '',
+    salary: 0,
+    status: '在职',
+    phone: '',
+    email: '',
+    joinDate: ''
+  })
 }
 
-// 编辑员工
-const handleEdit = (row: EmpData) => {
+const handleEdit = (row: EmployeeData) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
   Object.assign(formData, row)
 }
 
-// 删除员工
-const handleDelete = (row: EmpData) => {
-  ElMessageBox.confirm(
-    `确定要删除员工 ${row.name} 的信息吗？`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
+const handleDelete = async (row: EmployeeData) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除员工 ${row.name} 吗？`, 
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    loading.value = true
+    await deleteEmployee(row.id!)
     ElMessage.success('删除成功')
-  })
+    fetchData()
+    
+  } catch (error: any) {
+    if (error?.toString().includes('cancel')) {
+      ElMessage.info('已取消删除')
+    } else {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  } finally {
+    loading.value = false
+  }
 }
 
-// 查看详情
-const handleDetail = (row: EmpData) => {
-  ElMessage.info(`查看员工：${row.name}`)
-}
-
-// 导出数据
-const handleExport = () => {
-  ElMessage.success('导出成功')
-}
-
-// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      dialogVisible.value = false
-      ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
-    }
-  })
+  try {
+    await formRef.value.validate(async (valid) => {
+      if (valid) {
+        loading.value = true
+        
+        // 格式化提交数据
+        const submitData = {
+          ...formData,
+          joinDate: formData.joinDate ? new Date(formData.joinDate).toISOString().split('T')[0] : ''
+        }
+        
+        console.log('提交的数据:', submitData)
+        
+        if (dialogType.value === 'add') {
+          await addEmployee(submitData)
+          ElMessage.success('添加成功')
+        } else {
+          await updateEmployee(submitData)
+          ElMessage.success('修改成功')
+        }
+        
+        dialogVisible.value = false
+        await fetchData() // 刷新数据
+      }
+    })
+  } catch (error: any) {
+    console.error('操作失败:', error)
+    ElMessage.error(`操作失败: ${error.response?.data?.message || error.message}`)
+  } finally {
+    loading.value = false
+  }
 }
+
+const handleExport = () => {
+  const exportData = tableData.value.map(item => ({
+    '工号': item.empId,
+    '姓名': item.name,
+    '部门': item.department,
+    '职位': item.position,
+    '薪资': formatSalary(item.salary),
+    '状态': item.status
+  }))
+  exportToExcel(exportData, `员工数据_${new Date().toLocaleDateString()}`)
+}
+
+// 获取部门列表
+const fetchDeptList = async () => {
+  try {
+    const res = await getDeptList()
+    deptOptions.value = res.data.map(item => item.dept_name)
+  } catch (error) {
+    console.error('获取部门列表失败:', error)
+  }
+}
+
+// 筛选数据
+const filteredTableData = computed(() => {
+  return tableData.value.filter(item =>
+    (item.empId.toLowerCase().includes(searchKey.value.toLowerCase()) ||
+     item.name.toLowerCase().includes(searchKey.value.toLowerCase())) &&
+    (!deptFilter.value || item.department === deptFilter.value)
+  )
+})
+
+// 获取数据
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const res = await getEmployeeList()
+    console.log('员工数据:', res)
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.map(item => ({
+        id: item.id,
+        empId: item.emp_id,
+        name: item.name,
+        gender: item.gender,
+        age: item.age,
+        position: item.position,
+        department: item.department,
+        salary: Number(item.salary),
+        status: item.status,
+        phone: item.phone || '',
+        email: item.email || '',
+        joinDate: new Date(item.join_date).toLocaleDateString('zh-CN')
+      }))
+      total.value = res.data.length
+    }
+  } catch (error) {
+    console.error('获取失败:', error)
+    ElMessage.error('获取数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 初始化
+onMounted(() => {
+  fetchData()
+  fetchDeptList()
+})
 </script>
 
 <style scoped>

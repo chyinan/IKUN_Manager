@@ -4,6 +4,7 @@ const bodyParser = require('body-parser')
 const classRouter = require('./routes/class')
 const studentRouter = require('./routes/student')
 const deptRouter = require('./routes/dept')
+const employeeRouter = require('./routes/employee')
 
 const app = express()
 
@@ -25,6 +26,7 @@ app.get('/', (req, res) => {
 app.use('/api/class', classRouter)
 app.use('/api/student', studentRouter)
 app.use('/api/dept', deptRouter)
+app.use('/api/employee', employeeRouter)
 
 // 启动服务器
 const PORT = 3000

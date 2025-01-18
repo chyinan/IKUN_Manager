@@ -122,12 +122,20 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await getClassList()
-    tableData.value = (res.data as ClassItem[]).map(item => ({
+    tableData.value = res.data.map((item: ClassItem) => ({
       id: item.id,
       className: item.class_name,
       studentCount: item.student_count,
       teacher: item.teacher,
-      createTime: new Date(item.create_time).toLocaleDateString()
+      // 格式化日期为 YYYY-MM-DD
+      createTime: new Date(item.create_time)
+        .toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+        .split('/')
+        .join('-')
     }))
   } catch (error) {
     console.error('获取失败:', error)

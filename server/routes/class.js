@@ -3,26 +3,21 @@ const router = express.Router()
 const db = require('../config/db')
 
 // 获取班级列表
-router.get('/list', (req, res) => {
-  console.log('请求班级列表')
-  const sql = 'SELECT * FROM class'
-  
-  db.query(sql, (err, result) => {
-    if (err) {
-      console.error('查询错误:', err)
-      res.status(500).json({ 
-        code: 500,
-        message: err.message 
-      })
-    } else {
-      console.log('查询结果:', result)
-      res.json({
-        code: 200,
-        data: result,
-        message: '获取成功'
-      })
-    }
-  })
+router.get('/list', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM class')
+    res.json({
+      code: 200,
+      data: rows,
+      message: '获取成功'
+    })
+  } catch (err) {
+    console.error('查询错误:', err)
+    res.status(500).json({
+      code: 500,
+      message: err.message
+    })
+  }
 })
 
 // 添加班级

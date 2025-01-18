@@ -28,7 +28,7 @@ export interface ClassResponse {
 
 // 获取班级列表
 export const getClassList = () => {
-  return request.get<ClassResponse>('/class/list')
+  return request.get<{code: number, data: ClassItem[]}>('/class/list')
 }
 
 // 添加班级

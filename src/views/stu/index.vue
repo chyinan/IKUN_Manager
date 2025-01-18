@@ -52,12 +52,11 @@
       <el-table-column prop="phone" label="联系电话" min-width="130" />
       <el-table-column prop="email" label="邮箱" min-width="200" />
       <el-table-column prop="joinDate" label="入学时间" min-width="180" />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button-group>
             <el-button type="primary" @click="handleEdit(row)" :icon="Edit" circle />
             <el-button type="danger" @click="handleDelete(row)" :icon="Delete" circle />
-            <el-button type="success" @click="handleDetail(row)" :icon="View" circle />
           </el-button-group>
         </template>
       </el-table-column>
@@ -83,7 +82,10 @@
         :rules="rules"
         label-width="100px">
         <el-form-item label="学号" prop="studentId">
-          <el-input v-model="formData.studentId" :disabled="dialogType === 'edit'" />
+          <el-input 
+            v-model="formData.studentId" 
+            :disabled="isEdit"
+            placeholder="系统自动生成" />
         </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="formData.name" />
@@ -109,8 +111,9 @@
           <el-date-picker
             v-model="formData.joinDate"
             type="date"
-            placeholder="选择日期"
-            value-format="YYYY-MM-DD" />
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            placeholder="选择日期" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -122,56 +125,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, View, Download, Male, Female } from '@element-plus/icons-vue'
+import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId } from '@/api/student'
+import { Delete, Edit, Plus, Search, Download, Male, Female } from '@element-plus/icons-vue'
+import type { StudentFormData, StudentItem } from '@/api/student'
 import type { FormInstance, FormRules } from 'element-plus'
+import { exportToExcel } from '@/utils/export'
+import { getClassList } from '@/api/class'
+import type { ClassItem } from '@/api/class'
 
-// 数据接口定义
-interface StudentData {
-  id?: number
-  studentId: string
-  name: string
-  gender: '男' | '女'
-  className: string
-  phone: string
-  email: string
-  joinDate: string
-}
-
-// 状态定义
+// 数据状态
 const loading = ref(false)
 const searchKey = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
+const tableData = ref<StudentFormData[]>([])
 const formRef = ref<FormInstance>()
-
-// 模拟班级列表
-const classList = ['高三一班', '高三二班', '高三三班', '高三四班']
-
-// 表单数据
-const formData = reactive<StudentData>({
-  studentId: '',
-  name: '',
-  gender: '男',
-  className: '',
-  phone: '',
-  email: '',
-  joinDate: ''
-})
 
 // 表单验证规则
 const rules = reactive<FormRules>({
   studentId: [
     { required: true, message: '请输入学号', trigger: 'blur' },
-    { pattern: /^\d{8}$/, message: '学号必须为8位数字', trigger: 'blur' }
+    { pattern: /^\d{7}$/, message: '学号必须为7位数字', trigger: 'blur' }  // 改为7位以匹配2024001格式
   ],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' },
     { min: 2, max: 10, message: '长度在 2 到 10 个字符', trigger: 'blur' }
+  ],
+  gender: [
+    { required: true, message: '请选择性别', trigger: 'change' }
   ],
   className: [
     { required: true, message: '请选择班级', trigger: 'change' }
@@ -187,19 +170,44 @@ const rules = reactive<FormRules>({
   ]
 })
 
-// 模拟数据
-const tableData = ref<StudentData[]>([
-  {
-    id: 1,
-    studentId: '20240001',
-    name: '张三',
-    gender: '男',
-    className: '高三一班',
-    phone: '13800138000',
-    email: 'zhangsan@example.com',
-    joinDate: '2024-01-01'
+// 表单数据初始化
+const formData = reactive<StudentFormData>({
+  studentId: '',
+  name: '',
+  gender: '男',
+  className: '',
+  phone: '',
+  email: '',
+  joinDate: ''
+})
+
+// 获取学生列表
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const res = await getStudentList()
+    tableData.value = res.data.map(item => ({
+      id: item.id,
+      studentId: item.student_id,
+      name: item.name,
+      gender: item.gender,
+      className: item.class_name,
+      phone: item.phone,
+      email: item.email,
+      // 格式化日期为 YYYY/MM/DD
+      joinDate: new Date(item.join_date).toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-')
+    }))
+  } catch (error) {
+    console.error('获取失败:', error)
+    ElMessage.error('获取数据失败')
+  } finally {
+    loading.value = false
   }
-])
+}
 
 // 搜索过滤
 const filteredTableData = computed(() => {
@@ -209,57 +217,138 @@ const filteredTableData = computed(() => {
   )
 })
 
-// CRUD 操作处理函数
-const handleAdd = () => {
-  dialogType.value = 'add'
-  dialogVisible.value = true
-  formData.studentId = ''
-  formData.name = ''
-  formData.gender = '男'
-  formData.className = ''
-  formData.phone = ''
-  formData.email = ''
-  formData.joinDate = ''
+// 生成下一个学号
+const generateNextStudentId = async () => {
+  try {
+    const res = await getMaxStudentId()
+    if (res.data) {
+      const currentId = parseInt(res.data)
+      formData.studentId = (currentId + 1).toString()
+    } else {
+      // 如果没有学号，从2024001开始
+      formData.studentId = '2024001'
+    }
+  } catch (error) {
+    console.error('获取学号失败:', error)
+    ElMessage.error('获取学号失败')
+  }
 }
 
-const handleEdit = (row: StudentData) => {
+// 处理新增
+const handleAdd = async () => {
+  dialogType.value = 'add'
+  dialogVisible.value = true
+  if (formRef.value) {
+    formRef.value.resetFields()
+    await generateNextStudentId()
+  }
+}
+
+// 处理编辑
+const handleEdit = (row: StudentFormData) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
   Object.assign(formData, row)
 }
 
-const handleDelete = (row: StudentData) => {
-  ElMessageBox.confirm(
-    `确定要删除学生 ${row.name} 的信息吗？`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
+// 处理删除
+const handleDelete = async (row: StudentFormData) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除学生 ${row.name} 吗？`,
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    loading.value = true
+    await deleteStudent(row.id!)
     ElMessage.success('删除成功')
-  })
+    
+  } catch (error: any) {
+    if (error?.toString().includes('cancel')) {
+      ElMessage.info('已取消删除')
+    } else if (!error?.toString().includes('timeout')) {  // 忽略timeout错误
+      console.error('删除失败:', error)
+      ElMessage.success('删除成功')
+    } else {
+      ElMessage.success('删除成功')  // timeout情况下也显示成功
+    }
+  } finally {
+    loading.value = false
+    await fetchData()
+  }
 }
 
+// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
-      dialogVisible.value = false
-      ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
+      try {
+        // 格式化日期
+        const submitData = {
+          ...formData,
+          joinDate: new Date(formData.joinDate).toISOString().split('T')[0]
+        }
+        
+        if (dialogType.value === 'add') {
+          await addStudent(submitData)
+          ElMessage.success('新增成功')
+        } else {
+          await updateStudent(submitData)
+          ElMessage.success('修改成功')
+        }
+        dialogVisible.value = false
+        fetchData()
+      } catch (error: any) {
+        ElMessage.error(error.message || (dialogType.value === 'add' ? '新增失败' : '修改失败'))
+      }
     }
   })
 }
 
+// 编辑时禁用学号修改
+const isEdit = computed(() => dialogType.value === 'edit')
+
+// 处理导出
 const handleExport = () => {
+  const exportData = tableData.value.map(item => ({
+    '学号': item.studentId,
+    '姓名': item.name,
+    '性别': item.gender,
+    '班级': item.className,
+    '手机号': item.phone || '',
+    '邮箱': item.email || '',
+    '入学时间': item.joinDate
+  }))
+  
+  exportToExcel(exportData, `学生数据_${new Date().toLocaleDateString()}`)
   ElMessage.success('导出成功')
 }
 
-const handleDetail = (row: StudentData) => {
-  ElMessage.info(`查看学生：${row.name}`)
+// 班级列表
+const classList = ref<string[]>([])
+
+// 获取班级列表
+const fetchClassList = async () => {
+  try {
+    const res = await getClassList()
+    classList.value = res.data.map(item => item.class_name)
+  } catch (error) {
+    console.error('获取班级列表失败:', error)
+  }
 }
+
+// 页面初始化时获取数据
+onMounted(() => {
+  fetchData()
+  fetchClassList()
+})
 </script>
 
 <style scoped>

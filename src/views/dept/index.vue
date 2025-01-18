@@ -95,21 +95,50 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
+import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
+import type { DeptData } from '@/api/dept'
 
-interface DeptData {
-  id?: number
-  deptName: string
-  manager: string
-  memberCount: number
-  description: string
-  createTime: string
+// 数据状态
+const loading = ref(false)
+const tableData = ref<DeptData[]>([])
+
+// 获取部门列表
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const res = await getDeptList()
+    tableData.value = res.data.map(item => ({
+      id: item.id,
+      deptName: item.dept_name,
+      manager: item.manager,
+      memberCount: item.member_count,
+      description: item.description,
+      createTime: new Date(item.create_time)
+        .toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+        .split('/')
+        .join('-')
+    }))
+  } catch (error) {
+    console.error('获取失败:', error)
+    ElMessage.error('获取数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const loading = ref(false)
+// 页面初始化时获取数据
+onMounted(() => {
+  fetchData()
+})
+
 const searchKey = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -136,17 +165,6 @@ const rules = reactive<FormRules>({
   ]
 })
 
-const tableData = ref<DeptData[]>([
-  {
-    id: 1,
-    deptName: '技术部',
-    manager: '张三',
-    memberCount: 15,
-    description: '负责公司技术研发工作',
-    createTime: '2024-01-01'
-  }
-])
-
 const filteredTableData = computed(() => {
   return tableData.value.filter(item =>
     item.deptName.toLowerCase().includes(searchKey.value.toLowerCase()) ||
@@ -154,11 +172,12 @@ const filteredTableData = computed(() => {
   )
 })
 
-const handleAdd = () => {
+const handleAdd = async () => {
   dialogType.value = 'add'
   dialogVisible.value = true
   formData.deptName = ''
   formData.manager = ''
+  formData.memberCount = 0
   formData.description = ''
 }
 
@@ -168,27 +187,54 @@ const handleEdit = (row: DeptData) => {
   Object.assign(formData, row)
 }
 
-const handleDelete = (row: DeptData) => {
-  ElMessageBox.confirm(
-    `确定要删除部门 ${row.deptName} 吗？`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
+const handleDelete = async (row: DeptData) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除部门 ${row.deptName} 吗？`,
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    loading.value = true
+    await deleteDept(row.id!)
     ElMessage.success('删除成功')
-  })
+    
+  } catch (error: any) {
+    if (error?.toString().includes('cancel')) {
+      ElMessage.info('已取消删除')
+    } else {
+      console.error('删除失败:', error)
+      ElMessage.success('删除成功')
+    }
+  } finally {
+    loading.value = false
+    await fetchData()  // 刷新数据
+  }
 }
 
 const handleSubmit = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
-      dialogVisible.value = false
-      ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
+      try {
+        if (dialogType.value === 'add') {
+          await addDept(formData)
+          ElMessage.success('新增成功')
+        } else {
+          await updateDept(formData)
+          ElMessage.success('修改成功')
+        }
+        dialogVisible.value = false
+        await fetchData()  // 刷新数据
+      } catch (error) {
+        console.error(error)
+        ElMessage.error(dialogType.value === 'add' ? '新增失败' : '修改失败')
+      }
     }
   })
 }

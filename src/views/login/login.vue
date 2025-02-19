@@ -115,8 +115,10 @@ const handleLogin = async () => {
         // 直接使用模拟验证
         if (loginForm.username === 'admin' && loginForm.password === '123456') {
           localStorage.setItem('token', 'admin-token')
+          // 保存用户名到localStorage
+          localStorage.setItem('username', loginForm.username)
           ElMessage.success('登录成功')
-          router.push('/home')  // 修改为正确的路由路径
+          router.push('/home')
         } else {
           ElMessage.error('用户名或密码错误')
         }

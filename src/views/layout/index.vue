@@ -1,16 +1,24 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const username = ref('')
+
+onMounted(() => {
+  // 从localStorage获取用户名
+  const storedUsername = localStorage.getItem('username')
+  username.value = storedUsername || '用户'
+})
 
 // 退出登录处理函数
 const handleLogout = () => {
-  // 清除token
+// 清除token
   localStorage.removeItem('token')
   // 显示成功消息
   ElMessage.success('退出成功')
-  // 跳转到登录页
+// 跳转到登录页
   router.push('/login')
 }
 </script>
@@ -22,9 +30,10 @@ const handleLogout = () => {
       <el-header class="header">
         <span class="title">东京都立咒术高专人事管理系统</span>
         <span class="right_tool">
-          <a href=""><el-icon><Lock /></el-icon> 修改玄坤 &nbsp;&nbsp;&nbsp;&nbsp;</a>
+          <span class="welcome">{{ username }}，欢迎你！</span>
+          <a href=""><el-icon><Lock /></el-icon> 修改密码 &nbsp;&nbsp;&nbsp;&nbsp;</a>
           <a @click="handleLogout" style="cursor: pointer">
-            <el-icon><SwitchButton /></el-icon> 退出IKUN&nbsp;&nbsp;&nbsp;&nbsp;
+            <el-icon><SwitchButton /></el-icon> 退出系统&nbsp;&nbsp;&nbsp;&nbsp;
           </a>
         </span>
       </el-header>
@@ -111,6 +120,8 @@ const handleLogout = () => {
 
 .right_tool {
   float: right;
+  display: flex;
+  align-items: center;
 }
 
 a {
@@ -122,5 +133,10 @@ a {
   border: 1px solid #ccc;
   height: 690px;
   width: 220px;
+}
+
+.welcome {
+  margin-right: 20px;
+  color: white;
 }
 </style>

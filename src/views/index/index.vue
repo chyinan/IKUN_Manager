@@ -1,4 +1,7 @@
 <template>
+  <!-- 页面标题 -->
+  <h1 class="page-title">本校特色文化展示</h1>
+  
   <!-- 视频播放器容器 -->
   <div class="video-container">
     <!-- B站视频嵌入播放器 -->
@@ -26,6 +29,15 @@ import { ref } from 'vue'
 </script>
 
 <style scoped>
+/* 添加标题样式 */
+.page-title {
+  text-align: center;
+  color: #303133;
+  font-size: 24px;
+  margin: 20px 0;
+  font-weight: bold;
+}
+
 /* 视频容器样式 */
 .video-container {
   width: 100%;

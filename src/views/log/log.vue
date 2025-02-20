@@ -48,6 +48,7 @@ import { ElMessage } from 'element-plus'
 import { Monitor, Delete, Download, VideoPlay } from '@element-plus/icons-vue'
 import { emitter } from '@/utils/eventBus'
 import { logger } from '@/utils/logger'
+import { io } from 'socket.io-client'
 
 interface LogEntry {
   time: string
@@ -66,6 +67,7 @@ const vueCount = computed(() => logs.value.filter(log => log.type === 'vue').len
 
 // 添加日志
 const addLog = (log: LogEntry) => {
+  console.log('添加日志:', log) // 调试日志
   logs.value.push(log)
   if (logs.value.length > 1000) {
     logs.value = logs.value.slice(-1000)
@@ -132,21 +134,51 @@ const exportLogs = () => {
   ElMessage.success('日志导出成功')
 }
 
+// 创建Socket连接
+const socket = io('http://localhost:3000', {
+  transports: ['websocket'],  // 强制使用WebSocket
+  reconnection: true,         // 启用重连
+  reconnectionAttempts: 5,    // 最大重连次数
+  reconnectionDelay: 1000     // 重连延迟
+})
+
+// 添加连接状态监听
+socket.on('connect', () => {
+  console.log('WebSocket连接成功')
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    type: 'system',
+    content: 'WebSocket连接成功'
+  })
+})
+
+socket.on('connect_error', (error) => {
+  console.error('WebSocket连接失败:', error)
+  addLog({
+    time: new Date().toLocaleTimeString(),
+    type: 'system',
+    content: `WebSocket连接失败: ${error.message}`
+  })
+})
+
+// 修改socket连接和监听部分
 onMounted(() => {
-  // 订阅日志事件
+  // 订阅本地日志事件
   emitter.on('log', (log: any) => addLog(log as LogEntry))
+  
   if (terminalRef.value) {
     terminalRef.value.addEventListener('scroll', handleScroll)
   }
 
-  // 数据库操作日志
-  logger.db('INSERT', '员工表', '新增员工: 张三')
-
-  // Vue组件日志
-  logger.vue('组件已加载')
-
-  // 系统日志
-  logger.system('用户登录成功')
+  // 监听服务器日志
+  socket.on('serverLog', (logData: LogEntry) => {
+    console.log('收到服务器日志:', logData)  // 添加调试日志
+    addLog({
+      time: logData.time,
+      type: logData.type || 'database',  // 确保有类型
+      content: logData.content
+    })
+  })
 })
 
 onUnmounted(() => {
@@ -154,6 +186,11 @@ onUnmounted(() => {
   if (terminalRef.value) {
     terminalRef.value.removeEventListener('scroll', handleScroll)
   }
+  // 断开Socket连接
+  socket.off('serverLog')
+  socket.off('connect')
+  socket.off('connect_error')
+  socket.disconnect()
 })
 </script>
 

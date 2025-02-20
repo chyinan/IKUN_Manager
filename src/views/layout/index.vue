@@ -28,7 +28,7 @@ const handleLogout = () => {
     <el-container>
       <!-- 顶栏 - header -->
       <el-header class="header">
-        <span class="title">东京都立咒术高专人事管理系统</span>
+        <span class="title">高校人事管理系统</span>
         <span class="right_tool">
           <span class="welcome">{{ username }}，欢迎你！</span>
           <a href=""><el-icon><Lock /></el-icon> 修改密码 &nbsp;&nbsp;&nbsp;&nbsp;</a>

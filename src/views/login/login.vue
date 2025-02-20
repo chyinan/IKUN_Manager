@@ -7,7 +7,7 @@
         :rules="loginRules"
         ref="loginFormRef"
         class="login-form">
-        <h2 class="title">IKUN管理系统</h2>
+        <h2 class="title">IKUN高校管理系统</h2>
         
         <el-form-item prop="username">
           <el-input 

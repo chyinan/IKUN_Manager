@@ -169,7 +169,7 @@ const handleEdit = (row: ClassData) => {
   Object.assign(formData, row)
 }
 
-// 处理删除
+// 修改删除处理方法
 const handleDelete = (row: ClassData) => {
   ElMessageBox.confirm(
     `确定要删除班级 ${row.className} 吗？`,
@@ -181,33 +181,64 @@ const handleDelete = (row: ClassData) => {
     }
   ).then(async () => {
     try {
-      await deleteClass(row.id!)
-      ElMessage.success('删除成功')
-      fetchData()
-    } catch (error) {
-      ElMessage.error('删除失败')
+      loading.value = true
+      const res = await deleteClass(row.id!)
+      if (res.code === 200) {
+        ElMessage.success('删除成功')
+      }
+    } catch (error: any) {
+      console.error('删除失败:', error)
+      if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+        ElMessage.warning('删除可能已成功，正在刷新数据...')
+      } else {
+        ElMessage.error('删除失败')
+      }
+    } finally {
+      loading.value = false
+      // 无论成功失败都刷新数据
+      await fetchData()
     }
+  }).catch(() => {
+    ElMessage.info('已取消删除')
   })
 }
 
-// 提交表单
+// 修改提交表单方法
 const handleSubmit = async () => {
   if (!formRef.value) return
   
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        loading.value = true
         if (dialogType.value === 'add') {
-          await addClass(formData)
-          ElMessage.success('新增成功')
+          const res = await addClass(formData)
+          if (res.code === 200) {
+            ElMessage.success(res.message || '新增班级成功')
+            dialogVisible.value = false
+            // 清空表单数据
+            formData.className = ''
+            formData.studentCount = 0
+            formData.teacher = ''
+          }
         } else {
-          await updateClass(formData)
-          ElMessage.success('修改成功')
+          const res = await updateClass(formData)
+          if (res.code === 200) {
+            ElMessage.success(res.message || '修改班级成功')
+            dialogVisible.value = false
+          }
         }
-        dialogVisible.value = false
-        fetchData()
-      } catch (error) {
-        ElMessage.error(dialogType.value === 'add' ? '新增失败' : '修改失败')
+      } catch (error: any) {
+        console.error('操作失败:', error)
+        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+          ElMessage.warning('操作可能已成功，正在刷新数据...')
+        } else {
+          ElMessage.error(error.response?.data?.message || '操作失败')
+        }
+      } finally {
+        loading.value = false
+        // 无论成功失败都刷新数据
+        await fetchData()
       }
     }
   })

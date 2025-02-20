@@ -21,19 +21,25 @@ router.get('/list', async (req, res) => {
 })
 
 // 添加班级
-router.post('/add', (req, res) => {
-  const { className, studentCount, teacher } = req.body
-  const sql = 'INSERT INTO class (class_name, student_count, teacher) VALUES (?, ?, ?)'
-  db.query(sql, [className, studentCount, teacher], (err, result) => {
-    if (err) {
-      res.status(500).json({ message: err.message })
-    } else {
-      res.json({
-        code: 200,
-        message: '添加成功'
-      })
-    }
-  })
+router.post('/add', async (req, res) => {
+  try {
+    const { className, studentCount, teacher } = req.body
+    const [result] = await db.query(
+      'INSERT INTO class (class_name, student_count, teacher) VALUES (?, ?, ?)',
+      [className, studentCount, teacher]
+    )
+    
+    res.json({
+      code: 200,
+      message: '添加成功'
+    })
+  } catch (err) {
+    console.error('添加班级失败:', err)
+    res.status(500).json({
+      code: 500,
+      message: err.message
+    })
+  }
 })
 
 // 更新班级
@@ -53,18 +59,21 @@ router.put('/update/:id', (req, res) => {
 })
 
 // 删除班级
-router.delete('/delete/:id', (req, res) => {
-  const sql = 'DELETE FROM class WHERE id=?'
-  db.query(sql, [req.params.id], (err, result) => {
-    if (err) {
-      res.status(500).json({ message: err.message })
-    } else {
-      res.json({
-        code: 200,
-        message: '删除成功'
-      })
-    }
-  })
+router.delete('/delete/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM class WHERE id = ?', [req.params.id])
+    
+    res.json({
+      code: 200,
+      message: '删除成功'
+    })
+  } catch (err) {
+    console.error('删除班级失败:', err)
+    res.status(500).json({
+      code: 500,
+      message: err.message
+    })
+  }
 })
 
 module.exports = router

@@ -62,37 +62,20 @@ const router = createRouter({
           name: 'log',
           component: () => import('../views/log/log.vue') //学员信息统计
         },
+        {
+          path: '/score',
+          name: 'score',
+          component: () => import('../views/score/index.vue'),  // 修改路径
+          meta: { requiresAuth: true }
+        }
       ]
     }
   ]
 })
 
-// // 添加全局路由守卫
-// router.beforeEach((to, from, next) => {
-//   const token = localStorage.getItem('token')
-  
-//   if (to.path === '/login') {
-//     if (token) {
-//       next('/home')  // 已登录则跳转到首页
-//     } else {
-//       next()
-//     }
-//   } else if (to.matched.some(record => record.meta.requiresAuth)) {
-//     // 验证需要登录的页面
-//     if (!token) {
-//       next({
-//         path: '/login',
-//         query: { redirect: to.fullPath }
-//       })
-//     } else {
-//       next()
-//     }
-//   } else {
-//     next()
-//   }
-// })
 // 修改路由守卫
 router.beforeEach((to, from, next) => {
+  console.log('路由跳转:', { from: from.path, to: to.path })
   const token = localStorage.getItem('token')
   
   if (to.path === '/login') {

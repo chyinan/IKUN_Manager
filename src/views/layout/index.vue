@@ -87,8 +87,11 @@ const handleLogout = () => {
                 <el-menu-item index="/stuReport">
                   <el-icon><Share /></el-icon>学员信息统计
                 </el-menu-item>
+                <el-menu-item index="/score">
+                  <el-icon><Document /></el-icon>成绩管理
+                </el-menu-item>
                 <el-menu-item index="/log">
-                  <el-icon><Document /></el-icon>日志信息统计
+                  <el-icon><Monitor/></el-icon>日志信息统计
                 </el-menu-item>
               </el-sub-menu>
 			

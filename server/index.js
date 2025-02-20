@@ -9,6 +9,7 @@ const studentRouter = require('./routes/student')
 const deptRouter = require('./routes/dept')
 const employeeRouter = require('./routes/employee')
 const scoreRouter = require('./routes/score')
+const userRouter = require('./routes/user')
 
 // 创建事件发射器实例
 const emitter = new EventEmitter()
@@ -88,6 +89,7 @@ app.use('/api/class', classRouter)
 app.use('/api/student', studentRouter)
 app.use('/api/dept', deptRouter)
 app.use('/api/employee', employeeRouter)
+app.use('/api/user', userRouter)
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

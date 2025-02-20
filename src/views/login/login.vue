@@ -112,15 +112,18 @@ const handleLogin = async () => {
     if (valid) {
       loading.value = true
       try {
-        // 直接使用模拟验证
-        if (loginForm.username === 'admin' && loginForm.password === '123456') {
-          localStorage.setItem('token', 'admin-token')
-          // 保存用户名到localStorage
-          localStorage.setItem('username', loginForm.username)
+        const response = await axios.post('http://localhost:3000/api/user/login', {
+          username: loginForm.username,
+          password: loginForm.password
+        })
+
+        if (response.data.code === 200) {
+          localStorage.setItem('token', 'user-token')
+          localStorage.setItem('username', response.data.data.username)
           ElMessage.success('登录成功')
           router.push('/home')
         } else {
-          ElMessage.error('用户名或密码错误')
+          ElMessage.error(response.data.message)
         }
       } catch (error) {
         ElMessage.error('登录失败')
@@ -182,7 +185,7 @@ const handleRegister = async () => {
   await registerFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        const response = await axios.post('http://127.0.0.1:8080/api/register', {
+        const response = await axios.post('http://localhost:3000/api/user/register', {
           username: registerForm.username,
           email: registerForm.email,    // 添加邮箱字段
           password: registerForm.password
@@ -191,7 +194,6 @@ const handleRegister = async () => {
         if (response.data.code === 200) {
           ElMessage.success('注册成功')
           registerVisible.value = false
-          // 清空表单
           registerForm.username = ''
           registerForm.email = ''
           registerForm.password = ''

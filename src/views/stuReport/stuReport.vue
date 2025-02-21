@@ -251,7 +251,15 @@ const gradeDistOption = ref({
 // 能力雷达图配置
 const radarOption = ref({
   title: {
-    text: '学科能力分析'
+    text: '各班级学科能力分析'
+  },
+  tooltip: {
+    trigger: 'item'
+  },
+  legend: {
+    orient: 'vertical',
+    right: 10,
+    top: 'middle'
   },
   radar: {
     indicator: [
@@ -265,14 +273,67 @@ const radarOption = ref({
   },
   series: [{
     type: 'radar',
-    data: [
-      {
-        value: [85, 90, 88, 82, 86, 84],
-        name: '能力分布'
-      }
-    ]
+    data: []
   }]
 })
+
+// 添加更新雷达图数据的方法
+const updateRadarChart = async () => {
+  try {
+    // 获取所有班级的成绩数据
+    const allClassesData = await Promise.all(
+      classes.value.map(async (classItem) => {
+        // 获取该班级所有学生
+        const classStudents = students.value.filter(
+          student => student.class_name === classItem.class_name
+        )
+
+        // 获取所有学生的成绩
+        const scoreRes = await Promise.all(
+          classStudents.map(student => getStudentScore(student.id))
+        )
+
+        // 计算各科平均分
+        const subjectTotals = {
+          语文: { sum: 0, count: 0 },
+          数学: { sum: 0, count: 0 },
+          英语: { sum: 0, count: 0 },
+          物理: { sum: 0, count: 0 },
+          化学: { sum: 0, count: 0 },
+          生物: { sum: 0, count: 0 }
+        }
+
+        scoreRes.forEach(res => {
+          if (res.code === 200 && res.data) {
+            Object.entries(res.data).forEach(([subject, score]) => {
+              if (subjectTotals[subject]) {
+                subjectTotals[subject].sum += score
+                subjectTotals[subject].count++
+              }
+            })
+          }
+        })
+
+        // 计算平均分
+        const avgScores = subjectList.map(subject => {
+          const data = subjectTotals[subject]
+          return data.count > 0 ? Number((data.sum / data.count).toFixed(1)) : 0
+        })
+
+        return {
+          name: classItem.class_name,
+          value: avgScores
+        }
+      })
+    )
+
+    // 更新雷达图数据
+    radarOption.value.series[0].data = allClassesData
+
+  } catch (error) {
+    console.error('更新雷达图失败:', error)
+  }
+}
 
 const avgScoreOption = ref({
   title: {
@@ -373,7 +434,7 @@ watch(selectedClass, () => {
   updateAvgScores()
 })
 
-// 初始化
+// 修改初始化函数，添加雷达图更新
 onMounted(async () => {
   await fetchStatistics()
   // 如果有班级数据，默认选择第一个班级
@@ -381,7 +442,8 @@ onMounted(async () => {
     selectedClass.value = classList.value[0]
     await Promise.all([
       updateGradeDistribution(),
-      updateAvgScores()
+      updateAvgScores(),
+      updateRadarChart()  // 添加雷达图更新
     ])
   }
 })

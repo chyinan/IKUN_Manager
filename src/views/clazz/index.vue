@@ -215,30 +215,30 @@ const handleSubmit = async () => {
         if (dialogType.value === 'add') {
           const res = await addClass(formData)
           if (res.code === 200) {
+            dialogVisible.value = false  // 先关闭对话框
             ElMessage.success(res.message || '新增班级成功')
-            dialogVisible.value = false
             // 清空表单数据
             formData.className = ''
             formData.teacher = ''
+            await fetchData()  // 最后刷新数据
+          } else {
+            ElMessage.error(res.message || '新增失败')
           }
         } else {
           const res = await updateClass(formData)
           if (res.code === 200) {
+            dialogVisible.value = false  // 先关闭对话框
             ElMessage.success(res.message || '修改班级成功')
-            dialogVisible.value = false
+            await fetchData()  // 最后刷新数据
+          } else {
+            ElMessage.error(res.message || '修改失败')
           }
         }
       } catch (error: any) {
         console.error('操作失败:', error)
-        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-          ElMessage.warning('操作可能已成功，正在刷新数据...')
-        } else {
-          ElMessage.error(error.response?.data?.message || '操作失败')
-        }
+        ElMessage.error(error.response?.data?.message || '操作失败')
       } finally {
         loading.value = false
-        // 无论成功失败都刷新数据
-        await fetchData()
       }
     }
   })

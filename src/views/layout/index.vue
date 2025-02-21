@@ -2,9 +2,86 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { updatePassword } from '@/api/user'  // 添加这行导入
 
 const router = useRouter()
-const username = ref('')
+const formRef = ref()  // 添加表单引用
+const username = ref(localStorage.getItem('username') || '')  // 从localStorage获取用户名
+const dialogVisible = ref(false)
+const loading = ref(false)
+
+// 修改密码表单数据
+const formData = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+// 表单验证规则
+const rules = {
+  oldPassword: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    {
+      validator: (rule: any, value: string, callback: Function) => {
+        if (value !== formData.value.newPassword) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+}
+
+// 修改密码处理函数
+const handleChangePassword = async (formEl: any) => {
+  if (!formEl) return
+  
+  await formEl.validate(async (valid: boolean) => {
+    if (valid) {
+      try {
+        loading.value = true
+        const res = await updatePassword({
+          username: username.value,
+          oldPassword: formData.value.oldPassword,
+          newPassword: formData.value.newPassword
+        })
+        
+        if (res.code === 200) {
+          ElMessage.success('密码修改成功，请重新登录')
+          dialogVisible.value = false
+          // 清空表单
+          formData.value = {
+            oldPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+          }
+          // 退出登录
+          localStorage.removeItem('token')
+          localStorage.removeItem('username')
+          router.push('/login')
+        } else {
+          ElMessage.error(res.message || '修改失败')
+        }
+      } catch (error: any) {
+        console.error('修改密码失败:', error)
+        ElMessage.error(
+          error.response?.data?.message || 
+          error.message || 
+          '修改密码失败，请稍后重试'
+        )
+      } finally {
+        loading.value = false
+      }
+    }
+  })
+}
 
 onMounted(() => {
   // 从localStorage获取用户名
@@ -31,7 +108,9 @@ const handleLogout = () => {
         <span class="title">高校人事管理系统</span>
         <span class="right_tool">
           <span class="welcome">{{ username }}，欢迎你！</span>
-          <a href=""><el-icon><Lock /></el-icon> 修改密码 &nbsp;&nbsp;&nbsp;&nbsp;</a>
+          <a @click="dialogVisible = true" style="cursor: pointer">
+            <el-icon><Lock /></el-icon> 修改密码 &nbsp;&nbsp;&nbsp;&nbsp;
+          </a>
           <a @click="handleLogout" style="cursor: pointer">
             <el-icon><SwitchButton /></el-icon> 退出系统&nbsp;&nbsp;&nbsp;&nbsp;
           </a>
@@ -105,6 +184,52 @@ const handleLogout = () => {
         </el-main>
       </el-container>
     </el-container>
+    
+    <!-- 修改密码对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      title="修改密码"
+      width="30%"
+      :close-on-click-modal="false">
+      <el-form
+        ref="formRef"
+        :model="formData"
+        :rules="rules"
+        label-width="100px">
+        <el-form-item label="原密码" prop="oldPassword">
+          <el-input
+            v-model="formData.oldPassword"
+            type="password"
+            show-password
+            placeholder="请输入原密码">
+          </el-input>
+        </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input
+            v-model="formData.newPassword"
+            type="password"
+            show-password
+            placeholder="请输入新密码">
+          </el-input>
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input
+            v-model="formData.confirmPassword"
+            type="password"
+            show-password
+            placeholder="请确认新密码">
+          </el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleChangePassword(formRef)" :loading="loading">
+            确认
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

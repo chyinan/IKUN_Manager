@@ -91,6 +91,9 @@ app.use('/api/dept', deptRouter)
 app.use('/api/employee', employeeRouter)
 app.use('/api/user', userRouter)
 
+// 注册用户路由
+app.use('/api/user', userRouter)
+
 // 错误处理中间件
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err)

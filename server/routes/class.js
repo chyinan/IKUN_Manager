@@ -76,4 +76,26 @@ router.delete('/delete/:id', async (req, res) => {
   }
 })
 
+// 添加获取班级学生数量的路由
+router.get('/studentCount/:classId', async (req, res) => {
+  try {
+    const [result] = await db.query(
+      'SELECT COUNT(*) as count FROM student WHERE class_id = ?',
+      [req.params.classId]
+    )
+    
+    res.json({
+      code: 200,
+      data: result[0].count,
+      message: '获取成功'
+    })
+  } catch (err) {
+    console.error('获取班级学生数量失败:', err)
+    res.status(500).json({
+      code: 500,
+      message: err.message
+    })
+  }
+})
+
 module.exports = router

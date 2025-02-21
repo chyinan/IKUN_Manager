@@ -81,9 +81,6 @@
         <el-form-item label="班主任" prop="teacher">
           <el-input v-model="formData.teacher" />
         </el-form-item>
-        <el-form-item label="班级人数" prop="studentCount">
-          <el-input-number v-model="formData.studentCount" :min="0" :max="50" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -97,7 +94,7 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Search, View, Download } from '@element-plus/icons-vue'
-import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
+import { getClassList, addClass, updateClass, deleteClass, getClassStudentCount } from '@/api/class'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { ClassFormData, ClassResponse, ClassItem } from '@/api/class'
 import { exportToExcel } from '@/utils/export'
@@ -113,7 +110,6 @@ const formRef = ref<FormInstance>()
 // 表单数据
 const formData = reactive<ClassFormData>({
   className: '',
-  studentCount: 0,
   teacher: ''
 })
 
@@ -122,21 +118,27 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await getClassList()
-    tableData.value = res.data.map((item: ClassItem) => ({
-      id: item.id,
-      className: item.class_name,
-      studentCount: item.student_count,
-      teacher: item.teacher,
-      // 格式化日期为 YYYY-MM-DD
-      createTime: new Date(item.create_time)
-        .toLocaleDateString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        })
-        .split('/')
-        .join('-')
-    }))
+    // 获取每个班级的实际学生数量
+    const classesWithCount = await Promise.all(
+      res.data.map(async (item: ClassItem) => {
+        const countRes = await getClassStudentCount(item.id)
+        return {
+          id: item.id,
+          className: item.class_name,
+          studentCount: countRes.data, // 使用实际的学生数量
+          teacher: item.teacher,
+          createTime: new Date(item.create_time)
+            .toLocaleDateString('zh-CN', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            })
+            .split('/')
+            .join('-')
+        }
+      })
+    )
+    tableData.value = classesWithCount
   } catch (error) {
     console.error('获取失败:', error)
     ElMessage.error('获取数据失败')
@@ -158,7 +160,6 @@ const handleAdd = () => {
   dialogType.value = 'add'
   dialogVisible.value = true
   formData.className = ''
-  formData.studentCount = 0
   formData.teacher = ''
 }
 
@@ -218,7 +219,6 @@ const handleSubmit = async () => {
             dialogVisible.value = false
             // 清空表单数据
             formData.className = ''
-            formData.studentCount = 0
             formData.teacher = ''
           }
         } else {

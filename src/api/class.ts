@@ -45,3 +45,11 @@ export const updateClass = (data: ClassFormData) => {
 export const deleteClass = (id: number) => {
   return request.delete<Response>(`/class/delete/${id}`)
 }
+
+// 获取班级实际学生数量
+export const getClassStudentCount = async (classId: number) => {
+  return request({
+    url: `/class/studentCount/${classId}`,
+    method: 'get'
+  })
+}

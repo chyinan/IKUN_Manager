@@ -32,14 +32,32 @@
             />
           </el-select>
         </el-form-item>
+
+        <!-- 修改考试类型选择 -->
+        <el-form-item label="考试类型">
+          <el-select 
+            v-model="selectedExamType" 
+            placeholder="请选择考试类型"
+            :disabled="!selectedStudent"
+            @change="handleExamTypeChange"
+            style="width: 200px">
+            <el-option
+              v-for="item in examTypes"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
       </el-form>
     </div>
 
     <!-- 成绩编辑表单 -->
-    <el-card v-if="selectedStudent" class="score-form">
+    <el-card v-if="selectedStudent && selectedExamType" class="score-form">
       <template #header>
         <div class="card-header">
-          <span>{{ selectedStudentName }} 的成绩信息</span>
+          <span>{{ selectedStudentName }} 的{{ selectedExamType }}成绩</span>
+          <span class="exam-date">考试日期: {{ examDate || '暂无记录' }}</span>
         </div>
       </template>
 
@@ -62,13 +80,20 @@
               :precision="1"
               :step="0.5"
               controls-position="right"
+              @change="handleScoreChange"
             />
           </el-form-item>
         </div>
 
-        <div class="form-footer">
+        <!-- 只在数据被修改时显示按钮 -->
+        <div v-if="isScoreChanged" class="form-footer">
           <el-button @click="handleCancel">取消</el-button>
-          <el-button type="primary" @click="handleSave">保存</el-button>
+          <el-button 
+            type="primary" 
+            @click="handleSave"
+            :loading="loading">
+            保存
+          </el-button>
         </div>
       </el-form>
     </el-card>
@@ -108,6 +133,18 @@ const scoreForm = ref<Record<string, number>>({
   化学: 0,
   生物: 0
 })
+
+// 添加考试类型和日期数据
+const examTypes = [
+  { label: '月考', value: '月考' },
+  { label: '期中考试', value: '期中' },
+  { label: '期末考试', value: '期末' }
+]
+const selectedExamType = ref('')
+const examDate = ref('')
+
+// 添加loading状态
+const loading = ref(false)
 
 // 根据选择的班级筛选学生
 const filteredStudents = computed(() => {
@@ -158,28 +195,38 @@ const handleClassChange = () => {
 // 处理学生选择
 const handleStudentSelect = async () => {
   if (!selectedStudent.value) return
+  selectedExamType.value = '' // 清空考试类型选择
+  resetScoreForm()
+}
+
+// 修改考试类型变化处理函数
+const handleExamTypeChange = async () => {
+  if (!selectedStudent.value || !selectedExamType.value) return
   
   try {
-    const res = await getStudentScore(selectedStudent.value)
+    const res = await getStudentScore(selectedStudent.value, selectedExamType.value)
     console.log('获取成绩响应:', res)
     
-    // 初始化默认值
-    const defaultScores = {
-      语文: 0,
-      数学: 0,
-      英语: 0,
-      物理: 0,
-      化学: 0,
-      生物: 0
-    }
-    
-    if (res.code === 200 && res.data) {
-      // 合并服务器返回的成绩
-      scoreForm.value = {
-        ...defaultScores,
-        ...res.data
+    if (res.code === 200) {
+      if (res.data && res.data.exam_type === selectedExamType.value) {
+        // 只有当考试类型匹配时才使用数据库中的成绩
+        scoreForm.value = {
+          语文: res.data.语文 || 0,
+          数学: res.data.数学 || 0,
+          英语: res.data.英语 || 0,
+          物理: res.data.物理 || 0,
+          化学: res.data.化学 || 0,
+          生物: res.data.生物 || 0
+        }
+        examDate.value = res.data.exam_time || ''
+      } else {
+        // 如果没有对应考试类型的成绩，重置为0
+        resetScoreForm()
+        examDate.value = ''
       }
-      console.log('更新后的成绩表单:', scoreForm.value)
+      // 保存原始成绩用于比较
+      originalScores.value = { ...scoreForm.value }
+      isScoreChanged.value = false
     }
   } catch (error: any) {
     console.error('获取成绩失败:', error)
@@ -187,9 +234,8 @@ const handleStudentSelect = async () => {
   }
 }
 
-// 取消编辑
-const handleCancel = () => {
-  selectedStudent.value = null
+// 重置成绩表单
+const resetScoreForm = () => {
   scoreForm.value = {
     语文: 0,
     数学: 0,
@@ -198,30 +244,56 @@ const handleCancel = () => {
     化学: 0,
     生物: 0
   }
+  originalScores.value = { ...scoreForm.value }
+  isScoreChanged.value = false
+}
+
+// 取消编辑
+const handleCancel = () => {
+  // 恢复原始成绩
+  scoreForm.value = { ...originalScores.value }
+  isScoreChanged.value = false
 }
 
 // 保存成绩
 const handleSave = async () => {
   try {
-    if (!selectedStudent.value) {
-      ElMessage.warning('请先选择学生')
+    if (!selectedStudent.value || !selectedExamType.value) {
+      ElMessage.warning('请选择学生和考试类型')
       return
     }
 
-    console.log('准备保存成绩:', {
-      student_id: selectedStudent.value,
-      scores: scoreForm.value
-    })
+    loading.value = true
+    await saveStudentScore(
+      selectedStudent.value, 
+      scoreForm.value,
+      selectedExamType.value,
+      examDate.value || new Date().toISOString().split('T')[0]
+    )
 
-    await saveStudentScore(selectedStudent.value, scoreForm.value)
     ElMessage.success('保存成功')
+    // 更新原始成绩
+    originalScores.value = { ...scoreForm.value }
+    isScoreChanged.value = false
     
-    // 刷新成绩数据
-    await handleStudentSelect()
   } catch (error: any) {
     console.error('保存失败:', error)
     ElMessage.error(`保存失败: ${error.response?.data?.message || error.message}`)
+  } finally {
+    loading.value = false
   }
+}
+
+// 添加成绩是否被修改的标记
+const isScoreChanged = ref(false)
+const originalScores = ref<Record<string, number>>({})
+
+// 处理成绩输入变化
+const handleScoreChange = () => {
+  const hasChanges = subjects.some(subject => 
+    scoreForm.value[subject] !== originalScores.value[subject]
+  )
+  isScoreChanged.value = hasChanges
 }
 
 // 页面初始化
@@ -282,5 +354,16 @@ onMounted(async () => {
 /* 添加选择框样式 */
 :deep(.el-select) {
   width: 200px;
+}
+
+.exam-date {
+  font-size: 14px;
+  color: #909399;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 </style>

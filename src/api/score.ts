@@ -10,21 +10,36 @@ export interface ScoreData {
 }
 
 // 获取学生成绩
-export const getStudentScore = (studentId: number) => {
+export const getStudentScore = (
+  studentId: number,
+  examType: string,
+  examTime?: string
+) => {
   return request({
     url: `/score/${studentId}`,
-    method: 'get'
+    method: 'get',
+    params: {
+      exam_type: examType,
+      exam_time: examTime
+    }
   })
 }
 
 // 保存学生成绩
-export const saveStudentScore = (student_id: number, scores: Record<string, number>) => {
+export const saveStudentScore = (
+  studentId: number, 
+  scores: Record<string, number>,
+  examType: string,
+  examTime: string
+) => {
   return request({
     url: '/score/save',
     method: 'post',
     data: {
-      student_id,
-      scores
+      student_id: studentId,
+      scores,
+      exam_type: examType,
+      exam_time: examTime
     }
   })
 }

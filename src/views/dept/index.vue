@@ -97,10 +97,25 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'  // 添加图标导入
 import type { FormInstance, FormRules } from 'element-plus'
 import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
 import type { DeptData } from '@/api/dept'
+
+// 修改表单数据接口定义
+interface DeptFormData {
+  id?: number
+  deptName: string
+  manager: string
+  description: string
+}
+
+// 修改表单数据初始值
+const formData = reactive<DeptFormData>({
+  deptName: '',
+  manager: '',
+  description: ''
+})
 
 // 数据状态
 const loading = ref(false)
@@ -147,14 +162,6 @@ const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
 const formRef = ref<FormInstance>()
 
-const formData = reactive<DeptData>({
-  deptName: '',
-  manager: '',
-  memberCount: 0,
-  description: '',
-  createTime: ''
-})
-
 const rules = reactive<FormRules>({
   deptName: [
     { required: true, message: '请输入部门名称', trigger: 'blur' },
@@ -172,19 +179,26 @@ const filteredTableData = computed(() => {
   )
 })
 
-const handleAdd = async () => {
+// 修改新增处理方法
+const handleAdd = () => {
   dialogType.value = 'add'
   dialogVisible.value = true
   formData.deptName = ''
   formData.manager = ''
-  formData.memberCount = 0
   formData.description = ''
 }
 
+// 修改编辑处理方法
 const handleEdit = (row: DeptData) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
-  Object.assign(formData, row)
+  // 确保包含id
+  Object.assign(formData, {
+    id: row.id,         // 添加id
+    deptName: row.deptName,
+    manager: row.manager,
+    description: row.description
+  })
 }
 
 const handleDelete = async (row: DeptData) => {
@@ -216,24 +230,42 @@ const handleDelete = async (row: DeptData) => {
   }
 }
 
+// 修改提交处理方法
 const handleSubmit = async () => {
   if (!formRef.value) return
   
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        loading.value = true
         if (dialogType.value === 'add') {
-          await addDept(formData)
-          ElMessage.success('新增成功')
+          const res = await addDept({
+            deptName: formData.deptName,
+            manager: formData.manager,
+            description: formData.description
+          })
+          if (res.code === 200) {
+            ElMessage.success('新增成功')
+            dialogVisible.value = false
+          }
         } else {
-          await updateDept(formData)
-          ElMessage.success('修改成功')
+          const res = await updateDept({
+            id: formData.id,  // 确保传递id
+            deptName: formData.deptName,
+            manager: formData.manager,
+            description: formData.description
+          })
+          if (res.code === 200) {
+            ElMessage.success('修改成功')
+            dialogVisible.value = false
+          }
         }
-        dialogVisible.value = false
-        await fetchData()  // 刷新数据
+        await fetchData() // 刷新数据
       } catch (error) {
-        console.error(error)
+        console.error('操作失败:', error)
         ElMessage.error(dialogType.value === 'add' ? '新增失败' : '修改失败')
+      } finally {
+        loading.value = false
       }
     }
   })

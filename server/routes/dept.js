@@ -6,7 +6,15 @@ const db = require('../config/db')
 router.get('/list', async (req, res) => {
   try {
     console.log('请求部门列表')
-    const [rows] = await db.query('SELECT * FROM department')
+    // 使用LEFT JOIN和COUNT统计每个部门的实际人数
+    const [rows] = await db.query(`
+      SELECT 
+        d.*,
+        COUNT(e.id) as member_count
+      FROM department d
+      LEFT JOIN employee e ON d.id = e.dept_id
+      GROUP BY d.id
+    `)
     console.log('查询结果:', rows)
     res.json({
       code: 200,
@@ -22,14 +30,14 @@ router.get('/list', async (req, res) => {
   }
 })
 
-// 添加部门
+// 添加部门 - 移除memberCount参数
 router.post('/add', async (req, res) => {
   try {
     console.log('新增部门数据:', req.body)
-    const { deptName, manager, memberCount, description } = req.body
+    const { deptName, manager, description } = req.body
     const [result] = await db.query(
-      'INSERT INTO department (dept_name, manager, member_count, description) VALUES (?, ?, ?, ?)',
-      [deptName, manager, memberCount || 0, description]
+      'INSERT INTO department (dept_name, manager, description) VALUES (?, ?, ?)',
+      [deptName, manager, description]
     )
     console.log('插入结果:', result)
     res.json({
@@ -48,14 +56,40 @@ router.post('/add', async (req, res) => {
 // 更新部门
 router.put('/update/:id', async (req, res) => {
   try {
-    const { deptName, manager, memberCount, description } = req.body
-    await db.query(
-      'UPDATE department SET dept_name=?, manager=?, member_count=?, description=? WHERE id=?',
-      [deptName, manager, memberCount, description, req.params.id]
+    const { deptName, manager, description } = req.body
+    const deptId = req.params.id
+
+    console.log('更新部门:', { deptId, deptName, manager, description })
+
+    if (!deptId) {
+      return res.status(400).json({
+        code: 400,
+        message: '部门ID不能为空'
+      })
+    }
+
+    const [result] = await db.query(
+      'UPDATE department SET dept_name=?, manager=?, description=? WHERE id=?',
+      [deptName, manager, description, deptId]
     )
-    res.json({ code: 200, message: '更新成功' })
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        code: 404,
+        message: '未找到该部门'
+      })
+    }
+
+    res.json({
+      code: 200,
+      message: '更新成功'
+    })
   } catch (err) {
-    res.status(500).json({ code: 500, message: err.message })
+    console.error('更新部门失败:', err)
+    res.status(500).json({
+      code: 500,
+      message: err.message
+    })
   }
 })
 

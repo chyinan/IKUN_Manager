@@ -1,55 +1,86 @@
 <template>
   <div class="report-container">
-    <!-- 顶部数据卡片 -->
-    <div class="data-cards">
-      <el-card v-for="(item, index) in summaryData" :key="index">
-        <template #header>
-          <div class="card-header">
-            <el-icon :size="24" :color="item.color">
+    <!-- 顶部操作区 -->
+    <div class="operation-area">
+      <div class="exam-select">
+        <span class="label">考试类型：</span>
+        <el-select 
+          v-model="selectedExamType" 
+          placeholder="选择考试类型" 
+          @change="handleExamTypeChange">
+          <el-option
+            v-for="item in examTypes"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </div>
+    </div>
+
+    <!-- 数据概览卡片 -->
+    <div class="overview-cards">
+      <el-card 
+        v-for="(item, index) in summaryData" 
+        :key="index"
+        class="stat-card"
+        :class="{ highlight: index === 2 }"> <!-- 优秀率卡片特殊样式 -->
+        <div class="stat-content">
+          <div class="stat-icon">
+            <el-icon :size="32" :color="item.color">
               <component :is="item.icon" />
             </el-icon>
-            <span>{{ item.title }}</span>
           </div>
-        </template>
-        <div class="card-value">{{ item.value }}</div>
+          <div class="stat-info">
+            <div class="stat-title">{{ item.title }}</div>
+            <div class="stat-value">{{ item.value }}</div>
+          </div>
+        </div>
       </el-card>
     </div>
 
-    <!-- 图表区域 -->
-    <div class="charts-container">
-      <!-- 左侧成绩分布图 -->
-      <el-card class="chart-card">
+    <!-- 主要图表区域 -->
+    <div class="main-charts">
+      <!-- 左侧成绩分布 -->
+      <el-card class="chart-card distribution-chart">
         <template #header>
           <div class="chart-header">
-            <span>班级成绩分布</span>
-            <el-select v-model="selectedClass" placeholder="选择班级">
-              <el-option v-for="item in classList" :key="item" :label="item" :value="item" />
+            <span class="chart-title">班级成绩分布</span>
+            <el-select 
+              v-model="selectedClass" 
+              placeholder="选择班级"
+              size="small">
+              <el-option 
+                v-for="item in classList" 
+                :key="item" 
+                :label="item" 
+                :value="item" />
             </el-select>
           </div>
         </template>
         <v-chart class="chart" :option="gradeDistOption" />
       </el-card>
 
-      <!-- 右侧各科平均分图 -->
-      <el-card class="chart-card">
+      <!-- 右侧平均分 -->
+      <el-card class="chart-card average-chart">
         <template #header>
           <div class="chart-header">
-            <span>班级各科平均分</span>
+            <span class="chart-title">各科平均分</span>
           </div>
         </template>
         <v-chart class="chart" :option="avgScoreOption" />
       </el-card>
     </div>
 
-    <!-- 底部雷达图 -->
-    <div class="bottom-charts">
-      <el-card class="chart-card">
-        <template #header>
-          <span>学科能力分析</span>
-        </template>
-        <v-chart class="chart" :option="radarOption" />
-      </el-card>
-    </div>
+    <!-- 底部学科能力分析 -->
+    <el-card class="chart-card radar-chart">
+      <template #header>
+        <div class="chart-header">
+          <span class="chart-title">班级学科能力分析</span>
+        </div>
+      </template>
+      <v-chart class="chart" :option="radarOption" />
+    </el-card>
   </div>
 </template>
 
@@ -115,13 +146,8 @@ const summaryData = ref([
     value: '0%',
     icon: 'Trophy',
     color: '#E6A23C'
-  },
-  {
-    title: '平均分',
-    value: '0',
-    icon: 'DataLine',
-    color: '#F56C6C'
   }
+  // 移除平均分统计卡片
 ])
 
 // 添加班级和学生数据的响应式引用
@@ -141,39 +167,12 @@ const fetchStatistics = async () => {
       classes.value = classRes.data
       classList.value = classRes.data.map(item => item.class_name)
 
-      // 获取学生成绩数据
-      const scoreRes = await Promise.all(
-        students.value.map(student => getStudentScore(student.id))
-      )
-
-      // 计算成绩统计数据
-      let totalScore = 0
-      let excellentCount = 0
-      let totalScoreCount = 0
-
-      scoreRes.forEach(res => {
-        if (res.code === 200 && res.data) {
-          const scores = Object.values(res.data)
-          scores.forEach(score => {
-            totalScore += score
-            if (score >= 90) excellentCount++
-            totalScoreCount++
-          })
-        }
-      })
-
-      // 更新统计卡片
+      // 更新基础统计数据
       summaryData.value[0].value = students.value.length.toString()
       summaryData.value[1].value = classes.value.length.toString()
-      summaryData.value[2].value = totalScoreCount > 0 
-        ? `${((excellentCount / totalScoreCount) * 100).toFixed(1)}%` 
-        : '0%'
-      summaryData.value[3].value = totalScoreCount > 0 
-        ? (totalScore / totalScoreCount).toFixed(1) 
-        : '0'
-
-      // 更新成绩分布图
-      updateGradeDistribution()
+      
+      // 初始计算优秀率
+      await calculateExcellentRate()
     }
   } catch (error) {
     console.error('获取统计数据失败:', error)
@@ -190,9 +189,9 @@ const updateGradeDistribution = async () => {
       student => student.class_name === selectedClass.value
     )
 
-    // 获取这些学生的成绩
+    // 添加考试类型参数
     const scoreRes = await Promise.all(
-      classStudents.map(student => getStudentScore(student.id))
+      classStudents.map(student => getStudentScore(student.id, selectedExamType.value))
     )
 
     // 统计成绩分布
@@ -288,9 +287,9 @@ const updateRadarChart = async () => {
           student => student.class_name === classItem.class_name
         )
 
-        // 获取所有学生的成绩
+        // 添加考试类型参数
         const scoreRes = await Promise.all(
-          classStudents.map(student => getStudentScore(student.id))
+          classStudents.map(student => getStudentScore(student.id, selectedExamType.value))
         )
 
         // 计算各科平均分
@@ -384,9 +383,9 @@ const updateAvgScores = async () => {
       student => student.class_name === selectedClass.value
     )
 
-    // 获取这些学生的成绩
+    // 添加考试类型参数
     const scoreRes = await Promise.all(
-      classStudents.map(student => getStudentScore(student.id))
+      classStudents.map(student => getStudentScore(student.id, selectedExamType.value))
     )
 
     // 计算各科平均分
@@ -428,11 +427,78 @@ const selectedClass = ref('')
 const classList = ref<string[]>([])
 const subjectList = ['语文', '数学', '英语', '物理', '化学', '生物']
 
+// 添加考试类型数据
+const examTypes = [
+  { label: '月考', value: '月考' },
+  { label: '期中考试', value: '期中' },
+  { label: '期末考试', value: '期末' }
+]
+const selectedExamType = ref('月考')
+
+// 添加考试类型变化处理
+const handleExamTypeChange = async () => {
+  await Promise.all([
+    calculateExcellentRate(),  // 添加优秀率重新计算
+    updateGradeDistribution(),
+    updateAvgScores(),
+    updateRadarChart()
+  ])
+}
+
 // 监听班级选择变化
 watch(selectedClass, () => {
   updateGradeDistribution()
   updateAvgScores()
 })
+
+// 修改计算优秀率的方法
+const calculateExcellentRate = async () => {
+  try {
+    // 获取所有学生的成绩
+    const scoreRes = await Promise.all(
+      students.value.map(student => getStudentScore(student.id, selectedExamType.value))
+    )
+
+    let excellentCount = 0
+    let totalStudents = 0
+
+    scoreRes.forEach(res => {
+      if (res.code === 200 && res.data) {
+        // 过滤掉考试类型和考试时间字段，只保留科目成绩
+        const scores = Object.entries(res.data)
+          .filter(([key]) => subjectList.includes(key))
+          .map(([_, score]) => Number(score))
+
+        if (scores.length > 0) {  // 只有有成绩的学生才计入总数
+          totalStudents++
+          // 计算该学生的总分
+          const totalScore = scores.reduce((sum, score) => sum + score, 0)
+          // 计算满分（该学生实际考试科目数 * 100）
+          const maxScore = scores.length * 100
+          // 判断是否达到优秀标准（90%）
+          if (totalScore >= maxScore * 0.9) {
+            excellentCount++
+          }
+        }
+      }
+    })
+
+    console.log('优秀率计算:', {
+      totalStudents,
+      excellentCount,
+      rate: totalStudents > 0 ? (excellentCount / totalStudents) * 100 : 0
+    })
+
+    // 更新优秀率
+    const excellentRate = totalStudents > 0 
+      ? ((excellentCount / totalStudents) * 100).toFixed(1)
+      : '0'
+    summaryData.value[2].value = `${excellentRate}%`
+
+  } catch (error) {
+    console.error('计算优秀率失败:', error)
+  }
+}
 
 // 修改初始化函数，添加雷达图更新
 onMounted(async () => {
@@ -451,70 +517,121 @@ onMounted(async () => {
 
 <style scoped>
 .report-container {
-  padding: 20px;
+  padding: 24px;
   background: #f5f7fa;
   min-height: calc(100vh - 84px);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.data-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
+/* 顶部操作区样式 */
+.operation-area {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
-.card-header {
+.exam-select {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 16px;
+  gap: 12px;
+}
+
+.label {
+  font-size: 14px;
   color: #606266;
 }
 
-.card-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #303133;
-  margin: 10px 0;
+/* 数据概览卡片样式 */
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
 }
 
-.charts-container {
+.stat-card {
+  transition: all 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+.stat-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-title {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #303133;
+}
+
+/* 主要图表区域样式 */
+.main-charts {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 24px;
 }
 
 .chart-card {
   background: white;
   border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.chart-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 0 8px;
 }
 
+.chart-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+}
+
+/* 图表容器样式 */
 .chart {
-  height: 300px;
+  height: 320px;
 }
 
+.radar-chart .chart {
+  height: 400px;
+}
+
+/* Element Plus 样式覆盖 */
 :deep(.el-card) {
+  border: none;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
-.bottom-charts {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
+:deep(.el-card__header) {
+  padding: 16px;
+  border-bottom: 1px solid #ebeef5;
 }
 
-.bottom-charts .chart-card {
-  width: 50%;
-}
-
-.bottom-charts .chart {
-  height: 400px;
+:deep(.el-select) {
+  width: 180px;
 }
 </style>

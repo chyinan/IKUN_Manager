@@ -54,10 +54,13 @@ router.get('/:studentId', async (req, res) => {
   }
 })
 
-// 保存成绩
+// 修改保存成绩的路由处理
 router.post('/save', async (req, res) => {
   try {
     const { student_id, scores, exam_type, exam_time } = req.body
+    
+    // 确保日期格式正确
+    const formattedDate = new Date(exam_time).toISOString().split('T')[0]
     
     // 为每个科目保存成绩
     for (const [subject, score] of Object.entries(scores)) {
@@ -66,7 +69,7 @@ router.post('/save', async (req, res) => {
         (student_id, subject, score, exam_type, exam_time) 
         VALUES (?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE score = ?`,
-        [student_id, subject, score, exam_type, exam_time, score]
+        [student_id, subject, score, exam_type, formattedDate, score]
       )
     }
 

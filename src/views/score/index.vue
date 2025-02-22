@@ -255,7 +255,7 @@ const handleCancel = () => {
   isScoreChanged.value = false
 }
 
-// 保存成绩
+// 修改保存成绩方法
 const handleSave = async () => {
   try {
     if (!selectedStudent.value || !selectedExamType.value) {
@@ -264,11 +264,15 @@ const handleSave = async () => {
     }
 
     loading.value = true
+    // 格式化日期为 YYYY-MM-DD
+    const today = new Date()
+    const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
     await saveStudentScore(
       selectedStudent.value, 
       scoreForm.value,
       selectedExamType.value,
-      examDate.value || new Date().toISOString().split('T')[0]
+      formattedDate  // 使用格式化后的日期
     )
 
     ElMessage.success('保存成功')

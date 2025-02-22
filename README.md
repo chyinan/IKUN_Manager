@@ -46,17 +46,3 @@ npm run build
 ```sh
 npm run lint
 ```
-
-
-
-Tips:
-
-感谢@huwany1的后端开发，该项目的后端代码基于Java实现，独立于前端，若有需求请移步其个人主页。
-
-Thanks to @huwany1 for backend development.
-
-The backend code of this project is implemented in Java and is independent of the frontend. If you have any needs, please go to his personal homepage.
-
-
-
-（哎哟你干嘛Amagi~)

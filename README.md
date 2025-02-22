@@ -1,62 +1,124 @@
 # IKUN Manager
 
-# (Based on Vue3,Element Plus,TypeScript)
+## 项目简介
+一个基于Vue3 + Element Plus + TypeScript开发的学员信息管理系统。主要功能包括班级管理、学生管理、成绩管理以及数据可视化分析等。
 
-This template should help get you started developing with Vue 3 in Vite.
+## 技术栈
+- Vue 3
+- TypeScript
+- Element Plus
+- Vue Router
+- Axios
+- ECharts
+- MySQL
+- Express
 
-## Recommended IDE Setup
+## 功能特性
+- 🎯 班级管理: 支持班级的增删改查
+- 👨‍🎓 学生管理: 学生信息的录入、编辑和删除
+- 📊 成绩管理: 支持多次考试成绩的录入和管理
+- 📈 数据分析: 提供班级成绩分布、各科平均分等可视化分析
+- 🔒 权限控制: 基于角色的访问控制系统
+- 📱 响应式设计: 适配不同设备屏幕
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
+## 开发环境准备
 
-## Type Support for `.vue` Imports in TS
+### 推荐的IDE配置
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin) to make the TypeScript language service aware of `.vue` types.
+- [VSCode](https://code.visualstudio.com/) 
+- [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (需要禁用Vetur)
+- [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin)
 
-If the standalone TypeScript plugin doesn't feel fast enough to you, Volar has also implemented a [Take Over Mode](https://github.com/johnsoncodehk/volar/discussions/471#discussioncomment-1361669) that is more performant. You can enable it by the following steps:
+### 环境要求
+- Node.js 16+
+- MySQL 8.0+
+- npm 7+
 
-1. Disable the built-in TypeScript Extension
-    1) Run `Extensions: Show Built-in Extensions` from VSCode's command palette
-    2) Find `TypeScript and JavaScript Language Features`, right click and select `Disable (Workspace)`
-2. Reload the VSCode window by running `Developer: Reload Window` from the command palette.
+## 项目设置
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
-
-## Project Setup
-
+### 安装依赖
 ```sh
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+### 配置数据库
+1. 创建数据库
+```sql
+CREATE DATABASE ikun_manager;
+```
 
+2. 导入数据库文件
 ```sh
+mysql -u root -p ikun_manager < database/ikun_manager.sql
+```
+
+3. 配置数据库连接
+修改 `server/config/db.js` 中的数据库配置
+
+### 开发环境运行
+```sh
+# 启动前端服务
+npm run dev
+
+# 启动后端服务
+cd server
+npm install
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
-
+### 生产环境构建
 ```sh
+# 前端构建
+npm run build
+
+# 后端构建
+cd server
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
-
+### 代码检查
 ```sh
 npm run lint
 ```
 
+## 项目结构
+```
+IKUN_Manager/
+├── src/                    # 前端源码
+│   ├── api/               # API接口
+│   ├── components/        # 公共组件
+│   ├── router/           # 路由配置
+│   ├── stores/           # 状态管理
+│   ├── utils/            # 工具函数
+│   └── views/            # 页面组件
+├── server/                # 后端源码
+│   ├── config/           # 配置文件
+│   ├── routes/           # 路由处理
+│   └── utils/            # 工具函数
+└── database/             # 数据库文件
+```
 
+## 开发规范
+- 遵循ESLint规则
+- 使用TypeScript编写代码
+- 组件和函数需要添加注释
+- Git commit信息需要清晰明了
 
-Tips:
+## 部署说明
+1. 构建前端项目
+2. 配置Nginx反向代理
+3. 启动后端服务
+4. 配置SSL证书(可选)
 
-感谢@huwany1的后端开发，该项目的后端代码基于Java实现，独立于前端，若有需求请移步其个人主页。
+## 贡献指南
+1. Fork本仓库
+2. 创建特性分支
+3. 提交代码
+4. 发起Pull Request
 
-Thanks to @huwany1 for backend development.
+## 开源许可
+MIT License
 
-The backend code of this project is implemented in Java and is independent of the frontend. If you have any needs, please go to his personal homepage.
-
-
-
-（哎哟你干嘛Amagi~)
+## 联系方式
+- 作者: [chyinan]
+- Email: [chyinan2015@gmail.com]

@@ -80,3 +80,45 @@ npm run build
 ```sh
 npm run lint
 ```
+
+## 项目结构
+```
+IKUN_Manager/
+├── src/                    # 前端源码
+│   ├── api/               # API接口
+│   ├── components/        # 公共组件
+│   ├── router/           # 路由配置
+│   ├── stores/           # 状态管理
+│   ├── utils/            # 工具函数
+│   └── views/            # 页面组件
+├── server/                # 后端源码
+│   ├── config/           # 配置文件
+│   ├── routes/           # 路由处理
+│   └── utils/            # 工具函数
+└── database/             # 数据库文件
+```
+
+## 开发规范
+- 遵循ESLint规则
+- 使用TypeScript编写代码
+- 组件和函数需要添加注释
+- Git commit信息需要清晰明了
+
+## 部署说明
+1. 构建前端项目
+2. 配置Nginx反向代理
+3. 启动后端服务
+4. 配置SSL证书(可选)
+
+## 贡献指南
+1. Fork本仓库
+2. 创建特性分支
+3. 提交代码
+4. 发起Pull Request
+
+## 开源许可
+MIT License
+
+## 联系方式
+- 作者: [chyinan]
+- Email: [chyinan2015@gmail.com]

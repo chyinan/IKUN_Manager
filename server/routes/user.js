@@ -1,6 +1,7 @@
-const express = require('express')
+import express from 'express'
+import db from '../config/db.js'
+
 const router = express.Router()
-const db = require('../config/db')
 
 // 用户登录
 router.post('/login', async (req, res) => {
@@ -120,4 +121,4 @@ router.post('/updatePassword', async (req, res) => {
   }
 })
 
-module.exports = router
+export default router

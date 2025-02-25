@@ -1,15 +1,25 @@
-const express = require('express')
-const cors = require('cors')
-const bodyParser = require('body-parser')
-const EventEmitter = require('events')
-const http = require('http')
-const { Server } = require('socket.io')
-const classRouter = require('./routes/class')
-const studentRouter = require('./routes/student')
-const deptRouter = require('./routes/dept')
-const employeeRouter = require('./routes/employee')
-const scoreRouter = require('./routes/score')
-const userRouter = require('./routes/user')
+import express from 'express'
+import cors from 'cors'
+import bodyParser from 'body-parser'
+import { EventEmitter } from 'events'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+// 路由导入
+import classRouter from './routes/class.js'
+import studentRouter from './routes/student.js'
+import deptRouter from './routes/dept.js'
+import employeeRouter from './routes/employee.js'
+import scoreRouter from './routes/score.js'
+import userRouter from './routes/user.js'
+import logRouter from './routes/log.js'
+import Logger from './utils/logger.js'
+
+// 获取 __dirname
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // 创建事件发射器实例
 const emitter = new EventEmitter()
@@ -17,7 +27,7 @@ const emitter = new EventEmitter()
 const app = express()
 
 // WebSocket支持
-const server = http.createServer(app)
+const server = createServer(app)
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173", // 前端地址
@@ -28,6 +38,22 @@ const io = new Server(server, {
 // 中间件配置
 app.use(cors())
 app.use(bodyParser.json())
+
+// 请求日志中间件
+app.use(async (req, res, next) => {
+  const startTime = Date.now()
+  const logContent = `${req.method} ${req.url}`
+  
+  // 记录数据库查询
+  if (req.url.includes('query') || req.url.includes('list')) {
+    await Logger.databaseLog('QUERY', logContent)
+  }
+  
+  // 记录API访问
+  await Logger.systemLog('API_ACCESS', logContent)
+  
+  next()
+})
 
 // 请求日志中间件
 app.use((req, res, next) => {
@@ -70,11 +96,18 @@ app.use((req, res, next) => {
 })
 
 // Socket连接处理
-io.on('connection', (socket) => {
-  console.log('客户端已连接')
-  
-  socket.on('disconnect', () => {
-    console.log('客户端断开连接')
+io.on('connection', async (socket) => {
+  // 记录客户端连接
+  await Logger.systemLog('CONNECTION', '客户端已连接')
+  socket.emit('serverLog', {
+    time: new Date().toLocaleTimeString(),
+    type: 'system',
+    content: '客户端已连接'
+  })
+
+  // 监听断开连接
+  socket.on('disconnect', async () => {
+    await Logger.systemLog('DISCONNECT', '客户端断开连接')
   })
 })
 
@@ -93,6 +126,9 @@ app.use('/api/user', userRouter)
 
 // 注册用户路由
 app.use('/api/user', userRouter)
+
+// 注册日志路由
+app.use('/api/log', logRouter)
 
 // 错误处理中间件
 app.use((err, req, res, next) => {

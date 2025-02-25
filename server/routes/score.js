@@ -1,6 +1,7 @@
-const express = require('express')
+import express from 'express'
+import db from '../config/db.js'
+
 const router = express.Router()
-const db = require('../config/db')
 
 // 添加测试路由
 router.get('/test', (req, res) => {
@@ -23,7 +24,6 @@ router.get('/:studentId', async (req, res) => {
     )
     
     if (rows.length === 0) {
-      // 如果没有找到对应考试类型的成绩，返回空数据
       return res.json({
         code: 200,
         data: null,
@@ -54,7 +54,7 @@ router.get('/:studentId', async (req, res) => {
   }
 })
 
-// 修改保存成绩的路由处理
+// 保存成绩
 router.post('/save', async (req, res) => {
   try {
     const { student_id, scores, exam_type, exam_time } = req.body
@@ -86,4 +86,4 @@ router.post('/save', async (req, res) => {
   }
 })
 
-module.exports = router
+export default router

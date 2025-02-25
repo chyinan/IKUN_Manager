@@ -1,13 +1,10 @@
-const mysql = require('mysql2')
+import mysql from 'mysql2/promise'
 
 const pool = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: '123456',
-  database: 'ikun_db',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-}).promise()
+  database: 'ikun_db'
+})
 
-module.exports = pool
+export default pool

@@ -1,6 +1,7 @@
-const express = require('express')
+import express from 'express'
+import db from '../config/db.js'
+
 const router = express.Router()
-const db = require('../config/db')
 
 // 获取学生列表
 router.get('/list', async (req, res) => {
@@ -142,4 +143,4 @@ router.get('/maxStudentId', async (req, res) => {
   }
 })
 
-module.exports = router
+export default router

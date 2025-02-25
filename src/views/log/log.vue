@@ -49,6 +49,7 @@ import { Monitor, Delete, Download, VideoPlay } from '@element-plus/icons-vue'
 import { emitter } from '@/utils/eventBus'
 import { logger } from '@/utils/logger'
 import { io } from 'socket.io-client'
+import { getLogList } from '@/api/log'
 
 interface LogEntry {
   time: string
@@ -161,8 +162,26 @@ socket.on('connect_error', (error) => {
   })
 })
 
+// 加载历史日志
+const loadHistoryLogs = async () => {
+  try {
+    const res = await getLogList({ limit: 1000 })
+    if (res.code === 200) {
+      const historyLogs = res.data.map(log => ({
+        time: new Date(log.create_time).toLocaleTimeString(),
+        type: log.type,
+        content: log.content
+      }))
+      logs.value = [...historyLogs, ...logs.value]
+    }
+  } catch (error) {
+    console.error('加载历史日志失败:', error)
+  }
+}
+
 // 修改socket连接和监听部分
-onMounted(() => {
+onMounted(async () => {
+  await loadHistoryLogs()
   // 订阅本地日志事件
   emitter.on('log', (log: any) => addLog(log as LogEntry))
   

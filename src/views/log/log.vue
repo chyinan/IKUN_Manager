@@ -191,12 +191,17 @@ onMounted(async () => {
 
   // 监听服务器日志
   socket.on('serverLog', (logData: LogEntry) => {
-    console.log('收到服务器日志:', logData)  // 添加调试日志
-    addLog({
-      time: logData.time,
-      type: logData.type || 'database',  // 确保有类型
-      content: logData.content
-    })
+    console.log('收到服务器日志:', logData)
+    
+    // 确保日志格式正确
+    const formattedLog = {
+      time: logData.time || new Date().toLocaleTimeString(),
+      type: logData.type || 'system',
+      content: logData.content || '未知操作'
+    }
+    
+    // 添加到日志列表
+    addLog(formattedLog)
   })
 })
 
@@ -259,11 +264,19 @@ onUnmounted(() => {
 .log-line {
   margin: 4px 0;
   color: #ffffff;
+  display: flex;
+  align-items: center;
 }
 
 .log-time {
-  color: #666;
+  color: #888;
   margin-right: 10px;
+  font-size: 0.9em;
+  min-width: 80px;
+}
+
+.log-content {
+  flex: 1;
 }
 
 .log-info .log-content {
@@ -318,5 +331,23 @@ onUnmounted(() => {
 
 .log-vue {
   color: #2196F3;
+}
+
+/* 添加操作类型的特殊样式 */
+.log-line[data-operation="查询列表"] .log-content,
+.log-line[data-operation="查询详情"] .log-content {
+  color: #2196F3;
+}
+
+.log-line[data-operation="新增"] .log-content {
+  color: #4CAF50;
+}
+
+.log-line[data-operation="更新"] .log-content {
+  color: #FFC107;
+}
+
+.log-line[data-operation="删除"] .log-content {
+  color: #F44336;
 }
 </style>

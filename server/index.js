@@ -41,17 +41,70 @@ app.use(bodyParser.json())
 
 // 请求日志中间件
 app.use(async (req, res, next) => {
-  const startTime = Date.now()
-  const logContent = `${req.method} ${req.url}`
-  
-  // 记录数据库查询
-  if (req.url.includes('query') || req.url.includes('list')) {
-    await Logger.databaseLog('QUERY', logContent)
+  const time = new Date().toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+
+  // 判断操作类型和内容
+  let operation = req.method
+  let content = ''
+  let type = 'system'
+
+  // 根据URL判断操作类型
+  if (req.url.includes('/api/')) {
+    type = 'database'
+    
+    // 解析操作类型
+    switch (req.method) {
+      case 'GET':
+        operation = req.url.includes('list') ? '查询列表' : '查询详情'
+        break
+      case 'POST':
+        operation = '新增'
+        break
+      case 'PUT':
+        operation = '更新'
+        break
+      case 'DELETE':
+        operation = '删除'
+        break
+    }
+
+    // 解析操作内容
+    if (req.url.includes('student')) {
+      content = '学生信息'
+    } else if (req.url.includes('score')) {
+      content = '成绩信息'
+    } else if (req.url.includes('class')) {
+      content = '班级信息'
+    } else if (req.url.includes('employee')) {
+      content = '员工信息'
+    } else if (req.url.includes('dept')) {
+      content = '部门信息'
+    } else {
+      content = req.url.split('/').pop()
+    }
   }
+
+  // 组装日志信息
+  const logEntry = {
+    time,
+    type,
+    content: `${operation} ${content}`
+  }
+
+  // 广播日志到所有连接的客户端
+  io.emit('serverLog', logEntry)
   
-  // 记录API访问
-  await Logger.systemLog('API_ACCESS', logContent)
-  
+  // 保存到数据库
+  try {
+    await Logger.saveLog(type, operation, `${operation} ${content}`)
+  } catch (error) {
+    console.error('保存日志失败:', error)
+  }
+
   next()
 })
 

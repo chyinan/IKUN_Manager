@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { 
@@ -61,9 +61,15 @@ import {
   Money,
   TrendCharts
 } from '@element-plus/icons-vue'
-import { getEmployeeList } from '@/api/employee'
-import { getDeptList } from '@/api/dept'
-import type { EmployeeData } from '@/api/employee'
+import { getEmployeeList, getDeptList } from '@/api/employee'
+import type { 
+  EmployeeResponse, 
+  DepartmentResponse, 
+  EmployeeData, 
+  DeptData,
+  ApiEmployeeResponse,
+  ApiDeptResponse 
+} from '@/types/employee'
 
 use([
   CanvasRenderer,
@@ -146,8 +152,40 @@ const salaryOption = ref({
   }]
 })
 
-// 获取统计数据
-const fetchStatistics = async () => {
+// 数据引用
+const employeeData = ref<EmployeeData[]>([])
+const deptData = ref<DeptData[]>([])
+
+// 数据转换函数
+const convertEmployeeData = (data: EmployeeResponse): EmployeeData => ({
+  id: data.id,
+  name: data.name,
+  deptName: data.dept_name,
+  position: data.position,
+  salary: data.salary,
+  status: data.status,
+  joinDate: data.join_date
+})
+
+const convertDeptData = (data: DepartmentResponse): DeptData => ({
+  id: data.id,
+  deptName: data.dept_name,
+  manager: data.manager,
+  memberCount: data.member_count
+})
+
+// 计算属性
+const employeeCount = computed(() => employeeData.value.length)
+const deptCount = computed(() => deptData.value.length)
+const totalSalary = computed(() => 
+  employeeData.value.reduce((sum, emp) => sum + emp.salary, 0)
+)
+const activeEmployees = computed(() => 
+  employeeData.value.filter(emp => emp.status === 'active')
+)
+
+// 获取数据
+const fetchData = async () => {
   try {
     const [empRes, deptRes] = await Promise.all([
       getEmployeeList(),
@@ -155,49 +193,31 @@ const fetchStatistics = async () => {
     ])
 
     if (empRes.code === 200 && empRes.data) {
-      const employees = empRes.data
-      const depts = deptRes.data
-
-      // 更新顶部统计卡片
-      const totalEmployees = employees.length
-      const totalDepts = depts.length
-      const avgSalary = employees.reduce((sum, emp) => sum + Number(emp.salary), 0) / totalEmployees
-      const activeEmployees = employees.filter(emp => emp.status === '在职').length
-      const activeRate = ((activeEmployees / totalEmployees) * 100).toFixed(1)
-
-      summaryData.value[0].value = totalEmployees.toString()
-      summaryData.value[1].value = totalDepts.toString()
-      summaryData.value[2].value = `¥${avgSalary.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`
-      summaryData.value[3].value = `${activeRate}%`
-
-      // 更新部门分布图
-      const deptStats = depts.map(dept => ({
-        name: dept.dept_name,
-        value: employees.filter(emp => emp.department === dept.dept_name).length
-      }))
-      deptDistOption.value.series[0].data = deptStats
-
-      // 更新部门薪资图
-      const deptSalaries = depts.map(dept => {
-        const deptEmps = employees.filter(emp => emp.department === dept.dept_name)
-        const avgSalary = deptEmps.reduce((sum, emp) => sum + Number(emp.salary), 0) / deptEmps.length
-        return {
-          dept: dept.dept_name,
-          salary: avgSalary
-        }
-      })
-
-      salaryOption.value.xAxis.data = deptSalaries.map(d => d.dept)
-      salaryOption.value.series[0].data = deptSalaries.map(d => d.salary)
+      employeeData.value = empRes.data.map(convertEmployeeData)
+    }
+    
+    if (deptRes.code === 200 && deptRes.data) {
+      deptData.value = deptRes.data.map(convertDeptData)
     }
   } catch (error) {
-    console.error('获取统计数据失败:', error)
+    console.error('获取数据失败:', error)
+    ElMessage.error('获取数据失败')
   }
 }
 
-// 初始化
+// 部门统计数据
+const deptStats = computed(() => 
+  deptData.value.map(dept => ({
+    name: dept.deptName,
+    employees: employeeData.value.filter(emp => emp.deptName === dept.deptName),
+    totalSalary: employeeData.value
+      .filter(emp => emp.deptName === dept.deptName)
+      .reduce((sum, emp) => sum + emp.salary, 0)
+  }))
+)
+
 onMounted(() => {
-  fetchStatistics()
+  fetchData()
 })
 </script>
 

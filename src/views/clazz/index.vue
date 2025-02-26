@@ -100,11 +100,21 @@ import type { ClassFormData, ClassResponse, ClassItem } from '@/api/class'
 import { exportToExcel } from '@/utils/export'
 import type { Pagination } from '@/types/pagination'
 
-// 分页相关
+// 分页数据
 const pagination = reactive<Pagination>({
   currentPage: 1,
   pageSize: 10,
   total: 0
+})
+
+// 表单验证规则
+const rules = reactive<FormRules>({
+  className: [
+    { required: true, message: '请输入班级名称', trigger: 'blur' }
+  ],
+  teacher: [
+    { required: true, message: '请输入班主任姓名', trigger: 'blur' }
+  ]
 })
 
 const tableData = ref<ClassItem[]>([])
@@ -122,19 +132,22 @@ const formData = reactive<ClassFormData>({
   teacher: ''
 })
 
+// 数据转换方法
+const convertResponse = (item: ClassItemResponse): ClassItem => ({
+  id: item.id,
+  className: item.class_name,
+  studentCount: item.student_count,
+  teacher: item.teacher,
+  createTime: item.create_time,
+  description: item.description || undefined
+})
+
 // 获取班级列表
 const fetchData = async () => {
   try {
     const res = await getClassList()
     if (res.code === 200 && res.data) {
-      tableData.value = res.data.map(item => ({
-        id: item.id,
-        className: item.class_name,
-        studentCount: item.student_count,
-        teacher: item.teacher,
-        createTime: item.create_time,
-        description: item.description
-      }))
+      tableData.value = res.data.map(convertResponse)
       pagination.total = res.data.length
     }
   } catch (error) {

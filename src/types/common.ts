@@ -5,6 +5,19 @@ export interface Response<T = any> {
   message: string
 }
 
+// API 响应数据类型
+export interface ApiData<T> {
+  code: number
+  data: T
+  message: string
+}
+
+// 后端返回的类型
+export interface BackendResponse<T> {
+  data: T[]
+  total?: number
+}
+
 // 分页相关类型
 export interface Pagination {
   currentPage: number

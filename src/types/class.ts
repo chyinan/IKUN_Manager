@@ -1,6 +1,6 @@
-import type { Response } from './response'
+import type { Response } from './common'
 
-// 后端返回的数据类型
+// 后端返回的班级数据类型
 export interface ClassItemResponse {
   id: number
   class_name: string
@@ -10,7 +10,7 @@ export interface ClassItemResponse {
   description: string | null
 }
 
-// 前端使用的数据类型
+// 前端使用的班级数据类型
 export interface ClassItem {
   id: number
   className: string
@@ -20,13 +20,13 @@ export interface ClassItem {
   description?: string
 }
 
-// 表单数据类型
+// 班级表单数据类型
 export interface ClassFormData {
-  id?: number
   className: string
   teacher: string
   studentCount?: number
   description?: string
 }
 
+// API 响应类型
 export type ClassResponse = Response<ClassItemResponse[]>

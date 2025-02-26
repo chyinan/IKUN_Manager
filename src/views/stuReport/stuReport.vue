@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { 
@@ -110,7 +110,18 @@ import {
 } from '@element-plus/icons-vue'
 import { getStudentList } from '@/api/student'
 import { getClassList } from '@/api/class'
-import { getStudentScore } from '@/api/score'
+import { getStudentScore, getClassScores } from '@/api/score'
+import type { SubjectType, ScoreData, ScoreStatistics } from '@/types/score'
+import type { ClassItem } from '@/types/class'
+import type { StudentItem } from '@/types/student'
+import type { 
+  StatCard,
+  GradeDistribution,
+  SubjectAverage,
+  ClassScoreData
+} from '@/types/statistics'
+import type { ApiResponse } from '@/types/common'
+import type { ScoreReportData, ScoreAnalysis, ChartData } from '@/types/scoreReport'
 
 // 注册组件
 use([
@@ -128,7 +139,7 @@ use([
 
 // 顶部统计数据
 const loading = ref(false)
-const summaryData = ref([
+const summaryData = ref<StatCard[]>([
   {
     title: '总学生数',
     value: '0',
@@ -151,8 +162,16 @@ const summaryData = ref([
 ])
 
 // 添加班级和学生数据的响应式引用
-const students = ref([])
-const classes = ref([])
+const students = ref<StudentItem[]>([])
+const classes = ref<ClassItem[]>([])
+const subjectStatistics = ref<ScoreStatistics>({
+  语文: { sum: 0, count: 0 },
+  数学: { sum: 0, count: 0 },
+  英语: { sum: 0, count: 0 },
+  物理: { sum: 0, count: 0 },
+  化学: { sum: 0, count: 0 },
+  生物: { sum: 0, count: 0 }
+})
 
 // 获取统计数据
 const fetchStatistics = async () => {
@@ -279,56 +298,37 @@ const radarOption = ref({
 // 添加更新雷达图数据的方法
 const updateRadarChart = async () => {
   try {
-    // 获取所有班级的成绩数据
-    const allClassesData = await Promise.all(
+    const allClassesData: ClassScoreData[] = await Promise.all(
       classes.value.map(async (classItem) => {
-        // 获取该班级所有学生
         const classStudents = students.value.filter(
-          student => student.class_name === classItem.class_name
+          student => student.className === classItem.className
         )
 
-        // 添加考试类型参数
         const scoreRes = await Promise.all(
-          classStudents.map(student => getStudentScore(student.id, selectedExamType.value))
+          classStudents.map(student => 
+            getStudentScore(student.id, selectedExamType.value)
+          )
         )
 
-        // 计算各科平均分
-        const subjectTotals = {
-          语文: { sum: 0, count: 0 },
-          数学: { sum: 0, count: 0 },
-          英语: { sum: 0, count: 0 },
-          物理: { sum: 0, count: 0 },
-          化学: { sum: 0, count: 0 },
-          生物: { sum: 0, count: 0 }
-        }
-
-        scoreRes.forEach(res => {
-          if (res.code === 200 && res.data) {
-            Object.entries(res.data).forEach(([subject, score]) => {
-              if (subjectTotals[subject]) {
-                subjectTotals[subject].sum += score
-                subjectTotals[subject].count++
-              }
-            })
-          }
-        })
-
-        // 计算平均分
-        const avgScores = subjectList.map(subject => {
-          const data = subjectTotals[subject]
-          return data.count > 0 ? Number((data.sum / data.count).toFixed(1)) : 0
+        // 计算每个科目的平均分
+        const subjectScores = subjects.map(subject => {
+          const scores = scoreRes
+            .filter(res => res.code === 200 && res.data && res.data[subject])
+            .map(res => res.data![subject])
+          
+          return scores.length > 0 
+            ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1))
+            : 0
         })
 
         return {
-          name: classItem.class_name,
-          value: avgScores
+          name: classItem.className,
+          value: subjectScores
         }
       })
     )
 
-    // 更新雷达图数据
     radarOption.value.series[0].data = allClassesData
-
   } catch (error) {
     console.error('更新雷达图失败:', error)
   }
@@ -512,6 +512,107 @@ onMounted(async () => {
       updateRadarChart()  // 添加雷达图更新
     ])
   }
+})
+
+// 基础数据状态
+const reportData = ref<ScoreReportData>({
+  classStats: {},
+  subjectAnalysis: []
+})
+
+// 柱状图配置
+const barChartOption = computed(() => ({
+  title: { text: '各科平均分对比' },
+  tooltip: { trigger: 'axis' },
+  xAxis: {
+    type: 'category',
+    data: subjects
+  },
+  yAxis: {
+    type: 'value',
+    max: 100,
+    axisLabel: { formatter: '{value}分' }
+  },
+  series: [{
+    name: '平均分',
+    type: 'bar',
+    data: subjects.map(subject => 
+      reportData.value.classStats[selectedClass.value]?.averageScores[subject] || 0
+    )
+  }]
+}))
+
+// 雷达图配置
+const radarChartOption = computed(() => ({
+  title: { text: '班级成绩分布' },
+  radar: {
+    indicator: subjects.map(subject => ({
+      name: subject,
+      max: 100
+    }))
+  },
+  series: [{
+    type: 'radar',
+    data: [{
+      value: subjects.map(subject =>
+        reportData.value.classStats[selectedClass.value]?.averageScores[subject] || 0
+      ),
+      name: selectedClass.value
+    }]
+  }]
+}))
+
+// 获取报表数据
+const fetchReportData = async () => {
+  if (!selectedClass.value || !selectedExamType.value) return
+  
+  try {
+    loading.value = true
+    const res = await getClassScores({
+      className: selectedClass.value,
+      examType: selectedExamType.value
+    })
+    
+    if (res.code === 200 && res.data) {
+      // 处理成绩数据，计算统计信息
+      // ...
+    }
+  } catch (error) {
+    console.error('获取成绩数据失败:', error)
+    ElMessage.error('获取成绩数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 初始化数据
+onMounted(async () => {
+  try {
+    const classRes = await getClassList()
+    if (classRes.code === 200 && classRes.data) {
+      classes.value = classRes.data.map(item => ({
+        id: item.id,
+        className: item.class_name,
+        studentCount: item.student_count,
+        teacher: item.teacher,
+        createTime: item.create_time,
+        description: item.description
+      }))
+      
+      if (classes.value.length > 0) {
+        selectedClass.value = classes.value[0].className
+        await fetchReportData()
+      }
+    }
+  } catch (error) {
+    console.error('初始化数据失败:', error)
+    ElMessage.error('初始化数据失败')
+  }
+})
+
+// 监听选择变化
+watch([selectedClass, selectedExamType], () => {
+  fetchReportData()
 })
 </script>
 

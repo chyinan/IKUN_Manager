@@ -1,4 +1,10 @@
 import request from '@/utils/request'
+import type { 
+  ApiEmployeeResponse,
+  EmployeeFormData,
+  EmployeeResponse,
+  ApiDeptResponse 
+} from '@/types/employee'
 
 export interface EmployeeData {
   id?: number
@@ -35,31 +41,51 @@ export interface EmployeeResponse {
   message: string
 }
 
+// 获取员工列表
 export const getEmployeeList = () => {
-  return request.get<{code: number, data: EmployeeData[]}>('/employee/list')
+  return request.get<EmployeeResponse[]>('/employee/list')
 }
 
-export const addEmployee = (data: EmployeeData) => {
-  return request.post('/employee/add', data)
-}
-
-// 更新员工
-export const updateEmployee = (data: EmployeeData) => {
-  return request.put(`/employee/update/${data.id}`, {
-    empId: data.empId,
+// 添加员工
+export const addEmployee = (data: EmployeeFormData) => {
+  return request.post<EmployeeResponse>('/employee/add', {
+    emp_id: data.empId,
     name: data.name,
     gender: data.gender,
     age: data.age,
     position: data.position,
-    department: data.department,
+    department: data.deptName,
     salary: data.salary,
     status: data.status,
     phone: data.phone,
     email: data.email,
-    joinDate: data.joinDate
+    join_date: data.joinDate
   })
 }
 
+// 更新员工
+export const updateEmployee = (id: number, data: Partial<EmployeeFormData>) => {
+  return request.put<EmployeeResponse>(`/employee/${id}`, {
+    emp_id: data.empId,
+    name: data.name,
+    gender: data.gender,
+    age: data.age,
+    position: data.position,
+    department: data.deptName,
+    salary: data.salary,
+    status: data.status,
+    phone: data.phone,
+    email: data.email,
+    join_date: data.joinDate
+  })
+}
+
+// 删除员工
 export const deleteEmployee = (id: number) => {
-  return request.delete(`/employee/delete/${id}`)
+  return request.delete<void>(`/employee/${id}`)
+}
+
+// 获取部门列表
+export const getDeptList = () => {
+  return request.get<DeptResponse[]>('/dept/list')
 }

@@ -22,6 +22,7 @@ export interface ClassItem {
 
 // 班级表单数据类型
 export interface ClassFormData {
+  id?: number
   className: string
   teacher: string
   studentCount?: number
@@ -29,4 +30,4 @@ export interface ClassFormData {
 }
 
 // API 响应类型
-export type ClassResponse = Response<ClassItemResponse[]>
+export type ApiClassResponse = Response<ClassItemResponse[]>

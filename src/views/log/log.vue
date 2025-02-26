@@ -41,34 +41,27 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Monitor, Delete, Download } from '@element-plus/icons-vue' // 删除 VideoPlay 导入
-import { emitter } from '@/utils/eventBus'
-import { logger } from '@/utils/logger'
-import { io } from 'socket.io-client'
+import { Monitor, Delete, Download } from '@element-plus/icons-vue'
+import { io, Socket } from 'socket.io-client'
+import type { LogEntry, LogType } from '@/types/log'
 import { getLogList } from '@/api/log'
 
-interface LogEntry {
-  time: string
-  type: 'database' | 'system' | 'vue'
-  content: string
-}
-
+// 日志列表
 const logs = ref<LogEntry[]>([])
 const terminalRef = ref<HTMLElement>()
+let socket: Socket
 
 // 统计数据
 const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length)
 const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length)
 const vueCount = computed(() => logs.value.filter(log => log.type === 'vue').length)
 
-// 修改添加日志的方法
+// 添加日志
 const addLog = (log: LogEntry) => {
-  console.log('添加日志:', log)
   logs.value.push(log)
   if (logs.value.length > 1000) {
     logs.value = logs.value.slice(-1000)
   }
-  // 始终滚动到底部
   scrollToBottom()
 }
 
@@ -81,6 +74,25 @@ const scrollToBottom = () => {
   }
 }
 
+// 加载历史日志
+const loadHistoryLogs = async () => {
+  try {
+    const res = await getLogList()
+    if (res.code === 200 && res.data) {
+      const historyLogs = res.data
+        .sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime())
+        .map(log => ({
+          ...log,
+          time: new Date(log.createTime).toLocaleTimeString()
+        }))
+      logs.value = historyLogs
+    }
+  } catch (error) {
+    console.error('加载历史日志失败:', error)
+    ElMessage.error('加载历史日志失败')
+  }
+}
+
 // 清空日志
 const clearLogs = () => {
   logs.value = []
@@ -90,7 +102,7 @@ const clearLogs = () => {
 // 导出日志
 const exportLogs = () => {
   const logText = logs.value
-    .map(log => `[${log.time}] ${log.content}`)
+    .map(log => `[${log.createTime}][${log.type}] ${log.content}`)
     .join('\n')
   
   const blob = new Blob([logText], { type: 'text/plain' })
@@ -106,90 +118,44 @@ const exportLogs = () => {
   ElMessage.success('日志导出成功')
 }
 
-// 创建Socket连接
-const socket = io('http://localhost:3000', {
-  transports: ['websocket'],  // 强制使用WebSocket
-  reconnection: true,         // 启用重连
-  reconnectionAttempts: 5,    // 最大重连次数
-  reconnectionDelay: 1000     // 重连延迟
-})
-
-// 添加连接状态监听
-socket.on('connect', () => {
-  console.log('WebSocket连接成功')
-  addLog({
-    time: new Date().toLocaleTimeString(),
-    type: 'system',
-    content: 'WebSocket连接成功'
+// 初始化 WebSocket
+const initWebSocket = () => {
+  socket = io('http://localhost:3000', {
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000
   })
-})
 
-socket.on('connect_error', (error) => {
-  console.error('WebSocket连接失败:', error)
-  addLog({
-    time: new Date().toLocaleTimeString(),
-    type: 'system',
-    content: `WebSocket连接失败: ${error.message}`
+  socket.on('connect', () => {
+    addLog({
+      type: 'system',
+      operation: 'WEBSOCKET',
+      content: 'WebSocket连接成功',
+      operator: 'system',
+      createTime: new Date().toLocaleString()
+    })
   })
-})
 
-// 修改加载历史日志的方法
-const loadHistoryLogs = async () => {
-  try {
-    const res = await getLogList({ limit: 1000 })
-    if (res.code === 200) {
-      // 将历史日志按时间倒序排列
-      const historyLogs = res.data
-        .sort((a, b) => new Date(b.create_time).getTime() - new Date(a.create_time).getTime())
-        .map(log => ({
-          time: new Date(log.create_time).toLocaleTimeString(),
-          type: log.type,
-          content: log.content
-        }))
-      // 使用新的日志替换当前日志列表
-      logs.value = historyLogs
-    }
-  } catch (error) {
-    console.error('加载历史日志失败:', error)
-  }
+  socket.on('serverLog', (logData: LogEntry) => {
+    addLog(logData)
+  })
+
+  socket.on('connect_error', (error) => {
+    console.error('WebSocket连接失败:', error)
+  })
 }
 
-// 修改socket连接和监听部分
+// 组件挂载与卸载
 onMounted(async () => {
   await loadHistoryLogs()
-  // 订阅本地日志事件
-  emitter.on('log', (log: any) => addLog(log as LogEntry))
-  
-  if (terminalRef.value) {
-    terminalRef.value.addEventListener('scroll', handleScroll)
-  }
-
-  // 监听服务器日志
-  socket.on('serverLog', (logData: LogEntry) => {
-    console.log('收到服务器日志:', logData)
-    
-    // 确保日志格式正确
-    const formattedLog = {
-      time: logData.time || new Date().toLocaleTimeString(),
-      type: logData.type || 'system',
-      content: logData.content || '未知操作'
-    }
-    
-    // 添加到日志列表
-    addLog(formattedLog)
-  })
+  initWebSocket()
 })
 
 onUnmounted(() => {
-  emitter.off('log')
-  if (terminalRef.value) {
-    terminalRef.value.removeEventListener('scroll', handleScroll)
+  if (socket) {
+    socket.disconnect()
   }
-  // 断开Socket连接
-  socket.off('serverLog')
-  socket.off('connect')
-  socket.off('connect_error')
-  socket.disconnect()
 })
 </script>
 

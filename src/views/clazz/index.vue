@@ -93,12 +93,20 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, View, Download } from '@element-plus/icons-vue'
-import { getClassList, addClass, updateClass, deleteClass, getClassStudentCount } from '@/api/class'
 import type { FormInstance, FormRules } from 'element-plus'
-import type { ClassFormData, ClassResponse, ClassItem } from '@/api/class'
+import { Delete, Edit, Plus, Search, View, Download } from '@element-plus/icons-vue'
+import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
+import type { ClassItem, ClassFormData, ClassItemResponse } from '@/types/class'
 import { exportToExcel } from '@/utils/export'
-import type { Pagination } from '@/types/pagination'
+import type { Pagination } from '@/types/common'
+
+// 基础数据状态
+const loading = ref(false)
+const searchKey = ref('')
+const dialogVisible = ref(false)
+const dialogType = ref<'add' | 'edit'>('add')
+const formRef = ref<FormInstance>()
+const tableData = ref<ClassItem[]>([])
 
 // 分页数据
 const pagination = reactive<Pagination>({
@@ -107,29 +115,24 @@ const pagination = reactive<Pagination>({
   total: 0
 })
 
-// 表单验证规则
-const rules = reactive<FormRules>({
-  className: [
-    { required: true, message: '请输入班级名称', trigger: 'blur' }
-  ],
-  teacher: [
-    { required: true, message: '请输入班主任姓名', trigger: 'blur' }
-  ]
-})
-
-const tableData = ref<ClassItem[]>([])
-
-// 数据状态
-const loading = ref(false)
-const searchKey = ref('')
-const dialogVisible = ref(false)
-const dialogType = ref<'add' | 'edit'>('add')
-const formRef = ref<FormInstance>()
-
 // 表单数据
 const formData = reactive<ClassFormData>({
   className: '',
-  teacher: ''
+  teacher: '',
+  studentCount: 0,
+  description: ''
+})
+
+// 表单验证规则
+const rules = reactive<FormRules>({
+  className: [
+    { required: true, message: '请输入班级名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  teacher: [
+    { required: true, message: '请输入班主任姓名', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+  ]
 })
 
 // 数据转换方法
@@ -138,82 +141,37 @@ const convertResponse = (item: ClassItemResponse): ClassItem => ({
   className: item.class_name,
   studentCount: item.student_count,
   teacher: item.teacher,
-  createTime: item.create_time,
+  createTime: new Date(item.create_time).toLocaleString('zh-CN'),
   description: item.description || undefined
 })
 
 // 获取班级列表
 const fetchData = async () => {
   try {
+    loading.value = true
     const res = await getClassList()
     if (res.code === 200 && res.data) {
       tableData.value = res.data.map(convertResponse)
       pagination.total = res.data.length
     }
   } catch (error) {
-    console.error('获取失败:', error)
+    console.error('获取数据失败:', error)
     ElMessage.error('获取数据失败')
+  } finally {
+    loading.value = false
   }
 }
 
 // 搜索过滤
 const filteredTableData = computed(() => {
+  const searchText = searchKey.value.toLowerCase()
   return tableData.value.filter(item =>
-    item.className.toLowerCase().includes(searchKey.value.toLowerCase()) ||
-    item.teacher.toLowerCase().includes(searchKey.value.toLowerCase())
+    item.className.toLowerCase().includes(searchText) ||
+    item.teacher.toLowerCase().includes(searchText)
   )
 })
 
-// 处理新增
-const handleAdd = () => {
-  dialogType.value = 'add'
-  dialogVisible.value = true
-  formData.className = ''
-  formData.teacher = ''
-}
-
-// 处理编辑
-const handleEdit = (row: ClassData) => {
-  dialogType.value = 'edit'
-  dialogVisible.value = true
-  Object.assign(formData, row)
-}
-
-// 修改删除处理方法
-const handleDelete = (row: ClassData) => {
-  ElMessageBox.confirm(
-    `确定要删除班级 ${row.className} 吗？`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(async () => {
-    try {
-      loading.value = true
-      const res = await deleteClass(row.id!)
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-      }
-    } catch (error: any) {
-      console.error('删除失败:', error)
-      if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-        ElMessage.warning('删除可能已成功，正在刷新数据...')
-      } else {
-        ElMessage.error('删除失败')
-      }
-    } finally {
-      loading.value = false
-      // 无论成功失败都刷新数据
-      await fetchData()
-    }
-  }).catch(() => {
-    ElMessage.info('已取消删除')
-  })
-}
-
-// 修改提交表单方法
+// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
   
@@ -221,27 +179,21 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         loading.value = true
-        if (dialogType.value === 'add') {
-          const res = await addClass(formData)
-          if (res.code === 200) {
-            dialogVisible.value = false  // 先关闭对话框
-            ElMessage.success(res.message || '新增班级成功')
-            // 清空表单数据
-            formData.className = ''
-            formData.teacher = ''
-            await fetchData()  // 最后刷新数据
-          } else {
-            ElMessage.error(res.message || '新增失败')
-          }
-        } else {
-          const res = await updateClass(formData)
-          if (res.code === 200) {
-            dialogVisible.value = false  // 先关闭对话框
-            ElMessage.success(res.message || '修改班级成功')
-            await fetchData()  // 最后刷新数据
-          } else {
-            ElMessage.error(res.message || '修改失败')
-          }
+        const submitData = {
+          class_name: formData.className,
+          teacher: formData.teacher,
+          student_count: formData.studentCount || 0,
+          description: formData.description
+        }
+
+        const res = dialogType.value === 'add' 
+          ? await addClass(submitData)
+          : await updateClass(formData.id!, submitData)
+
+        if (res.code === 200) {
+          ElMessage.success(`${dialogType.value === 'add' ? '新增' : '修改'}成功`)
+          dialogVisible.value = false
+          await fetchData()
         }
       } catch (error: any) {
         console.error('操作失败:', error)
@@ -253,32 +205,51 @@ const handleSubmit = async () => {
   })
 }
 
-onMounted(() => {
-  fetchData()
-})
-
-// 导出数据
-const handleExport = () => {
+// 处理删除
+const handleDelete = async (row: ClassItem) => {
   try {
-    const exportData = tableData.value.map(item => ({
-      '班级名称': item.className,
-      '班主任': item.teacher,
-      '学生人数': item.studentCount,
-      '创建时间': item.createTime
-    }))
-    
-    exportToExcel(exportData, `班级数据_${new Date().toLocaleDateString()}`)
-    ElMessage.success('导出成功')
-  } catch (error) {
-    console.error('导出失败:', error)
-    ElMessage.error('导出失败')
+    await ElMessageBox.confirm(
+      `确定要删除班级 ${row.className} 吗？`,
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    loading.value = true
+    const res = await deleteClass(row.id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      await fetchData()
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  } finally {
+    loading.value = false
   }
 }
 
-// 查看详情
-const handleDetail = (row: ClassData) => {
-  ElMessage.info(`查看班级：${row.className}`)
+// 导出数据
+const handleExport = () => {
+  const exportData = tableData.value.map(item => ({
+    '班级名称': item.className,
+    '班主任': item.teacher,
+    '学生人数': item.studentCount,
+    '创建时间': item.createTime
+  }))
+  
+  exportToExcel(exportData, `班级数据_${new Date().toLocaleDateString()}`)
+  ElMessage.success('导出成功')
 }
+
+onMounted(() => {
+  fetchData()
+})
 </script>
 
 <style scoped>

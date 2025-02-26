@@ -1,73 +1,82 @@
 import { emitter } from './eventBus'
+import type { LogType, LogEntry } from '@/types/log'
 
-// 定义日志类型的接口
-interface LogTypes {
-  [key: string]: string  // 索引签名,允许使用字符串作为key
-}
-
-// 定义日志操作类型映射
-const LOG_TYPES: LogTypes = {
+// 操作类型映射
+const LOG_TYPES = {
   INSERT: '新增',
-  UPDATE: '更新', 
+  UPDATE: '更新',
   DELETE: '删除',
   SELECT: '查询'
-}
+} as const
 
-// 定义日志内容类型映射
-const CONTENT_TYPES: LogTypes = {
+// 内容类型映射
+const CONTENT_TYPES = {
   student: '学生信息',
-  class: '班级信息', 
+  class: '班级信息',
   score: '成绩信息',
   employee: '员工信息',
   dept: '部门信息'
-}
+} as const
 
-// 定义日志事件类型
-interface LogEvent {
-  type: 'database' | 'vue' | 'system'
-  time: string
-  content: string
-}
+type OperationType = keyof typeof LOG_TYPES
+type ContentType = keyof typeof CONTENT_TYPES
 
-// 导出日志工具对象
+// 日志工具类
 export const logger = {
-  // 数据库操作日志记录
-  db: (operation: keyof typeof LOG_TYPES, table: keyof typeof CONTENT_TYPES, details: string) => {
+  // 数据库操作日志
+  db: (operation: OperationType, table: ContentType, details: string) => {
     const time = new Date().toLocaleString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     })
 
-    // 发送日志事件
-    emitter.emit('log', {
-      type: 'database', 
-      time,
-      content: `${time} ${LOG_TYPES[operation]}${CONTENT_TYPES[table]}：${details}`
-    } as LogEvent)
+    const logEntry: LogEntry = {
+      type: 'database',
+      operation: LOG_TYPES[operation],
+      content: `${time} ${LOG_TYPES[operation]}${CONTENT_TYPES[table]}: ${details}`,
+      operator: 'system',
+      createTime: time
+    }
+
+    emitter.emit('log', logEntry)
   },
 
-  // Vue操作日志记录
+  // Vue操作日志
   vue: (message: string) => {
-    emitter.emit('log', {
+    const time = new Date().toLocaleString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+
+    const logEntry: LogEntry = {
       type: 'vue',
-      time: new Date().toLocaleTimeString(),
-      content: `[Vue] ${message}`
-    } as LogEvent)
+      operation: 'Vue操作',
+      content: message,
+      operator: 'frontend',
+      createTime: time
+    }
+
+    emitter.emit('log', logEntry)
   },
 
-  // 系统操作日志记录
+  // 系统操作日志
   system: (message: string) => {
     const time = new Date().toLocaleString('zh-CN', {
       hour: '2-digit',
-      minute: '2-digit', 
+      minute: '2-digit',
       second: '2-digit'
     })
-    
-    emitter.emit('log', {
+
+    const logEntry: LogEntry = {
       type: 'system',
-      time,
-      content: `${time} 系统操作：${message}`
-    } as LogEvent)
+      operation: '系统操作',
+      content: message,
+      operator: 'system',
+      createTime: time
+    }
+
+    emitter.emit('log', logEntry)
   }
 }

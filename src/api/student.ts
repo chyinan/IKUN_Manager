@@ -1,4 +1,6 @@
 import request from '@/utils/request'
+import type { StudentItemResponse, StudentFormData } from '@/types/student'
+import type { Response } from '@/types/common'
 
 export interface StudentItem {
   id: number
@@ -29,22 +31,22 @@ export interface StudentResponse {
   message: string
 }
 
+// 获取学生列表
 export const getStudentList = () => {
-  return request.get<StudentResponse>('/student/list')  // 确保路径与后端匹配
+  return request.get<StudentItemResponse[]>('/student/list')
 }
 
+// 添加学生
 export const addStudent = (data: StudentFormData) => {
-  return request.post<StudentResponse>('/student/add', data)
+  return request.post<StudentItemResponse>('/student/add', data)
 }
 
-export const updateStudent = (data: StudentFormData) => {
-  return request.put<StudentResponse>(`/student/update/${data.id}`, data)
+// 更新学生
+export const updateStudent = (id: number, data: Partial<StudentFormData>) => {
+  return request.put<StudentItemResponse>(`/student/${id}`, data)
 }
 
+// 删除学生
 export const deleteStudent = (id: number) => {
-  return request.delete<StudentResponse>(`/student/delete/${id}`)
-}
-
-export const getMaxStudentId = () => {
-  return request.get<{code: number, data: string}>('/student/maxStudentId')
+  return request.delete<void>(`/student/${id}`)
 }

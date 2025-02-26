@@ -1,35 +1,14 @@
 import request from '@/utils/request'
-
-export interface LogData {
-  id: number
-  type: 'system' | 'database' | 'vue'
-  operation: string
-  content: string
-  operator: string
-  create_time: string
-}
-
-export interface LogResponse {
-  code: number
-  data: LogData[]
-  message: string
-}
-
-export interface LogQueryParams {
-  type?: string
-  startTime?: string
-  endTime?: string
-  limit?: number
-}
+import type { LogEntry, LogResponse, LogQueryParams } from '@/types/log'
 
 // 获取日志列表
 export const getLogList = (params: LogQueryParams = {}) => {
-  return request.get<LogResponse>('/log/list', { params })
+  return request.get<LogEntry[]>('/log/list', { params })
 }
 
 // 清空日志
 export const clearLogs = () => {
-  return request.delete<LogResponse>('/log/clear')
+  return request.delete<void>('/log/clear')
 }
 
 // 导出日志

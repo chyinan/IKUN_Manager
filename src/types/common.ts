@@ -1,9 +1,25 @@
 // 通用响应类型
-export interface Response<T = any> {
+export interface ApiResponse<T = any> {
   code: number
   data?: T
   message: string
 }
+
+// 带分页的响应类型
+export interface PageResponse<T = any> extends ApiResponse<T> {
+  total: number
+  pageSize: number
+  currentPage: number
+}
+
+// 基础字段类型
+export interface BaseFields {
+  id: number
+  createTime: string
+  updateTime?: string 
+}
+
+export type ResponseData<T> = T extends Array<any> ? T : T[]
 
 // API 响应数据类型
 export interface ApiData<T> {

@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import type { ApiDeptResponse, DeptFormData, DeptResponse } from '@/types/dept'
 
 export interface DeptData {
   id?: number
@@ -16,17 +17,17 @@ export interface DeptResponse {
 }
 
 export const getDeptList = () => {
-  return request.get<DeptResponse>('/dept/list')
+  return request.get<DeptResponse[]>('/dept/list')
 }
 
-export const addDept = (data: DeptData) => {
+export const addDept = (data: DeptFormData) => {
   return request.post<DeptResponse>('/dept/add', data)
 }
 
-export const updateDept = (data: DeptData) => {
-  return request.put<DeptResponse>(`/dept/update/${data.id}`, data)
+export const updateDept = (id: number, data: Partial<DeptFormData>) => {
+  return request.put<DeptResponse>(`/dept/${id}`, data)
 }
 
 export const deleteDept = (id: number) => {
-  return request.delete<DeptResponse>(`/dept/delete/${id}`)
+  return request.delete<void>(`/dept/${id}`)
 }

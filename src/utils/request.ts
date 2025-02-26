@@ -1,38 +1,36 @@
-import axios from 'axios'
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
-import type { Response } from '@/types/common'
+import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
+import type { ApiResponse } from '@/types/common'
 
-const request = axios.create({
+const request: AxiosInstance = axios.create({
   baseURL: 'http://localhost:3000/api',
   timeout: 5000
 })
 
 request.interceptors.response.use(
-  (response: AxiosResponse<Response<any>>) => {
-    return Promise.resolve(response.data as Response<any>)
+  (response: AxiosResponse<ApiResponse>) => {
+    return Promise.resolve(response.data)
   },
   error => Promise.reject(error)
 )
 
-// 导出类型安全的请求方法
 const http = {
-  get: async <T>(url: string, config?: any): Promise<Response<T>> => {
-    const response = await request.get<Response<T>>(url, config)
+  async get<T>(url: string, config?: any): Promise<ApiResponse<T>> {
+    const response = await request.get<ApiResponse<T>>(url, config)
     return response.data
   },
-  
-  post: async <T>(url: string, data?: any, config?: any): Promise<Response<T>> => {
-    const response = await request.post<Response<T>>(url, data, config)
+
+  async post<T>(url: string, data?: any, config?: any): Promise<ApiResponse<T>> {
+    const response = await request.post<ApiResponse<T>>(url, data, config)  
     return response.data
   },
-  
-  put: async <T>(url: string, data?: any, config?: any): Promise<Response<T>> => {
-    const response = await request.put<Response<T>>(url, data, config)
+
+  async put<T>(url: string, data?: any, config?: any): Promise<ApiResponse<T>> {
+    const response = await request.put<ApiResponse<T>>(url, data, config)
     return response.data
   },
-  
-  delete: async <T>(url: string, config?: any): Promise<Response<T>> => {
-    const response = await request.delete<Response<T>>(url, config)
+
+  async delete<T>(url: string, config?: any): Promise<ApiResponse<T>> {
+    const response = await request.delete<ApiResponse<T>>(url, config)
     return response.data
   }
 }

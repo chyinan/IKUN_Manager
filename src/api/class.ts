@@ -1,5 +1,6 @@
 import request from '@/utils/request'
-import type { ClassResponse, ClassFormData, ClassItemResponse } from '@/types/class'
+import type { ClassItemResponse, ClassFormData } from '@/types/class'
+import type { Response } from '@/types/common'
 
 // 班级数据接口
 export interface ClassItem {
@@ -48,9 +49,6 @@ export const deleteClass = (id: number) => {
 }
 
 // 获取班级实际学生数量
-export const getClassStudentCount = async (classId: number) => {
-  return request({
-    url: `/class/studentCount/${classId}`,
-    method: 'get'
-  })
+export const getClassStudentCount = (classId: number) => {
+  return request.get<number>(`/class/${classId}/student-count`)
 }

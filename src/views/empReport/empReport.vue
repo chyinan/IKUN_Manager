@@ -41,13 +41,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { 
-  PieChart, 
-  BarChart 
-} from 'echarts/charts'
+import { PieChart, BarChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
@@ -55,18 +53,12 @@ import {
   GridComponent
 } from 'echarts/components'
 import VChart from 'vue-echarts'
-import {
-  UserFilled,
-  Briefcase,
-  Money,
-  TrendCharts
-} from '@element-plus/icons-vue'
-import { getEmployeeList, getDeptList } from '@/api/employee'
+import { UserFilled, Briefcase, Money, TrendCharts } from '@element-plus/icons-vue'
+import { getEmployeeList } from '@/api/employee'
+import { getDeptList } from '@/api/dept'
 import type { 
-  EmployeeResponse, 
-  DepartmentResponse, 
-  EmployeeData, 
-  DeptData,
+  EmployeeItem, 
+  DeptItem, 
   ApiEmployeeResponse,
   ApiDeptResponse 
 } from '@/types/employee'
@@ -81,108 +73,86 @@ use([
   GridComponent
 ])
 
-// 基础数据
-const summaryData = ref([
+// 数据状态
+const employeeData = ref<EmployeeItem[]>([])
+const deptData = ref<DeptItem[]>([])
+
+// 统计卡片数据
+const statisticsCards = computed(() => [
   {
     title: '员工总数',
-    value: '0',
-    icon: 'UserFilled',
+    value: employeeData.value.length.toString(),
+    icon: UserFilled,
     color: '#409EFF'
   },
   {
     title: '部门数量',
-    value: '0',
-    icon: 'Briefcase',
+    value: deptData.value.length.toString(),
+    icon: Briefcase,
     color: '#67C23A'
   },
   {
     title: '平均薪资',
-    value: '¥0',
-    icon: 'Money',
+    value: `¥${calculateAverageSalary()}`,
+    icon: Money,
     color: '#E6A23C'
   },
   {
     title: '在职率',
-    value: '0%',
-    icon: 'TrendCharts',
+    value: `${calculateActiveRate()}%`,
+    icon: TrendCharts,
     color: '#F56C6C'
   }
 ])
 
-// 部门分布数据
-const deptDistOption = ref({
-  title: { text: '部门人员分布' },
-  tooltip: {
-    trigger: 'item',
-    formatter: '{a} <br/>{b}: {c} ({d}%)'
-  },
-  legend: {
-    orient: 'vertical',
-    right: 10,
-    top: 'center'
-  },
-  series: [{
-    name: '部门分布',
-    type: 'pie',
-    radius: ['50%', '70%'],
-    avoidLabelOverlap: false,
-    data: []
-  }]
-})
+// 计算平均薪资
+const calculateAverageSalary = () => {
+  if (employeeData.value.length === 0) return 0
+  const total = employeeData.value.reduce((sum, emp) => sum + emp.salary, 0)
+  return (total / employeeData.value.length).toFixed(2)
+}
 
-// 部门平均薪资
-const salaryOption = ref({
-  title: { text: '部门平均薪资(元/月)' },
+// 计算在职率
+const calculateActiveRate = () => {
+  if (employeeData.value.length === 0) return 0
+  const activeCount = employeeData.value.filter(emp => emp.status === '在职').length
+  return ((activeCount / employeeData.value.length) * 100).toFixed(1)
+}
+
+// 薪资分布图配置
+const salaryOption = computed(() => ({
+  title: {
+    text: '部门薪资分布'
+  },
   tooltip: {
     trigger: 'axis',
-    axisPointer: { type: 'shadow' }
+    axisPointer: {
+      type: 'shadow'
+    }
   },
   xAxis: {
     type: 'category',
-    data: []
+    data: deptData.value.map(dept => dept.deptName)
   },
-  yAxis: { type: 'value' },
+  yAxis: {
+    type: 'value',
+    name: '平均薪资(元)'
+  },
   series: [{
-    data: [],
+    data: deptData.value.map(dept => {
+      const deptEmployees = employeeData.value.filter(emp => emp.deptName === dept.deptName)
+      const avgSalary = deptEmployees.length > 0
+        ? deptEmployees.reduce((sum, emp) => sum + emp.salary, 0) / deptEmployees.length
+        : 0
+      return Number(avgSalary.toFixed(2))
+    }),
     type: 'bar',
     showBackground: true,
     backgroundStyle: {
       color: 'rgba(180, 180, 180, 0.2)'
     }
   }]
-})
-
-// 数据引用
-const employeeData = ref<EmployeeData[]>([])
-const deptData = ref<DeptData[]>([])
-
-// 数据转换函数
-const convertEmployeeData = (data: EmployeeResponse): EmployeeData => ({
-  id: data.id,
-  name: data.name,
-  deptName: data.dept_name,
-  position: data.position,
-  salary: data.salary,
-  status: data.status,
-  joinDate: data.join_date
-})
-
-const convertDeptData = (data: DepartmentResponse): DeptData => ({
-  id: data.id,
-  deptName: data.dept_name,
-  manager: data.manager,
-  memberCount: data.member_count
-})
-
-// 计算属性
-const employeeCount = computed(() => employeeData.value.length)
-const deptCount = computed(() => deptData.value.length)
-const totalSalary = computed(() => 
-  employeeData.value.reduce((sum, emp) => sum + emp.salary, 0)
-)
-const activeEmployees = computed(() => 
-  employeeData.value.filter(emp => emp.status === 'active')
-)
+}))
 
 // 获取数据
 const fetchData = async () => {
@@ -193,28 +163,33 @@ const fetchData = async () => {
     ])
 
     if (empRes.code === 200 && empRes.data) {
-      employeeData.value = empRes.data.map(convertEmployeeData)
+      employeeData.value = empRes.data.map(item => ({
+        id: item.id,
+        empId: item.emp_id,
+        name: item.name,
+        deptName: item.dept_name,
+        position: item.position,
+        salary: Number(item.salary),
+        status: item.status,
+        joinDate: item.join_date
+      }))
     }
-    
+
     if (deptRes.code === 200 && deptRes.data) {
-      deptData.value = deptRes.data.map(convertDeptData)
+      deptData.value = deptRes.data.map(item => ({
+        id: item.id,
+        deptName: item.dept_name,
+        manager: item.manager,
+        memberCount: item.member_count,
+        description: item.description || undefined,
+        createTime: new Date(item.create_time).toLocaleString('zh-CN')
+      }))
     }
   } catch (error) {
     console.error('获取数据失败:', error)
     ElMessage.error('获取数据失败')
   }
 }
-
-// 部门统计数据
-const deptStats = computed(() => 
-  deptData.value.map(dept => ({
-    name: dept.deptName,
-    employees: employeeData.value.filter(emp => emp.deptName === dept.deptName),
-    totalSalary: employeeData.value
-      .filter(emp => emp.deptName === dept.deptName)
-      .reduce((sum, emp) => sum + emp.salary, 0)
-  }))
-)
 
 onMounted(() => {
   fetchData()

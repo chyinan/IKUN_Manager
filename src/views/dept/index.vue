@@ -100,7 +100,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'  // 添加图标导入
 import type { FormInstance, FormRules } from 'element-plus'
 import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
-import type { DeptData } from '@/api/dept'
+import type { DeptItem, DeptFormData, DeptResponse } from '@/types/dept'
 
 // 修改表单数据接口定义
 interface DeptFormData {
@@ -119,28 +119,23 @@ const formData = reactive<DeptFormData>({
 
 // 数据状态
 const loading = ref(false)
-const tableData = ref<DeptData[]>([])
+const tableData = ref<DeptItem[]>([])
 
 // 获取部门列表
 const fetchData = async () => {
   loading.value = true
   try {
     const res = await getDeptList()
-    tableData.value = res.data.map(item => ({
-      id: item.id,
-      deptName: item.dept_name,
-      manager: item.manager,
-      memberCount: item.member_count,
-      description: item.description,
-      createTime: new Date(item.create_time)
-        .toLocaleDateString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        })
-        .split('/')
-        .join('-')
-    }))
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.map(item => ({
+        id: item.id,
+        deptName: item.dept_name,
+        manager: item.manager,
+        memberCount: item.member_count,
+        description: item.description || undefined,
+        createTime: new Date(item.create_time).toLocaleString('zh-CN')
+      }))
+    }
   } catch (error) {
     console.error('获取失败:', error)
     ElMessage.error('获取数据失败')

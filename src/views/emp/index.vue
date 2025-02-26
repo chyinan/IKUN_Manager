@@ -165,36 +165,31 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-// 移除 View 图标导入
 import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
-import type { EmployeeData } from '@/api/employee'
-import type { DeptData } from '@/api/dept'
+import type { EmployeeItem, EmployeeFormData, DeptItem } from '@/types/employee'
 import { exportToExcel } from '@/utils/export'
 
-// 基础数据状态
+// 基础数据状态 
 const loading = ref(false)
 const searchKey = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
-const tableData = ref<EmployeeData[]>([])
+const tableData = ref<EmployeeItem[]>([])
 const formRef = ref<FormInstance>()
 const deptFilter = ref('')
 const deptOptions = ref<string[]>([])
 
 // 表单数据
-const formData = reactive<EmployeeData>({
+const formData = reactive<EmployeeFormData>({
   empId: '',
   name: '',
   gender: '男',
   age: 18,
   position: '',
-  department: '',
+  deptName: '',
   salary: 0,
   status: '在职',
   phone: '',
@@ -205,13 +200,21 @@ const formData = reactive<EmployeeData>({
 // 表单验证规则
 const rules = reactive<FormRules>({
   empId: [
-    { required: true, message: '请输入工号', trigger: 'blur' }
+    { required: true, message: '请输入工号', trigger: 'blur' },
+    { pattern: /^\d{6}$/, message: '工号必须为6位数字', trigger: 'blur' }
   ],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' }
   ],
-  department: [
+  deptName: [
     { required: true, message: '请选择部门', trigger: 'change' }
+  ],
+  position: [
+    { required: true, message: '请输入职位', trigger: 'blur' }
+  ],
+  salary: [
+    { required: true, message: '请输入薪资', trigger: 'blur' },
+    { type: 'number', min: 0, message: '薪资不能小于0', trigger: 'blur' }
   ]
 })
 
@@ -230,7 +233,7 @@ const handleAdd = () => {
     gender: '男',
     age: 18,
     position: '',
-    department: '',
+    deptName: '',
     salary: 0,
     status: '在职',
     phone: '',
@@ -239,13 +242,13 @@ const handleAdd = () => {
   })
 }
 
-const handleEdit = (row: EmployeeData) => {
+const handleEdit = (row: EmployeeItem) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
   Object.assign(formData, row)
 }
 
-const handleDelete = async (row: EmployeeData) => {
+const handleDelete = async (row: EmployeeItem) => {
   try {
     await ElMessageBox.confirm(
       `确定要删除员工 ${row.name} 吗？`, 
@@ -314,7 +317,7 @@ const handleExport = () => {
   const exportData = tableData.value.map(item => ({
     '工号': item.empId,
     '姓名': item.name,
-    '部门': item.department,
+    '部门': item.deptName,
     '职位': item.position,
     '薪资': formatSalary(item.salary),
     '状态': item.status
@@ -337,7 +340,7 @@ const filteredTableData = computed(() => {
   return tableData.value.filter(item =>
     (item.empId.toLowerCase().includes(searchKey.value.toLowerCase()) ||
      item.name.toLowerCase().includes(searchKey.value.toLowerCase())) &&
-    (!deptFilter.value || item.department === deptFilter.value)
+    (!deptFilter.value || item.deptName === deptFilter.value)
   )
 })
 
@@ -355,7 +358,7 @@ const fetchData = async () => {
         gender: item.gender,
         age: item.age,
         position: item.position,
-        department: item.department,
+        deptName: item.dept_name,
         salary: Number(item.salary),
         status: item.status,
         phone: item.phone || '',

@@ -77,77 +77,46 @@
 </template>
 
 <script setup lang="ts">
-import BackgroundSlider from '@/views/BackgroundSlider/BackgroundSlider.vue'
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import axios from 'axios'
+import { login, register } from '@/api/user'
+import type { LoginForm, RegisterForm } from '@/types/user'
+import BackgroundSlider from '../BackgroundSlider/BackgroundSlider.vue'
 
 const router = useRouter()
 const loginFormRef = ref<FormInstance>()
 const loading = ref(false)
 
 // 登录表单数据
-const loginForm = reactive({
+const loginForm = reactive<LoginForm>({
   username: '',
   password: ''
 })
 
-// 表单验证规则
-const loginRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' }
-  ]
-}
-
-// 登录处理函数
-const handleLogin = async () => {
-  if (!loginFormRef.value) return
-  
-  await loginFormRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const response = await axios.post('http://localhost:3000/api/user/login', {
-          username: loginForm.username,
-          password: loginForm.password
-        })
-
-        if (response.data.code === 200) {
-          // 保存完整的用户信息
-          localStorage.setItem('token', response.data.data.token)
-          localStorage.setItem('username', response.data.data.username)
-          localStorage.setItem('userId', response.data.data.id)
-          ElMessage.success('登录成功')
-          router.push('/home')
-        } else {
-          ElMessage.error(response.data.message)
-        }
-      } catch (error) {
-        ElMessage.error('登录失败')
-      } finally {
-        loading.value = false
-      }
-    }
-  })
-}
-
-// 注册相关
-const registerVisible = ref(false)
-const registerFormRef = ref<FormInstance>()
-const registerForm = reactive({
+// 注册表单数据
+const registerForm = reactive<RegisterForm>({
   username: '',
-  email: '',    // 新增邮箱字段
   password: '',
+  email: '',
   confirmPassword: ''
 })
 
+// 登录表单验证规则
+const loginRules: FormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
+  ]
+}
+
 // 注册表单验证规则
-const registerRules = reactive<FormRules>({
+const registerRules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
@@ -161,11 +130,11 @@ const registerRules = reactive<FormRules>({
     { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
   ],
   confirmPassword: [
-    { required: true, message: '请确认密码', trigger: 'blur' },
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
     {
-      validator: (rule, value, callback) => {
+      validator: (rule: any, value: string, callback: Function) => {
         if (value !== registerForm.password) {
-          callback(new Error('两次输入密码不一致'))
+          callback(new Error('两次输入密码不一致!'))
         } else {
           callback()
         }
@@ -173,41 +142,6 @@ const registerRules = reactive<FormRules>({
       trigger: 'blur'
     }
   ]
-})
-
-// 显示注册对话框
-const showRegisterDialog = () => {
-  registerVisible.value = true
-}
-
-// 注册处理函数
-const handleRegister = async () => {
-  if (!registerFormRef.value) return
-  
-  await registerFormRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        const response = await axios.post('http://localhost:3000/api/user/register', {
-          username: registerForm.username,
-          email: registerForm.email,    // 添加邮箱字段
-          password: registerForm.password
-        })
-        
-        if (response.data.code === 200) {
-          ElMessage.success('注册成功')
-          registerVisible.value = false
-          registerForm.username = ''
-          registerForm.email = ''
-          registerForm.password = ''
-          registerForm.confirmPassword = ''
-        } else {
-          ElMessage.error(response.data.message)
-        }
-      } catch (error) {
-        ElMessage.error('注册失败')
-      }
-    }
-  })
 }
 </script>
 

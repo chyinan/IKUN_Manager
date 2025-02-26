@@ -107,6 +107,7 @@ import { ElMessage } from 'element-plus'
 import { getClassList } from '@/api/class'
 import { getStudentList } from '@/api/student'
 import { getStudentScore, saveStudentScore, testScoreApi } from '@/api/score'
+import type { SubjectType, ScoreData } from '@/types/score'
 
 const router = useRouter()
 
@@ -122,10 +123,10 @@ const selectedClass = ref('')
 const selectedStudent = ref<number | null>(null)
 
 // 科目列表
-const subjects = ['语文', '数学', '英语', '物理', '化学', '生物']
+const subjects: SubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物']
 
 // 成绩表单数据
-const scoreForm = ref<Record<string, number>>({
+const scoreForm = ref<Record<SubjectType, number>>({
   语文: 0,
   数学: 0,
   英语: 0,
@@ -257,32 +258,34 @@ const handleCancel = () => {
 
 // 修改保存成绩方法
 const handleSave = async () => {
+  if (!selectedStudent.value || !selectedExamType.value) {
+    ElMessage.warning('请选择学生和考试类型')
+    return
+  }
+
   try {
-    if (!selectedStudent.value || !selectedExamType.value) {
-      ElMessage.warning('请选择学生和考试类型')
-      return
+    loading.value = true
+    const today = new Date().toISOString().split('T')[0]
+
+    const scoreData: ScoreData = {
+      ...scoreForm.value,
+      exam_type: selectedExamType.value,
+      exam_time: today
     }
 
-    loading.value = true
-    // 格式化日期为 YYYY-MM-DD
-    const today = new Date()
-    const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-
-    await saveStudentScore(
+    const res = await saveStudentScore(
       selectedStudent.value, 
-      scoreForm.value,
-      selectedExamType.value,
-      formattedDate  // 使用格式化后的日期
+      scoreData
     )
 
-    ElMessage.success('保存成功')
-    // 更新原始成绩
-    originalScores.value = { ...scoreForm.value }
-    isScoreChanged.value = false
-    
-  } catch (error: any) {
+    if (res.code === 200) {
+      ElMessage.success('保存成功')
+      originalScores.value = { ...scoreForm.value }
+      isScoreChanged.value = false
+    }
+  } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error(`保存失败: ${error.response?.data?.message || error.message}`)
+    ElMessage.error('保存失败')
   } finally {
     loading.value = false
   }

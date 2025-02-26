@@ -4,7 +4,7 @@ export interface DeptData {
   id?: number
   deptName: string
   manager: string
-  memberCount: number
+  memberCount?: number // 改为可选
   description?: string
   createTime?: string
 }

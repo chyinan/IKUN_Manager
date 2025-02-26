@@ -3,3 +3,9 @@ export interface Response<T = any> {
   data?: T
   message: string
 }
+
+export interface PageResponse<T = any> extends Response<T> {
+  total: number
+  currentPage: number
+  pageSize: number
+}

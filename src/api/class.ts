@@ -14,8 +14,9 @@ export interface ClassItem {
 export interface ClassFormData {
   id?: number
   className: string
-  studentCount: number
   teacher: string
+  studentCount?: number // 改为可选
+  description?: string
   createTime?: string
 }
 

@@ -1,5 +1,24 @@
 import { emitter } from './eventBus'
 
+interface LogTypes {
+  [key: string]: string
+}
+
+const LOG_TYPES: LogTypes = {
+  INSERT: '新增',
+  UPDATE: '更新',
+  DELETE: '删除',
+  SELECT: '查询'
+}
+
+const CONTENT_TYPES: LogTypes = {
+  student: '学生信息',
+  class: '班级信息',
+  score: '成绩信息',
+  employee: '员工信息',
+  dept: '部门信息'
+}
+
 export const logger = {
   // 数据库操作日志
   db: (operation: string, table: string, details: string) => {

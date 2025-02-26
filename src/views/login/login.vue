@@ -118,8 +118,10 @@ const handleLogin = async () => {
         })
 
         if (response.data.code === 200) {
-          localStorage.setItem('token', 'user-token')
+          // 保存完整的用户信息
+          localStorage.setItem('token', response.data.data.token)
           localStorage.setItem('username', response.data.data.username)
+          localStorage.setItem('userId', response.data.data.id)
           ElMessage.success('登录成功')
           router.push('/home')
         } else {

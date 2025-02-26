@@ -284,6 +284,13 @@ onUnmounted(() => {
 
 .log-content {
   flex: 1;
+  display: flex;
+  gap: 8px;
+}
+
+.log-operator {
+  color: #64B5F6;
+  font-weight: bold;
 }
 
 .log-info .log-content {

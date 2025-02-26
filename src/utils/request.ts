@@ -4,8 +4,9 @@ import { ElMessage } from 'element-plus'
 
 // 创建axios实例
 const request: AxiosInstance = axios.create({
+  // 修改baseURL，添加/api前缀
   baseURL: 'http://localhost:3000/api',
-  timeout: 1000,  // 将超时时间改为1秒
+  timeout: 5000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -20,6 +21,11 @@ request.interceptors.request.use(
         ...config.headers,
         Authorization: `Bearer ${token}`
       }
+    }
+    // 从 localStorage 获取用户信息
+    const username = localStorage.getItem('username')
+    if (username) {
+      config.headers['x-user-name'] = username
     }
     return config
   },

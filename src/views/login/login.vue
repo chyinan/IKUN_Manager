@@ -87,7 +87,65 @@ import BackgroundSlider from '../BackgroundSlider/BackgroundSlider.vue'
 
 const router = useRouter()
 const loginFormRef = ref<FormInstance>()
+const registerFormRef = ref<FormInstance>() // 添加注册表单引用
 const loading = ref(false)
+const registerVisible = ref(false) // 添加注册对话框可见性状态
+
+// 显示注册对话框
+const showRegisterDialog = () => {
+  registerVisible.value = true
+}
+
+// 登录处理
+const handleLogin = async () => {
+  if (!loginFormRef.value) return
+  
+  try {
+    loading.value = true
+    await loginFormRef.value.validate()
+    
+    const res = await login(loginForm)
+    if (res.code === 200 && res.data) {
+      ElMessage.success('登录成功')
+      // 确保数据存在再存储
+      localStorage.setItem('token', res.data.token)
+      localStorage.setItem('username', res.data.username)
+      router.push('/index')
+    } else {
+      ElMessage.error(res.message || '登录失败')
+    }
+  } catch (error: any) {
+    console.error('登录失败:', error)
+    ElMessage.error(error.message || '登录失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 注册处理
+const handleRegister = async () => {
+  if (!registerFormRef.value) return
+  
+  try {
+    await registerFormRef.value.validate()
+    const res = await register(registerForm)
+    
+    if (res.code === 200) {
+      ElMessage.success('注册成功')
+      registerVisible.value = false
+      // 清空表单
+      registerForm.username = ''
+      registerForm.password = ''
+      registerForm.email = ''
+      registerForm.confirmPassword = ''
+    } else {
+      ElMessage.error(res.message || '注册失败')
+    }
+  } catch (error: any) {
+    console.error('注册失败:', error)
+    ElMessage.error(error.message || '注册失败')
+  }
+}
 
 // 登录表单数据
 const loginForm = reactive<LoginForm>({

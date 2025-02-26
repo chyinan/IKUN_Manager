@@ -1,6 +1,6 @@
 import request from '@/utils/request'
-import type { ClassItemResponse, ClassFormData } from '@/types/class'
-import type { Response } from '@/types/common'
+import type { ClassItemResponse, ClassFormData as TypeClassFormData } from '@/types/class'
+import type { ApiResponse } from '@/types/common'
 
 // 班级数据接口
 export interface ClassItem {
@@ -12,21 +12,8 @@ export interface ClassItem {
   description: string | null
 }
 
-export interface ClassFormData {
-  id?: number
-  className: string
-  teacher: string
-  studentCount?: number // 改为可选
-  description?: string
-  createTime?: string
-}
-
 // API响应接口
-export interface ClassResponse {
-  code: number
-  data: ClassItem[]
-  message: string
-}
+export type ClassResponse = ApiResponse<ClassItem[]>
 
 // 获取班级列表
 export const getClassList = () => {
@@ -34,12 +21,12 @@ export const getClassList = () => {
 }
 
 // 添加班级
-export const addClass = (data: ClassFormData) => {
+export const addClass = (data: TypeClassFormData) => {
   return request.post<ClassItemResponse>('/class/add', data)
 }
 
 // 更新班级
-export const updateClass = (id: number, data: Partial<ClassFormData>) => {
+export const updateClass = (id: number, data: Partial<TypeClassFormData>) => {
   return request.put<ClassItemResponse>(`/class/${id}`, data)
 }
 

@@ -7,20 +7,22 @@ const request: AxiosInstance = axios.create({
 })
 
 request.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse>) => {
-    return Promise.resolve(response.data)
+  <T>(response: AxiosResponse<ApiResponse<T>>): AxiosResponse<ApiResponse<T>> => {
+    response.data = response.data;
+    return response;
   },
   error => Promise.reject(error)
 )
 
-const http = {
+// 请求方法
+export const http = {
   async get<T>(url: string, config?: any): Promise<ApiResponse<T>> {
     const response = await request.get<ApiResponse<T>>(url, config)
     return response.data
   },
 
   async post<T>(url: string, data?: any, config?: any): Promise<ApiResponse<T>> {
-    const response = await request.post<ApiResponse<T>>(url, data, config)  
+    const response = await request.post<ApiResponse<T>>(url, data, config)
     return response.data
   },
 

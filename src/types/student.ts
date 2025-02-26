@@ -1,5 +1,6 @@
-import type { Response } from './common'
+import type { ApiResponse, SubjectType } from './common'
 
+// 成绩响应数据
 export interface StudentScoreResponse {
   student_id: string
   name: string
@@ -20,7 +21,8 @@ export interface StudentScore {
   examTime: string
 }
 
-export type SubjectType = '语文' | '数学' | '英语' | '物理' | '化学' | '生物'
+// 删除重复的 SubjectType 定义，使用从 common 导入的类型
+// export type SubjectType = '语文' | '数学' | '英语' | '物理' | '化学' | '生物'
 
 export interface ScoreStatistics {
   sum: number
@@ -31,7 +33,7 @@ export interface ClassScoreStats {
   [subject: string]: ScoreStatistics
 }
 
-export type ApiStudentScoreResponse = Response<StudentScoreResponse[]>
+export type ApiStudentScoreResponse = ApiResponse<StudentScoreResponse[]>
 
 // 后端返回的学生数据类型
 export interface StudentItemResponse {
@@ -72,4 +74,4 @@ export interface StudentFormData {
 }
 
 // API 响应类型
-export type ApiStudentResponse = Response<StudentItemResponse[]>
+export type ApiStudentResponse = ApiResponse<StudentItemResponse[]>

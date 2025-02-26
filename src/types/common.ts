@@ -1,4 +1,4 @@
-// 通用响应类型
+// 基础通用类型定义
 export interface ApiResponse<T = any> {
   code: number
   data?: T
@@ -81,7 +81,7 @@ export interface EmployeeItem {
   joinDate: string
 }
 
-// 成绩科目类型
+// 科目相关类型
 export type SubjectType = '语文' | '数学' | '英语' | '物理' | '化学' | '生物'
 
 // 科目成绩接口
@@ -113,9 +113,9 @@ export interface LogItem {
 }
 
 // API 响应类型
-export type ClassResponse = Response<ClassItem[]>
-export type StudentResponse = Response<StudentItem[]>
-export type DeptResponse = Response<DeptItem[]>
-export type EmployeeResponse = Response<EmployeeItem[]>
-export type ScoreResponse = Response<ScoreData>
-export type LogResponse = Response<LogItem[]>
+export type ClassResponse = ApiResponse<ClassItem[]>
+export type StudentResponse = ApiResponse<StudentItem[]>
+export type DeptResponse = ApiResponse<DeptItem[]>
+export type EmployeeResponse = ApiResponse<EmployeeItem[]>
+export type ScoreResponse = ApiResponse<ScoreData>
+export type LogResponse = ApiResponse<LogItem[]>

@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { ApiDeptResponse, DeptFormData, DeptResponse } from '@/types/dept'
+import type { ApiDeptResponse, DeptFormData, DeptResponse as ImportedDeptResponse } from '@/types/dept'
 
 export interface DeptData {
   id?: number
@@ -10,22 +10,22 @@ export interface DeptData {
   createTime?: string
 }
 
-export interface DeptResponse {
+export interface LocalDeptResponse {
   code: number
   data: DeptData[]
   message: string
 }
 
 export const getDeptList = () => {
-  return request.get<DeptResponse[]>('/dept/list')
+  return request.get<LocalDeptResponse[]>('/dept/list')
 }
 
 export const addDept = (data: DeptFormData) => {
-  return request.post<DeptResponse>('/dept/add', data)
+  return request.post<LocalDeptResponse>('/dept/add', data)
 }
 
 export const updateDept = (id: number, data: Partial<DeptFormData>) => {
-  return request.put<DeptResponse>(`/dept/${id}`, data)
+  return request.put<LocalDeptResponse>(`/dept/${id}`, data)
 }
 
 export const deleteDept = (id: number) => {

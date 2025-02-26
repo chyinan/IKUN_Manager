@@ -86,6 +86,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { 
@@ -112,16 +113,29 @@ import { getStudentList } from '@/api/student'
 import { getClassList } from '@/api/class'
 import { getStudentScore, getClassScores } from '@/api/score'
 import type { SubjectType, ScoreData, ScoreStatistics } from '@/types/score'
-import type { ClassItem } from '@/types/class'
-import type { StudentItem } from '@/types/student'
+// import type { ClassItem } from '@/types/class' (removed duplicate import)
+// import type { StudentItem } from '@/types/student' (removed duplicate import)
 import type { 
   StatCard,
   GradeDistribution,
   SubjectAverage,
-  ClassScoreData
+  ClassScoreData,
+  SubjectStats,
+  ClassStats
 } from '@/types/statistics'
 import type { ApiResponse } from '@/types/common'
 import type { ScoreReportData, ScoreAnalysis, ChartData } from '@/types/scoreReport'
+import type { 
+  StudentItemResponse,
+  StudentItem 
+} from '@/types/student'
+import type { 
+  ClassItemResponse,
+  ClassItem 
+} from '@/types/class'
+
+// 添加在 script setup 内部最前面
+const subjects: SubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物'] as const
 
 // 注册组件
 use([
@@ -161,7 +175,7 @@ const summaryData = ref<StatCard[]>([
   // 移除平均分统计卡片
 ])
 
-// 添加班级和学生数据的响应式引用
+// 更新基础数据状态
 const students = ref<StudentItem[]>([])
 const classes = ref<ClassItem[]>([])
 const subjectStatistics = ref<ScoreStatistics>({
@@ -173,6 +187,46 @@ const subjectStatistics = ref<ScoreStatistics>({
   生物: { sum: 0, count: 0 }
 })
 
+// 添加类型定义
+interface SubjectTotal {
+  sum: number
+  count: number
+}
+
+type SubjectTotals = Record<SubjectType, SubjectTotal>
+
+// 修改 subjectTotals 的定义
+const subjectTotals = ref<Record<SubjectType, { sum: number; count: number }>>({
+  语文: { sum: 0, count: 0 },
+  数学: { sum: 0, count: 0 },
+  英语: { sum: 0, count: 0 },
+  物理: { sum: 0, count: 0 },
+  化学: { sum: 0, count: 0 },
+  生物: { sum: 0, count: 0 }
+})
+
+// 数据转换函数
+const convertStudentResponse = (item: StudentItemResponse): StudentItem => ({
+  id: item.id,
+  studentId: item.student_id,
+  name: item.name,
+  gender: item.gender,
+  className: item.class_name,
+  phone: item.phone,
+  email: item.email,
+  joinDate: item.join_date,
+  createTime: item.create_time
+})
+
+const convertClassResponse = (item: ClassItemResponse): ClassItem => ({
+  id: item.id,
+  className: item.class_name,
+  studentCount: item.student_count,
+  teacher: item.teacher,
+  createTime: item.create_time,
+  description: item.description
+})
+
 // 获取统计数据
 const fetchStatistics = async () => {
   try {
@@ -181,10 +235,11 @@ const fetchStatistics = async () => {
       getClassList()
     ])
 
+    // 为 students 和 classes 添加类型断言
     if (studentRes.code === 200 && classRes.code === 200) {
-      students.value = studentRes.data
-      classes.value = classRes.data
-      classList.value = classRes.data.map(item => item.class_name)
+      students.value = studentRes.data?.map(convertStudentResponse) || []
+      classes.value = classRes.data?.map(convertClassResponse) || []
+      classList.value = classes.value.map(c => c.className)
 
       // 更新基础统计数据
       summaryData.value[0].value = students.value.length.toString()
@@ -205,7 +260,7 @@ const updateGradeDistribution = async () => {
   try {
     // 获取选中班级的所有学生
     const classStudents = students.value.filter(
-      student => student.class_name === selectedClass.value
+      student => student.className === selectedClass.value
     )
 
     // 添加考试类型参数
@@ -225,10 +280,10 @@ const updateGradeDistribution = async () => {
     scoreRes.forEach(res => {
       if (res.code === 200 && res.data) {
         Object.values(res.data).forEach(score => {
-          if (score < 60) distribution['<60']++
-          else if (score < 70) distribution['60-70']++
-          else if (score < 80) distribution['70-80']++
-          else if (score < 90) distribution['80-90']++
+          if (Number(score) < 60) distribution['<60']++
+          else if (Number(score) < 70) distribution['60-70']++
+          else if (Number(score) < 80) distribution['70-80']++
+          else if (Number(score) < 90) distribution['80-90']++
           else distribution['90-100']++
         })
       }
@@ -266,7 +321,7 @@ const gradeDistOption = ref({
   }]
 })
 
-// 能力雷达图配置
+// 修改雷达图配置
 const radarOption = ref({
   title: {
     text: '各班级学科能力分析'
@@ -291,49 +346,33 @@ const radarOption = ref({
   },
   series: [{
     type: 'radar',
-    data: []
+    data: [] as Array<{
+      name: string
+      value: number[]
+    }>
   }]
 })
 
 // 添加更新雷达图数据的方法
 const updateRadarChart = async () => {
   try {
-    const allClassesData: ClassScoreData[] = await Promise.all(
-      classes.value.map(async (classItem) => {
-        const classStudents = students.value.filter(
-          student => student.className === classItem.className
-        )
-
-        const scoreRes = await Promise.all(
-          classStudents.map(student => 
-            getStudentScore(student.id, selectedExamType.value)
-          )
-        )
-
-        // 计算每个科目的平均分
-        const subjectScores = subjects.map(subject => {
-          const scores = scoreRes
-            .filter(res => res.code === 200 && res.data && res.data[subject])
-            .map(res => res.data![subject])
-          
-          return scores.length > 0 
-            ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1))
-            : 0
+    const allClassesData = computed<ClassScoreData[]>(() => 
+      classes.value.map(classItem => ({
+        name: classItem.className,
+        value: subjects.map(subject => {
+          const stats = subjectTotals.value[subject]
+          return stats.count > 0 ? Number((stats.sum / stats.count).toFixed(1)) : 0
         })
-
-        return {
-          name: classItem.className,
-          value: subjectScores
-        }
-      })
+      }))
     )
 
-    radarOption.value.series[0].data = allClassesData
+    radarOption.value.series[0].data = allClassesData.value
   } catch (error) {
     console.error('更新雷达图失败:', error)
   }
 }
 
+// 修改平均分图表配置
 const avgScoreOption = ref({
   title: {
     text: '班级各科平均分'
@@ -364,23 +403,21 @@ const avgScoreOption = ref({
   series: [{
     name: '平均分',
     type: 'bar',
-    data: [],
-    label: {
-      show: true,
-      position: 'right',
-      formatter: '{c} 分'
-    }
+    data: [] as Array<{
+      value: number
+      name: string
+    }>
   }]
 })
 
-// 更新班级各科平均分数据
+// 修改数据更新逻辑
 const updateAvgScores = async () => {
   if (!selectedClass.value) return
 
   try {
     // 获取选中班级的所有学生
     const classStudents = students.value.filter(
-      student => student.class_name === selectedClass.value
+      student => student.className === selectedClass.value
     )
 
     // 添加考试类型参数
@@ -398,12 +435,14 @@ const updateAvgScores = async () => {
       生物: { sum: 0, count: 0 }
     }
 
+    // 修改更新逻辑
     scoreRes.forEach(res => {
       if (res.code === 200 && res.data) {
         Object.entries(res.data).forEach(([subject, score]) => {
-          if (subjectTotals[subject]) {
-            subjectTotals[subject].sum += score
-            subjectTotals[subject].count++
+          if (subject in subjectTotals) {
+            const subjectKey = subject as SubjectType
+            subjectTotals[subjectKey].sum += Number(score)
+            subjectTotals[subjectKey].count++
           }
         })
       }
@@ -416,7 +455,10 @@ const updateAvgScores = async () => {
     }))
 
     // 更新图表数据
-    avgScoreOption.value.series[0].data = avgScores.map(item => item.avg)
+    avgScoreOption.value.series[0].data = avgScores.map(item => ({
+      value: item.avg,
+      name: item.subject
+    }))
 
   } catch (error) {
     console.error('更新班级平均分失败:', error)
@@ -553,12 +595,13 @@ const radarChartOption = computed(() => ({
   },
   series: [{
     type: 'radar',
-    data: [{
-      value: subjects.map(subject =>
-        reportData.value.classStats[selectedClass.value]?.averageScores[subject] || 0
-      ),
-      name: selectedClass.value
-    }]
+    data: classes.value.map(classItem => ({
+      name: classItem.className,
+      value: subjects.map(subject => {
+        const stats = subjectTotals.value[subject]
+        return stats.count > 0 ? Number((stats.sum / stats.count).toFixed(1)) : 0
+      })
+    }))
   }]
 }))
 

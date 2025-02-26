@@ -14,9 +14,11 @@ router.post('/login', async (req, res) => {
     )
 
     if (rows.length > 0) {
+      // 修改返回数据结构
       res.json({
         code: 200,
         data: {
+          token: 'mock-token', // 为了演示先使用mock token
           username: rows[0].username,
           email: rows[0].email
         },

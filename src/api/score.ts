@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { ScoreData, ScoreQueryParams, ApiScoreResponse } from '@/types/score'
+import type { ScoreData, ScoreQueryParams, ApiScoreResponse, ScoreDistribution, SubjectType } from '@/types/score'
 
 // 获取学生成绩
 export const getStudentScore = (

@@ -1,3 +1,5 @@
+import type { ApiResponse } from './common'
+
 // 用户相关类型定义
 export interface UserInfo {
   id: number
@@ -26,12 +28,12 @@ export interface PasswordForm {
   confirmPassword: string
 }
 
-// API响应类型
-export interface LoginResponse {
-  code: number
-  data: {
-    token: string
-    username: string
-  }
-  message: string
+// 登录返回的数据结构
+export interface LoginResponseData {
+  token: string
+  username: string
+  email?: string
 }
+
+// API响应类型
+export type LoginResponse = ApiResponse<LoginResponseData>

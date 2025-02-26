@@ -1,28 +1,24 @@
-import type { Response } from './common'
+import type { SubjectType, ApiResponse } from './common'
+export type { SubjectType } // 重新导出类型
 
-// 科目类型常量
-export type SubjectType = '语文' | '数学' | '英语' | '物理' | '化学' | '生物'
-
-// 单科成绩统计
-export interface SubjectScore {
-  sum: number
-  count: number
-  avg?: number
-}
-
-// 成绩数据
-export interface ScoreData {
-  [key in SubjectType]: number
+// 成绩数据类型
+export type ScoreData = {
+  [K in SubjectType]: number
+} & {
   exam_type?: string
   exam_time?: string
 }
 
-// 班级成绩统计
-export interface ClassScoreStats {
-  [key in SubjectType]: SubjectScore
+// 统计数据
+export type ScoreStatistics = {
+  [K in SubjectType]: {
+    sum: number
+    count: number
+    avg?: number
+  }
 }
 
-// 成绩分布
+// 分布数据
 export interface ScoreDistribution {
   '<60': number
   '60-70': number
@@ -41,4 +37,4 @@ export interface ScoreQueryParams {
 }
 
 // API响应类型
-export type ApiScoreResponse = Response<ScoreData>
+export type ApiScoreResponse = ApiResponse<ScoreData>

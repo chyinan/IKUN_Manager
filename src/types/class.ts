@@ -1,4 +1,4 @@
-import type { Response } from './common'
+import type { ApiResponse } from './common'
 
 // 后端返回的班级数据类型
 export interface ClassItemResponse {
@@ -17,7 +17,7 @@ export interface ClassItem {
   studentCount: number
   teacher: string
   createTime: string
-  description?: string
+  description: string | null | undefined
 }
 
 // 班级表单数据类型
@@ -30,4 +30,4 @@ export interface ClassFormData {
 }
 
 // API 响应类型
-export type ApiClassResponse = Response<ClassItemResponse[]>
+export type ApiClassResponse = ApiResponse<ClassItemResponse[]>

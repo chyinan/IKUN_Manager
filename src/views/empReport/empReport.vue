@@ -77,8 +77,8 @@ use([
 const employeeData = ref<EmployeeItem[]>([])
 const deptData = ref<DeptItem[]>([])
 
-// 统计卡片数据
-const statisticsCards = computed(() => [
+// 修复 summaryData 未定义的错误
+const summaryData = computed(() => [
   {
     title: '员工总数',
     value: employeeData.value.length.toString(),
@@ -154,6 +154,24 @@ const salaryOption = computed(() => ({
   }]
 }))
 
+// 添加部门分布图配置
+const deptDistOption = computed(() => ({
+  title: {
+    text: '部门人员分布'
+  },
+  tooltip: {
+    trigger: 'item'
+  },
+  series: [{
+    type: 'pie',
+    radius: '70%',
+    data: deptData.value.map(dept => ({
+      name: dept.deptName,
+      value: dept.memberCount
+    }))
+  }]
+}))
+
 // 获取数据
 const fetchData = async () => {
   try {
@@ -167,11 +185,16 @@ const fetchData = async () => {
         id: item.id,
         empId: item.emp_id,
         name: item.name,
+        gender: item.gender,
+        age: item.age,
         deptName: item.dept_name,
         position: item.position,
         salary: Number(item.salary),
         status: item.status,
-        joinDate: item.join_date
+        phone: item.phone || undefined,
+        email: item.email || undefined,
+        joinDate: item.join_date,
+        createTime: new Date(item.createTime).toLocaleString('zh-CN') // 修改这里: create_time -> createTime
       }))
     }
 
@@ -182,7 +205,7 @@ const fetchData = async () => {
         manager: item.manager,
         memberCount: item.member_count,
         description: item.description || undefined,
-        createTime: new Date(item.create_time).toLocaleString('zh-CN')
+        createTime: new Date(item.createTime).toLocaleString('zh-CN') // 修正字段名
       }))
     }
   } catch (error) {

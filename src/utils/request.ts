@@ -1,5 +1,5 @@
-import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
-import { ElMessage } from 'element-plus'
+import axios from 'axios'
+import type { AxiosResponse, InternalAxiosRequestConfig, AxiosRequestHeaders } from 'axios'
 import type { Response } from '@/types/common'
 
 const request = axios.create({
@@ -7,7 +7,7 @@ const request = axios.create({
   timeout: 5000,
   headers: {
     'Content-Type': 'application/json'
-  }
+  } as AxiosRequestHeaders
 })
 
 request.interceptors.request.use(
@@ -15,7 +15,7 @@ request.interceptors.request.use(
     const token = localStorage.getItem('token')
     const username = localStorage.getItem('username')
     
-    if (!config.headers) config.headers = {}
+    config.headers = config.headers || {}
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -30,7 +30,7 @@ request.interceptors.request.use(
 )
 
 request.interceptors.response.use(
-  <T>(response: AxiosResponse<Response<T>>): Response<T> => {
+  (response: AxiosResponse<Response<any>>) => {
     return response.data
   },
   error => {
@@ -38,14 +38,14 @@ request.interceptors.response.use(
       return {
         code: 200,
         message: '操作可能已成功，正在刷新数据...'
-      } as Response
+      } as Response<any>
     }
-    ElMessage.error(error.message || '请求失败')
     return Promise.reject(error)
   }
 )
 
-const customRequest = {
+// 创建请求方法
+const http = {
   get: <T>(url: string, config?: any): Promise<Response<T>> => 
     request.get<any, Response<T>>(url, config),
   
@@ -59,4 +59,4 @@ const customRequest = {
     request.delete<any, Response<T>>(url, config)
 }
 
-export default customRequest
+export default http

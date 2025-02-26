@@ -58,9 +58,9 @@
 
     <!-- 分页器 -->
     <el-pagination
-      v-model:current-page="currentPage"
-      v-model:page-size="pageSize"
-      :total="total"
+      v-model:current-page="pagination.currentPage"
+      v-model:page-size="pagination.pageSize"
+      :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
       class="pagination" />
@@ -98,10 +98,15 @@ import { getClassList, addClass, updateClass, deleteClass, getClassStudentCount 
 import type { FormInstance, FormRules } from 'element-plus'
 import type { ClassFormData, ClassResponse, ClassItem } from '@/api/class'
 import { exportToExcel } from '@/utils/export'
+import type { Pagination } from '@/types/pagination'
 
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
+// 分页相关
+const pagination = reactive<Pagination>({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
+
 const tableData = ref<ClassItem[]>([])
 
 // 数据状态
@@ -119,35 +124,22 @@ const formData = reactive<ClassFormData>({
 
 // 获取班级列表
 const fetchData = async () => {
-  loading.value = true
   try {
     const res = await getClassList()
-    // 获取每个班级的实际学生数量
-    const classesWithCount = await Promise.all(
-      res.data.map(async (item: ClassItem) => {
-        const countRes = await getClassStudentCount(item.id)
-        return {
-          id: item.id,
-          className: item.class_name,
-          studentCount: countRes.data, // 使用实际的学生数量
-          teacher: item.teacher,
-          createTime: new Date(item.create_time)
-            .toLocaleDateString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit'
-            })
-            .split('/')
-            .join('-')
-        }
-      })
-    )
-    tableData.value = classesWithCount
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.map(item => ({
+        id: item.id,
+        className: item.class_name,
+        studentCount: item.student_count,
+        teacher: item.teacher,
+        createTime: item.create_time,
+        description: item.description
+      }))
+      pagination.total = res.data.length
+    }
   } catch (error) {
     console.error('获取失败:', error)
     ElMessage.error('获取数据失败')
-  } finally {
-    loading.value = false
   }
 }
 

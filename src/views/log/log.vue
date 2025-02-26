@@ -10,9 +10,6 @@
         <el-button type="warning" @click="clearLogs">
           <el-icon><Delete /></el-icon>清空日志
         </el-button>
-        <el-button type="primary" @click="toggleAutoScroll">
-          <el-icon><VideoPlay /></el-icon>{{ autoScroll ? '暂停滚动' : '开始滚动' }}
-        </el-button>
         <el-button type="success" @click="exportLogs">
           <el-icon><Download /></el-icon>导出日志
         </el-button>
@@ -21,8 +18,7 @@
 
     <!-- 日志显示区域 -->
     <div class="log-terminal" 
-      ref="terminalRef" 
-      @scroll="handleScroll">
+      ref="terminalRef">
       <div 
         v-for="(log, index) in logs" 
         :key="index"
@@ -45,7 +41,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Monitor, Delete, Download, VideoPlay } from '@element-plus/icons-vue'
+import { Monitor, Delete, Download } from '@element-plus/icons-vue' // 删除 VideoPlay 导入
 import { emitter } from '@/utils/eventBus'
 import { logger } from '@/utils/logger'
 import { io } from 'socket.io-client'
@@ -59,7 +55,6 @@ interface LogEntry {
 
 const logs = ref<LogEntry[]>([])
 const terminalRef = ref<HTMLElement>()
-const autoScroll = ref(true)
 
 // 统计数据
 const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length)
@@ -69,16 +64,12 @@ const vueCount = computed(() => logs.value.filter(log => log.type === 'vue').len
 // 修改添加日志的方法
 const addLog = (log: LogEntry) => {
   console.log('添加日志:', log)
-  // 在数组末尾添加新日志
   logs.value.push(log)
-  // 限制日志数量，保留最新的1000条
   if (logs.value.length > 1000) {
     logs.value = logs.value.slice(-1000)
   }
-  // 如果开启了自动滚动，滚动到底部
-  if (autoScroll.value) {
-    scrollToBottom()
-  }
+  // 始终滚动到底部
+  scrollToBottom()
 }
 
 // 滚动到底部
@@ -90,33 +81,10 @@ const scrollToBottom = () => {
   }
 }
 
-// 滚动处理
-const handleScroll = () => {
-  if (!terminalRef.value) return
-  
-  const { scrollTop, scrollHeight, clientHeight } = terminalRef.value
-  const atBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10
-  
-  if (!atBottom && autoScroll.value) {
-    autoScroll.value = false
-  }
-  if (atBottom && !autoScroll.value) {
-    autoScroll.value = true
-  }
-}
-
 // 清空日志
 const clearLogs = () => {
   logs.value = []
   ElMessage.success('日志已清空')
-}
-
-// 切换自动滚动
-const toggleAutoScroll = () => {
-  autoScroll.value = !autoScroll.value
-  if (autoScroll.value) {
-    scrollToBottom()
-  }
 }
 
 // 导出日志

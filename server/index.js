@@ -86,65 +86,24 @@ app.use(async (req, res, next) => {
     } else {
       content = req.url.split('/').pop()
     }
+
+    // 组装日志信息
+    const logEntry = {
+      time,
+      type,
+      content: `${operation} ${content}`
+    }
+
+    // 保存到数据库并广播
+    try {
+      await Logger.saveLog(type, operation, `${operation} ${content}`)
+      io.emit('serverLog', logEntry)
+      console.log(`[${time}] ${logEntry.content}`)
+    } catch (error) {
+      console.error('保存日志失败:', error)
+    }
   }
 
-  // 组装日志信息
-  const logEntry = {
-    time,
-    type,
-    content: `${operation} ${content}`
-  }
-
-  // 广播日志到所有连接的客户端
-  io.emit('serverLog', logEntry)
-  
-  // 保存到数据库
-  try {
-    await Logger.saveLog(type, operation, `${operation} ${content}`)
-  } catch (error) {
-    console.error('保存日志失败:', error)
-  }
-
-  next()
-})
-
-// 请求日志中间件
-app.use((req, res, next) => {
-  const time = new Date().toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-
-  let operation = ''
-  switch (req.method) {
-    case 'GET': operation = '查询'; break
-    case 'POST': operation = '新增'; break
-    case 'PUT': operation = '更新'; break
-    case 'DELETE': operation = '删除'; break
-    default: operation = req.method
-  }
-
-  let message = ''
-  if (req.url.includes('student')) {
-    message = '学生信息'
-  } else if (req.url.includes('score')) {
-    message = '成绩信息'
-  } else if (req.url.includes('class')) {
-    message = '班级信息'
-  } else {
-    message = req.url
-  }
-
-  const logEntry = {
-    time,
-    type: 'database',
-    content: `${operation} ${message}`
-  }
-
-  // 广播日志到所有连接的客户端
-  io.emit('serverLog', logEntry)
-  console.log(`[${time}] ${logEntry.content}`)
   next()
 })
 

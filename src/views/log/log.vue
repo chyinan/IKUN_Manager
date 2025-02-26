@@ -66,13 +66,16 @@ const systemCount = computed(() => logs.value.filter(log => log.type === 'system
 const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length)
 const vueCount = computed(() => logs.value.filter(log => log.type === 'vue').length)
 
-// 添加日志
+// 修改添加日志的方法
 const addLog = (log: LogEntry) => {
-  console.log('添加日志:', log) // 调试日志
+  console.log('添加日志:', log)
+  // 在数组末尾添加新日志
   logs.value.push(log)
+  // 限制日志数量，保留最新的1000条
   if (logs.value.length > 1000) {
     logs.value = logs.value.slice(-1000)
   }
+  // 如果开启了自动滚动，滚动到底部
   if (autoScroll.value) {
     scrollToBottom()
   }
@@ -162,17 +165,21 @@ socket.on('connect_error', (error) => {
   })
 })
 
-// 加载历史日志
+// 修改加载历史日志的方法
 const loadHistoryLogs = async () => {
   try {
     const res = await getLogList({ limit: 1000 })
     if (res.code === 200) {
-      const historyLogs = res.data.map(log => ({
-        time: new Date(log.create_time).toLocaleTimeString(),
-        type: log.type,
-        content: log.content
-      }))
-      logs.value = [...historyLogs, ...logs.value]
+      // 将历史日志按时间倒序排列
+      const historyLogs = res.data
+        .sort((a, b) => new Date(b.create_time).getTime() - new Date(a.create_time).getTime())
+        .map(log => ({
+          time: new Date(log.create_time).toLocaleTimeString(),
+          type: log.type,
+          content: log.content
+        }))
+      // 使用新的日志替换当前日志列表
+      logs.value = historyLogs
     }
   } catch (error) {
     console.error('加载历史日志失败:', error)

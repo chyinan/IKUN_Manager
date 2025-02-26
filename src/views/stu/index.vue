@@ -64,9 +64,9 @@
 
     <!-- 分页器 -->
     <el-pagination
-      v-model:current-page="currentPage"
-      v-model:page-size="pageSize"
-      :total="total"
+      v-model:current-page="pagination.currentPage"
+      v-model:page-size="pagination.pageSize"
+      :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
       class="pagination" />
@@ -134,6 +134,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { exportToExcel } from '@/utils/export'
 import { getClassList } from '@/api/class'
 import type { ClassItem } from '@/api/class'
+import type { Pagination } from '@/types/response'
 
 // 数据状态
 const loading = ref(false)
@@ -343,6 +344,13 @@ const fetchClassList = async () => {
     console.error('获取班级列表失败:', error)
   }
 }
+
+// 分页数据
+const pagination = reactive<Pagination>({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
 
 // 页面初始化时获取数据
 onMounted(() => {

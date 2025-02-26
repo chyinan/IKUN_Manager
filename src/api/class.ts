@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { ClassResponse, ClassItem } from '@/types/common'
+import type { ClassResponse, ClassFormData, ClassItemResponse } from '@/types/class'
 
 // 班级数据接口
 export interface ClassItem {
@@ -28,20 +28,24 @@ export interface ClassResponse {
 }
 
 // 获取班级列表
-export const getClassList = () => 
-  request.get<ClassItem[]>('/class/list')
+export const getClassList = () => {
+  return request.get<ClassItemResponse[]>('/class/list')
+}
 
 // 添加班级
-export const addClass = (data: Partial<ClassItem>) =>
-  request.post<ClassItem>('/class/add', data)
+export const addClass = (data: ClassFormData) => {
+  return request.post<ClassItemResponse>('/class/add', data)
+}
 
 // 更新班级
-export const updateClass = (id: number, data: Partial<ClassItem>) =>
-  request.put<ClassItem>(`/class/update/${id}`, data)
+export const updateClass = (id: number, data: Partial<ClassFormData>) => {
+  return request.put<ClassItemResponse>(`/class/${id}`, data)
+}
 
 // 删除班级
-export const deleteClass = (id: number) =>
-  request.delete<void>(`/class/delete/${id}`)
+export const deleteClass = (id: number) => {
+  return request.delete<void>(`/class/${id}`)
+}
 
 // 获取班级实际学生数量
 export const getClassStudentCount = async (classId: number) => {

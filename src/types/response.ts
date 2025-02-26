@@ -1,11 +1,11 @@
 export interface Response<T = any> {
   code: number
-  data?: T
   message: string
+  data?: T
 }
 
-export interface PageResponse<T = any> extends Response<T> {
-  total: number
+export interface Pagination {
   currentPage: number
   pageSize: number
+  total: number
 }

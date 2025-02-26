@@ -55,10 +55,20 @@ export interface EmployeeItem {
 // 成绩科目类型
 export type SubjectType = '语文' | '数学' | '英语' | '物理' | '化学' | '生物'
 
+// 科目成绩接口
+export interface SubjectScore {
+  sum: number
+  count: number
+}
+
 // 成绩数据类型
 export interface ScoreData {
-  [key in SubjectType]?: number
-} & {
+  语文: SubjectScore
+  数学: SubjectScore
+  英语: SubjectScore
+  物理: SubjectScore
+  化学: SubjectScore
+  生物: SubjectScore
   exam_type?: string
   exam_time?: string
 }

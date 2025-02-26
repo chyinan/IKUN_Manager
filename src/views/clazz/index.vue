@@ -99,12 +99,16 @@ import type { FormInstance, FormRules } from 'element-plus'
 import type { ClassFormData, ClassResponse, ClassItem } from '@/api/class'
 import { exportToExcel } from '@/utils/export'
 
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const tableData = ref<ClassItem[]>([])
+
 // 数据状态
 const loading = ref(false)
 const searchKey = ref('')
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
-const tableData = ref<ClassFormData[]>([])
 const formRef = ref<FormInstance>()
 
 // 表单数据

@@ -1,5 +1,13 @@
 import type { ApiResponse } from './common'
 
+// 后端的班级数据格式
+export interface ClassBackendData {
+  class_name: string
+  teacher: string
+  student_count: number
+  description?: string
+}
+
 // 后端返回的班级数据类型
 export interface ClassItemResponse {
   id: number

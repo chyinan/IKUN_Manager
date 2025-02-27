@@ -82,7 +82,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { login, register } from '@/api/user'
-import type { LoginForm, RegisterForm } from '@/types/user'
+// 修改类型导入,添加 LoginResponseData
+import type { LoginForm, RegisterForm, LoginResponseData } from '@/types/user'
 import BackgroundSlider from '../BackgroundSlider/BackgroundSlider.vue'
 
 const router = useRouter()
@@ -107,9 +108,10 @@ const handleLogin = async () => {
     const res = await login(loginForm)
     if (res.code === 200 && res.data) {
       ElMessage.success('登录成功')
-      // 确保数据存在再存储
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('username', res.data.username)
+      // 先将 res.data 断言为 unknown,然后再断言为 LoginResponseData
+      const loginData = (res.data as unknown) as LoginResponseData
+      localStorage.setItem('token', loginData.token)
+      localStorage.setItem('username', loginData.username)
       router.push('/index')
     } else {
       ElMessage.error(res.message || '登录失败')

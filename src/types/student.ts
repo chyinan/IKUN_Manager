@@ -42,8 +42,8 @@ export interface StudentItemResponse {
   name: string
   gender: string
   class_name: string
-  phone: string
-  email: string
+  phone: string | null
+  email: string | null
   join_date: string
   create_time: string
 }

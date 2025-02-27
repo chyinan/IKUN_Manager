@@ -1,19 +1,8 @@
 import request from '@/utils/request'
-import type { StudentItemResponse, StudentFormData } from '@/types/student'
-import type { Response } from '@/types/common'
+import type { StudentItemResponse } from '@/types/student'
+import type { ApiResponse } from '@/types/common'
 
-export interface StudentItem {
-  id: number
-  student_id: string
-  name: string
-  gender: string
-  class_name: string
-  phone: string
-  email: string
-  join_date: string
-  create_time: string
-}
-
+// 前端使用的学生数据类型
 export interface StudentFormData {
   id?: number
   studentId: string
@@ -25,28 +14,27 @@ export interface StudentFormData {
   joinDate: string
 }
 
-export interface StudentResponse {
-  code: number
-  data: StudentItem[]
-  message: string
+// API 请求方法
+export const getStudentList = () => {
+  return request.get<ApiResponse<StudentItemResponse[]>>('/student/list')
 }
 
-// 获取学生列表
-export const getStudentList = () => {
-  return request.get<StudentItemResponse[]>('/student/list')
+// 获取最大学号
+export const getMaxStudentId = () => {
+  return request.get<ApiResponse<string>>('/student/maxStudentId')
 }
 
 // 添加学生
 export const addStudent = (data: StudentFormData) => {
-  return request.post<StudentItemResponse>('/student/add', data)
+  return request.post<ApiResponse<void>>('/student/add', data)
 }
 
 // 更新学生
-export const updateStudent = (id: number, data: Partial<StudentFormData>) => {
-  return request.put<StudentItemResponse>(`/student/${id}`, data)
+export const updateStudent = (data: StudentFormData) => {
+  return request.put<ApiResponse<void>>(`/student/update/${data.id}`, data)
 }
 
 // 删除学生
 export const deleteStudent = (id: number) => {
-  return request.delete<void>(`/student/${id}`)
+  return request.delete<ApiResponse<void>>(`/student/${id}`)
 }

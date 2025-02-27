@@ -58,10 +58,15 @@ import { getEmployeeList } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
 import type { 
   EmployeeItem, 
-  DeptItem, 
-  ApiEmployeeResponse,
-  ApiDeptResponse 
+  EmployeeResponse, 
+  ApiEmployeeResponse 
 } from '@/types/employee'
+import type { 
+  DeptItem, 
+  DeptResponseData,
+  ApiDeptResponse 
+} from '@/types/dept'
+import type { ApiResponse } from '@/types/common'
 
 use([
   CanvasRenderer,
@@ -175,13 +180,16 @@ const deptDistOption = computed(() => ({
 // 获取数据
 const fetchData = async () => {
   try {
-    const [empRes, deptRes] = await Promise.all([
+    // 首先将 Promise.all 的结果断言为 unknown
+    const responses = await Promise.all([
       getEmployeeList(),
       getDeptList()
-    ])
+    ]) as unknown as [ApiEmployeeResponse, ApiDeptResponse]
+
+    const [empRes, deptRes] = responses
 
     if (empRes.code === 200 && empRes.data) {
-      employeeData.value = empRes.data.map(item => ({
+      employeeData.value = empRes.data.map((item: EmployeeResponse) => ({
         id: item.id,
         empId: item.emp_id,
         name: item.name,
@@ -194,18 +202,18 @@ const fetchData = async () => {
         phone: item.phone || undefined,
         email: item.email || undefined,
         joinDate: item.join_date,
-        createTime: new Date(item.createTime).toLocaleString('zh-CN') // 修改这里: create_time -> createTime
+        createTime: new Date(item.create_time).toLocaleString('zh-CN')
       }))
     }
 
     if (deptRes.code === 200 && deptRes.data) {
-      deptData.value = deptRes.data.map(item => ({
+      deptData.value = deptRes.data.map((item: DeptResponseData) => ({
         id: item.id,
         deptName: item.dept_name,
         manager: item.manager,
         memberCount: item.member_count,
         description: item.description || undefined,
-        createTime: new Date(item.createTime).toLocaleString('zh-CN') // 修正字段名
+        createTime: new Date(item.create_time).toLocaleString('zh-CN')
       }))
     }
   } catch (error) {

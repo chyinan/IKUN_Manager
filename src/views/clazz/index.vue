@@ -96,7 +96,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Delete, Edit, Plus, Search, View, Download } from '@element-plus/icons-vue'
 import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
-import type { ClassItem, ClassFormData, ClassItemResponse } from '@/types/class'
+import type { ClassItem, ClassFormData, ClassItemResponse, ClassBackendData } from '@/types/class'
 import { exportToExcel } from '@/utils/export'
 import type { Pagination } from '@/types/common'
 
@@ -179,22 +179,25 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         loading.value = true
-        const submitData = {
+        
+        // 创建一个符合后端 API 格式的数据对象
+        const backendData: ClassBackendData = {
           class_name: formData.className,
           teacher: formData.teacher,
           student_count: formData.studentCount || 0,
           description: formData.description
         }
 
-        const res = dialogType.value === 'add' 
-          ? await addClass(submitData)
-          : await updateClass(formData.id!, submitData)
-
-        if (res.code === 200) {
-          ElMessage.success(`${dialogType.value === 'add' ? '新增' : '修改'}成功`)
-          dialogVisible.value = false
-          await fetchData()
+        if (dialogType.value === 'add') {
+          await addClass(backendData)
+          ElMessage.success('新增成功')
+        } else if (formData.id) {
+          await updateClass(formData.id, backendData)
+          ElMessage.success('修改成功')
         }
+        
+        dialogVisible.value = false
+        await fetchData()
       } catch (error: any) {
         console.error('操作失败:', error)
         ElMessage.error(error.response?.data?.message || '操作失败')
@@ -202,6 +205,34 @@ const handleSubmit = async () => {
         loading.value = false
       }
     }
+  })
+}
+
+// 处理新增
+const handleAdd = () => {
+  dialogType.value = 'add'
+  dialogVisible.value = true
+  if (formRef.value) {
+    formRef.value.resetFields()
+  }
+  // 重置表单数据
+  formData.className = ''
+  formData.teacher = ''
+  formData.studentCount = 0
+  formData.description = ''
+}
+
+// 处理编辑
+const handleEdit = (row: ClassItem) => {
+  dialogType.value = 'edit'
+  dialogVisible.value = true
+  // 使用类型安全的方式赋值
+  Object.assign(formData, {
+    id: row.id,
+    className: row.className,
+    teacher: row.teacher,
+    studentCount: row.studentCount,
+    description: row.description
   })
 }
 
@@ -245,6 +276,12 @@ const handleExport = () => {
   
   exportToExcel(exportData, `班级数据_${new Date().toLocaleDateString()}`)
   ElMessage.success('导出成功')
+}
+
+// 处理查看详情
+const handleDetail = (row: ClassItem) => {
+  // TODO: 实现查看详情的逻辑
+  console.log('查看班级详情:', row)
 }
 
 onMounted(() => {

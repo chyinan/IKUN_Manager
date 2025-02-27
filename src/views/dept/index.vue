@@ -97,21 +97,19 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'  // 添加图标导入
+import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
-import type { DeptItem, DeptFormData, DeptResponse } from '@/types/dept'
+import type { 
+  DeptItem, 
+  DeptFormData, 
+  DeptResponseData, 
+  ApiDeptResponse,
+  DeptBackendData  // 添加 DeptBackendData 类型导入
+} from '@/types/dept'
 
-// 修改表单数据接口定义
-interface DeptFormData {
-  id?: number
-  deptName: string
-  manager: string
-  description: string
-}
-
-// 修改表单数据初始值
-const formData = reactive<DeptFormData>({
+// 修改表单数据
+const formData = reactive<DeptFormData & { id?: number }>({
   deptName: '',
   manager: '',
   description: ''
@@ -126,8 +124,8 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await getDeptList()
-    if (res.code === 200 && res.data) {
-      tableData.value = res.data.map(item => ({
+    if (res.code === 200 && Array.isArray(res.data)) {
+      tableData.value = res.data.map((item: DeptResponseData) => ({
         id: item.id,
         deptName: item.dept_name,
         manager: item.manager,
@@ -184,19 +182,17 @@ const handleAdd = () => {
 }
 
 // 修改编辑处理方法
-const handleEdit = (row: DeptData) => {
+const handleEdit = (row: DeptItem) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
-  // 确保包含id
-  Object.assign(formData, {
-    id: row.id,         // 添加id
-    deptName: row.deptName,
-    manager: row.manager,
-    description: row.description
-  })
+  // 使用类型安全的方式赋值
+  formData.id = row.id
+  formData.deptName = row.deptName
+  formData.manager = row.manager
+  formData.description = row.description
 }
 
-const handleDelete = async (row: DeptData) => {
+const handleDelete = async (row: DeptItem) => {
   try {
     await ElMessageBox.confirm(
       `确定要删除部门 ${row.deptName} 吗？`,
@@ -209,19 +205,18 @@ const handleDelete = async (row: DeptData) => {
     )
 
     loading.value = true
-    await deleteDept(row.id!)
+    await deleteDept(row.id)
     ElMessage.success('删除成功')
-    
+    await fetchData()
   } catch (error: any) {
     if (error?.toString().includes('cancel')) {
       ElMessage.info('已取消删除')
     } else {
       console.error('删除失败:', error)
-      ElMessage.success('删除成功')
+      ElMessage.error('删除失败')
     }
   } finally {
     loading.value = false
-    await fetchData()  // 刷新数据
   }
 }
 
@@ -233,29 +228,23 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         loading.value = true
-        if (dialogType.value === 'add') {
-          const res = await addDept({
-            deptName: formData.deptName,
-            manager: formData.manager,
-            description: formData.description
-          })
-          if (res.code === 200) {
-            ElMessage.success('新增成功')
-            dialogVisible.value = false
-          }
-        } else {
-          const res = await updateDept({
-            id: formData.id,  // 确保传递id
-            deptName: formData.deptName,
-            manager: formData.manager,
-            description: formData.description
-          })
-          if (res.code === 200) {
-            ElMessage.success('修改成功')
-            dialogVisible.value = false
-          }
+        // 转换为后端需要的格式
+        const backendData: DeptBackendData = {
+          dept_name: formData.deptName,
+          manager: formData.manager,
+          description: formData.description
         }
-        await fetchData() // 刷新数据
+
+        if (dialogType.value === 'add') {
+          await addDept(backendData)
+          ElMessage.success('新增成功')
+        } else if (formData.id) {
+          await updateDept(formData.id, backendData)
+          ElMessage.success('修改成功')
+        }
+        
+        dialogVisible.value = false
+        await fetchData()
       } catch (error) {
         console.error('操作失败:', error)
         ElMessage.error(dialogType.value === 'add' ? '新增失败' : '修改失败')

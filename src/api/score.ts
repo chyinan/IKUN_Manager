@@ -42,3 +42,8 @@ export const getScoreStats = (params: ScoreQueryParams) => {
     averages: { [key in SubjectType]: number }
   }>('/score/stats', { params })
 }
+
+// 添加测试API
+export const testScoreApi = () => {
+  return request.get<{ code: number, message: string }>('/score/test')
+}

@@ -1,5 +1,9 @@
 import request from '@/utils/request'
-import type { ClassItemResponse, ClassFormData as TypeClassFormData } from '@/types/class'
+import type { 
+  ClassItemResponse, 
+  ClassFormData as TypeClassFormData,
+  ClassBackendData  // 添加后端数据类型导入
+} from '@/types/class'
 import type { ApiResponse } from '@/types/common'
 
 // 班级数据接口
@@ -21,12 +25,12 @@ export const getClassList = () => {
 }
 
 // 添加班级
-export const addClass = (data: TypeClassFormData) => {
+export const addClass = (data: ClassBackendData) => {
   return request.post<ClassItemResponse>('/class/add', data)
 }
 
 // 更新班级
-export const updateClass = (id: number, data: Partial<TypeClassFormData>) => {
+export const updateClass = (id: number, data: Partial<ClassBackendData>) => {
   return request.put<ClassItemResponse>(`/class/${id}`, data)
 }
 

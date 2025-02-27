@@ -86,9 +86,9 @@
 
     <!-- 分页器 -->
     <el-pagination
-      v-model:current-page="currentPage"
-      v-model:page-size="pageSize"
-      :total="total"
+      v-model:current-page="pagination.currentPage"
+      v-model:page-size="pagination.pageSize"
+      :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
       class="pagination" />
@@ -121,8 +121,8 @@
         <el-form-item label="年龄" prop="age">
           <el-input-number v-model="formData.age" :min="18" :max="60" />
         </el-form-item>
-        <el-form-item label="所属部门" prop="department">
-          <el-select v-model="formData.department">
+        <el-form-item label="所属部门" prop="deptName">
+          <el-select v-model="formData.deptName">
             <el-option
               v-for="dept in deptOptions"
               :key="dept"
@@ -171,6 +171,9 @@ import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/
 import { getDeptList } from '@/api/dept'
 import type { EmployeeItem, EmployeeFormData, DeptItem } from '@/types/employee'
 import { exportToExcel } from '@/utils/export'
+import type { Pagination } from '@/types/pagination'
+import type { DeptResponseData } from '@/types/dept'
+import type { ApiDeptResponse } from '@/types/dept'
 
 // 基础数据状态 
 const loading = ref(false)
@@ -182,6 +185,13 @@ const formRef = ref<FormInstance>()
 const deptFilter = ref('')
 const deptOptions = ref<string[]>([])
 
+// 替换原有的分页变量定义
+const pagination = reactive<Pagination>({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
+
 // 表单数据
 const formData = reactive<EmployeeFormData>({
   empId: '',
@@ -189,7 +199,7 @@ const formData = reactive<EmployeeFormData>({
   gender: '男',
   age: 18,
   position: '',
-  deptName: '',
+  deptName: '', // 将 department 改为 deptName
   salary: 0,
   status: '在职',
   phone: '',
@@ -284,25 +294,21 @@ const handleSubmit = async () => {
     await formRef.value.validate(async (valid) => {
       if (valid) {
         loading.value = true
-        
-        // 格式化提交数据
         const submitData = {
           ...formData,
           joinDate: formData.joinDate ? new Date(formData.joinDate).toISOString().split('T')[0] : ''
         }
         
-        console.log('提交的数据:', submitData)
-        
         if (dialogType.value === 'add') {
           await addEmployee(submitData)
           ElMessage.success('添加成功')
         } else {
-          await updateEmployee(submitData)
+          await updateEmployee(formData.id!, submitData) // 添加 id 参数
           ElMessage.success('修改成功')
         }
         
         dialogVisible.value = false
-        await fetchData() // 刷新数据
+        await fetchData()
       }
     })
   } catch (error: any) {
@@ -329,9 +335,15 @@ const handleExport = () => {
 const fetchDeptList = async () => {
   try {
     const res = await getDeptList()
-    deptOptions.value = res.data.map(item => item.dept_name)
+    if (res.code === 200 && Array.isArray(res.data)) {
+      // 使用类型注解和类型断言确保类型安全
+      deptOptions.value = (res.data as DeptResponseData[]).map(
+        (item: DeptResponseData) => item.dept_name
+      )
+    }
   } catch (error) {
     console.error('获取部门列表失败:', error)
+    ElMessage.error('获取部门列表失败')
   }
 }
 
@@ -350,7 +362,7 @@ const fetchData = async () => {
   try {
     const res = await getEmployeeList()
     console.log('员工数据:', res)
-    if (res.code === 200 && res.data) {
+    if (res.code === 200 && Array.isArray(res.data)) {
       tableData.value = res.data.map(item => ({
         id: item.id,
         empId: item.emp_id,
@@ -363,13 +375,20 @@ const fetchData = async () => {
         status: item.status,
         phone: item.phone || '',
         email: item.email || '',
-        joinDate: new Date(item.join_date).toLocaleDateString('zh-CN')
+        joinDate: new Date(item.join_date).toLocaleDateString('zh-CN'),
+        createTime: new Date(item.create_time).toLocaleString('zh-CN')
       }))
-      total.value = res.data.length
+      pagination.total = res.data.length
+    } else {
+      tableData.value = []
+      pagination.total = 0
+      ElMessage.warning('未获取到员工数据')
     }
   } catch (error) {
     console.error('获取失败:', error)
     ElMessage.error('获取数据失败')
+    tableData.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }

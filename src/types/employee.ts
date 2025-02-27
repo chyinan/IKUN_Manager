@@ -1,19 +1,20 @@
-import type { BaseFields, ApiResponse } from './common'
+import type { ApiResponse, BaseFields } from './common'
 
 // 后端返回的员工数据类型
-export interface EmployeeResponse extends BaseFields {
+export interface EmployeeResponse {
+  id: number
   emp_id: string
   name: string
-  gender: string 
+  gender: string
   age: number
-  position: string
-  dept_id: number
   dept_name: string
+  position: string
   salary: number
   status: string
   phone: string | null
   email: string | null
   join_date: string
+  create_time: string
 }
 
 // 前端使用的员工数据类型
@@ -23,8 +24,8 @@ export interface EmployeeItem {
   name: string
   gender: string
   age: number
-  position: string
   deptName: string
+  position: string
   salary: number
   status: string
   phone?: string
@@ -67,5 +68,5 @@ export interface DeptItem {
 }
 
 // API 响应类型
-export type ApiEmployeeResponse = ApiResponse<EmployeeResponse[]> 
+export type ApiEmployeeResponse = ApiResponse<EmployeeResponse[]>
 export type ApiDeptResponse = ApiResponse<DeptResponse[]>

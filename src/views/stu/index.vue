@@ -129,7 +129,7 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId } from '@/api/student'
 import { Delete, Edit, Plus, Search, Download, Male, Female } from '@element-plus/icons-vue'
-import type { StudentFormData, StudentItem } from '@/api/student'
+import type { StudentFormData, StudentItemResponse } from '@/types/student'
 import type { FormInstance, FormRules } from 'element-plus'
 import { exportToExcel } from '@/utils/export'
 import { getClassList } from '@/api/class'
@@ -187,21 +187,23 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await getStudentList()
-    tableData.value = res.data.map(item => ({
-      id: item.id,
-      studentId: item.student_id,
-      name: item.name,
-      gender: item.gender,
-      className: item.class_name,
-      phone: item.phone,
-      email: item.email,
-      // 格式化日期为 YYYY/MM/DD
-      joinDate: new Date(item.join_date).toLocaleDateString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).replace(/\//g, '-')
-    }))
+    if (res.code === 200 && Array.isArray(res.data)) {
+      tableData.value = res.data.map(item => ({
+        id: item.id,
+        studentId: item.student_id,
+        name: item.name,
+        gender: item.gender,
+        className: item.class_name,
+        phone: item.phone || '',
+        email: item.email || '',
+        joinDate: new Date(item.join_date).toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).replace(/\//g, '-')
+      }))
+      pagination.total = res.data.length
+    }
   } catch (error) {
     console.error('获取失败:', error)
     ElMessage.error('获取数据失败')
@@ -222,16 +224,17 @@ const filteredTableData = computed(() => {
 const generateNextStudentId = async () => {
   try {
     const res = await getMaxStudentId()
-    if (res.data) {
-      const currentId = parseInt(res.data)
-      formData.studentId = (currentId + 1).toString()
+    if (res.code === 200) {
+      // 确保取到的是字符串类型
+      const maxId = (res.data ?? '2024000').toString()
+      formData.studentId = (parseInt(maxId) + 1).toString().padStart(7, '0')
     } else {
-      // 如果没有学号，从2024001开始
       formData.studentId = '2024001'
     }
   } catch (error) {
     console.error('获取学号失败:', error)
     ElMessage.error('获取学号失败')
+    formData.studentId = '2024001' // 设置默认值
   }
 }
 
@@ -339,9 +342,12 @@ const classList = ref<string[]>([])
 const fetchClassList = async () => {
   try {
     const res = await getClassList()
-    classList.value = res.data.map(item => item.class_name)
+    if (res.code === 200 && Array.isArray(res.data)) {
+      classList.value = res.data.map(item => item.class_name)
+    }
   } catch (error) {
     console.error('获取班级列表失败:', error)
+    ElMessage.error('获取班级列表失败')
   }
 }
 

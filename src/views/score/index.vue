@@ -108,6 +108,7 @@ import { getClassList } from '@/api/class'
 import { getStudentList } from '@/api/student'
 import { getStudentScore, saveStudentScore, testScoreApi } from '@/api/score'
 import type { SubjectType, ScoreData } from '@/types/score'
+import type { StudentItemResponse } from '@/types/student'
 
 const router = useRouter()
 
@@ -118,7 +119,8 @@ defineOptions({
 
 // 班级和学生数据
 const classList = ref<string[]>([])
-const studentList = ref<any[]>([])
+// 修改学生列表的类型
+const studentList = ref<StudentItemResponse[]>([])
 const selectedClass = ref('')
 const selectedStudent = ref<number | null>(null)
 
@@ -162,21 +164,33 @@ const selectedStudentName = computed(() => {
 const fetchClassList = async () => {
   try {
     const res = await getClassList()
-    classList.value = res.data.map(item => item.class_name)
+    if (res.code === 200 && Array.isArray(res.data)) {
+      classList.value = res.data.map(item => item.class_name)
+    } else {
+      classList.value = []
+      ElMessage.warning('暂无班级数据')
+    }
   } catch (error) {
     console.error('获取班级列表失败:', error)
     ElMessage.error('获取班级列表失败')
+    classList.value = []
   }
 }
 
-// 获取学生列表
+// 修改获取学生列表函数
 const fetchStudentList = async () => {
   try {
     const res = await getStudentList()
-    studentList.value = res.data
+    if (res.code === 200 && Array.isArray(res.data)) {
+      studentList.value = res.data // res.data 已经是 StudentItemResponse[]
+    } else {
+      studentList.value = []
+      ElMessage.warning('暂无学生数据')
+    }
   } catch (error) {
     console.error('获取学生列表失败:', error)
     ElMessage.error('获取学生列表失败')
+    studentList.value = []
   }
 }
 
@@ -267,21 +281,18 @@ const handleSave = async () => {
     loading.value = true
     const today = new Date().toISOString().split('T')[0]
 
-    const scoreData: ScoreData = {
-      ...scoreForm.value,
-      exam_type: selectedExamType.value,
-      exam_time: today
-    }
-
     const res = await saveStudentScore(
-      selectedStudent.value, 
-      scoreData
+      selectedStudent.value,
+      scoreForm.value,
+      selectedExamType.value,
+      today
     )
 
     if (res.code === 200) {
       ElMessage.success('保存成功')
       originalScores.value = { ...scoreForm.value }
       isScoreChanged.value = false
+      examDate.value = today
     }
   } catch (error) {
     console.error('保存失败:', error)
@@ -293,7 +304,15 @@ const handleSave = async () => {
 
 // 添加成绩是否被修改的标记
 const isScoreChanged = ref(false)
-const originalScores = ref<Record<string, number>>({})
+// 修改原始成绩的类型定义
+const originalScores = ref<Record<SubjectType, number>>({
+  语文: 0,
+  数学: 0,
+  英语: 0,
+  物理: 0,
+  化学: 0,
+  生物: 0
+})
 
 // 处理成绩输入变化
 const handleScoreChange = () => {

@@ -210,12 +210,12 @@ const convertStudentResponse = (item: StudentItemResponse): StudentItem => ({
   id: item.id,
   studentId: item.student_id,
   name: item.name,
-  gender: item.gender,
+  gender: item.gender,  // 添加性别字段
   className: item.class_name,
-  phone: item.phone,
-  email: item.email,
-  joinDate: item.join_date,
-  createTime: item.create_time
+  phone: item.phone || '',
+  email: item.email || '',
+  joinDate: new Date(item.join_date).toLocaleDateString('zh-CN'),
+  createTime: new Date(item.create_time).toLocaleString('zh-CN')  // 添加创建时间字段
 })
 
 const convertClassResponse = (item: ClassItemResponse): ClassItem => ({
@@ -236,20 +236,21 @@ const fetchStatistics = async () => {
     ])
 
     // 为 students 和 classes 添加类型断言
-    if (studentRes.code === 200 && classRes.code === 200) {
-      students.value = studentRes.data?.map(convertStudentResponse) || []
-      classes.value = classRes.data?.map(convertClassResponse) || []
-      classList.value = classes.value.map(c => c.className)
+    if (studentRes.code === 200 && Array.isArray(studentRes.data)) {
+      students.value = studentRes.data.map(convertStudentResponse)
+      // 提取班级名称列表
+      classList.value = classRes.data?.map(item => item.class_name) || []
 
       // 更新基础统计数据
       summaryData.value[0].value = students.value.length.toString()
-      summaryData.value[1].value = classes.value.length.toString()
+      summaryData.value[1].value = classList.value.length.toString()
       
       // 初始计算优秀率
       await calculateExcellentRate()
     }
   } catch (error) {
-    console.error('获取统计数据失败:', error)
+    console.error('初始化数据失败:', error)
+    ElMessage.error('初始化数据失败')
   }
 }
 

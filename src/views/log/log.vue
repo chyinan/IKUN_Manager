@@ -23,7 +23,7 @@
         v-for="(log, index) in logs" 
         :key="index"
         :class="['log-line', `log-${log.type}`]">
-        <span class="log-time">[{{ log.time }}]</span>
+        <span class="log-time">[{{ log.createTime }}]</span>
         <span class="log-content">{{ log.content }}</span>
       </div>
     </div>

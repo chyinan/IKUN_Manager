@@ -1,7 +1,7 @@
 import type { ApiResponse, BaseFields } from './common'
 
 // 后端返回的员工数据类型
-export interface EmployeeResponse {
+export interface EmployeeItemResponse {  // 改名为 EmployeeItemResponse
   id: number
   emp_id: string
   name: string
@@ -68,5 +68,5 @@ export interface DeptItem {
 }
 
 // API 响应类型
-export type ApiEmployeeResponse = ApiResponse<EmployeeResponse[]>
+export type ApiEmployeeResponse = ApiResponse<EmployeeItemResponse[]>
 export type ApiDeptResponse = ApiResponse<DeptResponse[]>

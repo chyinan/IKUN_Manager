@@ -1,10 +1,11 @@
 import request from '@/utils/request'
+import type { ApiResponse } from '@/types/common'
 import type { 
-  ApiEmployeeResponse,
   EmployeeFormData,
-  EmployeeResponse,
-  ApiDeptResponse 
+  EmployeeItem,
+  EmployeeItemResponse 
 } from '@/types/employee'
+import type { DeptResponseData } from '@/types/dept' // 添加部门类型导入
 
 export interface EmployeeData {
   id?: number
@@ -43,7 +44,7 @@ export interface EmployeeResponse {
 
 // 获取员工列表
 export const getEmployeeList = () => {
-  return request.get<EmployeeResponse[]>('/employee/list')
+  return request.get<ApiResponse<EmployeeItemResponse[]>>('/employee/list')
 }
 
 // 添加员工
@@ -87,5 +88,10 @@ export const deleteEmployee = (id: number) => {
 
 // 获取部门列表
 export const getDeptList = () => {
-  return request.get<DeptResponse[]>('/dept/list')
+  return request.get<ApiResponse<DeptResponseData[]>>('/dept/list')
+}
+
+// 添加部门检查
+export const checkDepartment = (id: number) => {
+  return request.get<ApiResponse<boolean>>(`/employee/checkDept/${id}`)
 }

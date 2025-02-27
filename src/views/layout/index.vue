@@ -2,7 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { updatePassword } from '@/api/user'  // 添加这行导入
+import { updatePassword } from '@/api/user'
+import type { PasswordForm } from '@/types/user'  // 添加类型导入
 
 const router = useRouter()
 const formRef = ref()  // 添加表单引用
@@ -47,11 +48,15 @@ const handleChangePassword = async (formEl: any) => {
     if (valid) {
       try {
         loading.value = true
-        const res = await updatePassword({
+        // 创建完整的 PasswordForm 对象
+        const passwordData: PasswordForm = {
           username: username.value,
           oldPassword: formData.value.oldPassword,
-          newPassword: formData.value.newPassword
-        })
+          newPassword: formData.value.newPassword,
+          confirmPassword: formData.value.confirmPassword // 添加确认密码
+        }
+        
+        const res = await updatePassword(passwordData)
         
         if (res.code === 200) {
           ElMessage.success('密码修改成功，请重新登录')

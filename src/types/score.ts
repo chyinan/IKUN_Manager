@@ -1,4 +1,4 @@
-import type { SubjectType, ApiResponse } from './common'
+import type { ApiResponse, SubjectType } from './common'
 export type { SubjectType } // 重新导出类型
 
 // 成绩数据类型
@@ -9,13 +9,27 @@ export type ScoreData = {
   exam_time?: string
 }
 
-// 统计数据
-export type ScoreStatistics = {
-  [K in SubjectType]: {
+// 成绩统计接口
+export interface ScoreStatistics {
+  [subject: string]: {  // 改为索引签名
     sum: number
     count: number
-    avg?: number
+    average?: number
+    max?: number
+    min?: number
   }
+}
+
+// 使用示例:
+const scoreStats: ScoreStatistics = {
+  '语文': {
+    sum: 750,
+    count: 10,
+    average: 75,
+    max: 95,
+    min: 60
+  },
+  // ... 其他科目
 }
 
 // 分布数据
@@ -38,3 +52,6 @@ export interface ScoreQueryParams {
 
 // API响应类型
 export type ApiScoreResponse = ApiResponse<ScoreData>
+
+// 成绩统计响应类型
+export type ApiScoreStatisticsResponse = ApiResponse<ScoreStatistics>

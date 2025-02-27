@@ -112,7 +112,7 @@ import {
 import { getStudentList } from '@/api/student'
 import { getClassList } from '@/api/class'
 import { getStudentScore, getClassScores } from '@/api/score'
-import type { SubjectType, ScoreData, ScoreStatistics } from '@/types/score'
+import type { SubjectType as ImportedSubjectType } from '@/types/score'  // 重命名导入的类型
 // import type { ClassItem } from '@/types/class' (removed duplicate import)
 // import type { StudentItem } from '@/types/student' (removed duplicate import)
 import type { 
@@ -133,9 +133,13 @@ import type {
   ClassItemResponse,
   ClassItem 
 } from '@/types/class'
+import type { ScoreStatistics } from '@/types/score'
 
-// 添加在 script setup 内部最前面
-const subjects: SubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物'] as const
+// 定义科目类型
+const subjects: ImportedSubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物']
+
+// 使用非只读数组
+const subjectList = [...subjects] as ImportedSubjectType[]
 
 // 注册组件
 use([
@@ -193,10 +197,10 @@ interface SubjectTotal {
   count: number
 }
 
-type SubjectTotals = Record<SubjectType, SubjectTotal>
+type SubjectTotals = Record<ImportedSubjectType, SubjectTotal>
 
 // 修改 subjectTotals 的定义
-const subjectTotals = ref<Record<SubjectType, { sum: number; count: number }>>({
+const subjectTotals = ref<Record<ImportedSubjectType, { sum: number; count: number }>>({
   语文: { sum: 0, count: 0 },
   数学: { sum: 0, count: 0 },
   英语: { sum: 0, count: 0 },
@@ -441,7 +445,7 @@ const updateAvgScores = async () => {
       if (res.code === 200 && res.data) {
         Object.entries(res.data).forEach(([subject, score]) => {
           if (subject in subjectTotals) {
-            const subjectKey = subject as SubjectType
+            const subjectKey = subject as ImportedSubjectType
             subjectTotals[subjectKey].sum += Number(score)
             subjectTotals[subjectKey].count++
           }
@@ -468,7 +472,6 @@ const updateAvgScores = async () => {
 
 const selectedClass = ref('')
 const classList = ref<string[]>([])
-const subjectList = ['语文', '数学', '英语', '物理', '化学', '生物']
 
 // 添加考试类型数据
 const examTypes = [
@@ -509,7 +512,7 @@ const calculateExcellentRate = async () => {
       if (res.code === 200 && res.data) {
         // 过滤掉考试类型和考试时间字段，只保留科目成绩
         const scores = Object.entries(res.data)
-          .filter(([key]) => subjectList.includes(key))
+          .filter(([key]) => subjectList.includes(key as ImportedSubjectType))
           .map(([_, score]) => Number(score))
 
         if (scores.length > 0) {  // 只有有成绩的学生才计入总数

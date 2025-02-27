@@ -57,8 +57,8 @@ import { UserFilled, Briefcase, Money, TrendCharts } from '@element-plus/icons-v
 import { getEmployeeList } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
 import type { 
-  EmployeeItem, 
-  EmployeeResponse, 
+  EmployeeItem,
+  EmployeeItemResponse,
   ApiEmployeeResponse 
 } from '@/types/employee'
 import type { 
@@ -177,44 +177,46 @@ const deptDistOption = computed(() => ({
   }]
 }))
 
+// 添加数据转换函数
+const convertEmployeeResponse = (item: EmployeeItemResponse): EmployeeItem => ({
+  id: item.id,
+  empId: item.emp_id,
+  name: item.name,
+  gender: item.gender,
+  age: item.age,
+  deptName: item.dept_name,
+  position: item.position,
+  salary: item.salary,
+  status: item.status,
+  phone: item.phone || '',
+  email: item.email || '',
+  joinDate: new Date(item.join_date).toLocaleDateString('zh-CN'),
+  createTime: new Date(item.create_time).toLocaleString('zh-CN')
+})
+
+const convertDeptResponse = (item: DeptResponseData): DeptItem => ({
+  id: item.id,
+  deptName: item.dept_name,
+  manager: item.manager,
+  memberCount: item.member_count,
+  description: item.description,
+  createTime: new Date(item.create_time).toLocaleString('zh-CN')
+})
+
 // 获取数据
 const fetchData = async () => {
   try {
-    // 首先将 Promise.all 的结果断言为 unknown
-    const responses = await Promise.all([
+    const [empRes, deptRes] = await Promise.all([
       getEmployeeList(),
       getDeptList()
-    ]) as unknown as [ApiEmployeeResponse, ApiDeptResponse]
+    ])
 
-    const [empRes, deptRes] = responses
-
-    if (empRes.code === 200 && empRes.data) {
-      employeeData.value = empRes.data.map((item: EmployeeResponse) => ({
-        id: item.id,
-        empId: item.emp_id,
-        name: item.name,
-        gender: item.gender,
-        age: item.age,
-        deptName: item.dept_name,
-        position: item.position,
-        salary: Number(item.salary),
-        status: item.status,
-        phone: item.phone || undefined,
-        email: item.email || undefined,
-        joinDate: item.join_date,
-        createTime: new Date(item.create_time).toLocaleString('zh-CN')
-      }))
+    if (empRes.code === 200 && Array.isArray(empRes.data)) {
+      employeeData.value = empRes.data.map(convertEmployeeResponse)
     }
 
-    if (deptRes.code === 200 && deptRes.data) {
-      deptData.value = deptRes.data.map((item: DeptResponseData) => ({
-        id: item.id,
-        deptName: item.dept_name,
-        manager: item.manager,
-        memberCount: item.member_count,
-        description: item.description || undefined,
-        createTime: new Date(item.create_time).toLocaleString('zh-CN')
-      }))
+    if (deptRes.code === 200 && Array.isArray(deptRes.data)) {
+      deptData.value = deptRes.data.map(convertDeptResponse)
     }
   } catch (error) {
     console.error('获取数据失败:', error)

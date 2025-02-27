@@ -1,12 +1,12 @@
 import type { BaseFields, ApiResponse } from './common'
 
 // 后端返回的部门数据类型
-export interface DeptResponseData {
+export interface DeptResponseData {  // 改名为 DeptResponseData
   id: number
   dept_name: string
   manager: string
   member_count: number
-  description: string | null
+  description?: string
   create_time: string
 }
 
@@ -30,7 +30,7 @@ export interface DeptFormData {
   description?: string
 }
 
-// 添加后端接收的数据类型定义
+// 后端接收的数据类型
 export interface DeptBackendData {
   dept_name: string
   manager: string

@@ -2,7 +2,8 @@ import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types/common'
 
 const request: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  //本地baseURL: 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_APP_BASE_URL,
   timeout: 5000
 })
 

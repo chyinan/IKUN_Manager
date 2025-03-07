@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -68,6 +68,16 @@ import type {
 } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
 
+// 扩展员工类型定义，添加deptId字段
+interface ExtendedEmployeeItem extends EmployeeItem {
+  deptId?: number | string;
+}
+
+// 扩展部门类型定义，添加deptId字段
+interface ExtendedDeptItem extends DeptItem {
+  deptId?: number | string;
+}
+
 use([
   CanvasRenderer,
   PieChart,
@@ -79,8 +89,8 @@ use([
 ])
 
 // 数据状态
-const employeeData = ref<EmployeeItem[]>([])
-const deptData = ref<DeptItem[]>([])
+const employeeData = ref<ExtendedEmployeeItem[]>([])
+const deptData = ref<ExtendedDeptItem[]>([])
 
 // 修复 summaryData 未定义的错误
 const summaryData = computed(() => [
@@ -132,20 +142,15 @@ const calculateActiveRate = () => {
 const salaryOption = computed(() => {
   // 先计算每个部门的平均薪资
   const deptSalaries = deptData.value.map(dept => {
-    // 找出该部门的所有员工 - 这里需要修改匹配逻辑
-    const deptEmployees = employeeData.value.filter(emp => 
-      // 添加调试日志查看匹配情况
-      {
-        console.log(`比较: emp.deptName="${emp.deptName}" vs dept.deptName="${dept.deptName}"`)
-        return emp.deptName === dept.deptName
-      }
-    )
+    // 找出该部门的所有员工 - 修改匹配逻辑
+    const deptEmployees = employeeData.value.filter(emp => {
+      // 使用ID或名称匹配
+      return (emp.deptId !== undefined && dept.deptId !== undefined && emp.deptId === dept.deptId) || 
+             emp.deptName === dept.deptName
+    })
     
-    console.log(`${dept.deptName} 部门的员工:`, deptEmployees)
-
     // 没有员工返回0
     if (deptEmployees.length === 0) {
-      console.log(`${dept.deptName} 没有找到员工`)
       return {
         name: dept.deptName,
         value: 0
@@ -154,26 +159,19 @@ const salaryOption = computed(() => {
 
     // 计算总薪资 - 确保 salary 是数字类型
     const totalSalary = deptEmployees.reduce((sum, emp) => {
-      // 添加调试日志查看薪资值
-      console.log(`${emp.name} 的薪资:`, emp.salary, typeof emp.salary)
-      const salary = Number(emp.salary)
+      // 确保薪资是数字
+      const salary = typeof emp.salary === 'string' ? parseFloat(emp.salary) : emp.salary
       return sum + (isNaN(salary) ? 0 : salary)
     }, 0)
-
-    console.log(`${dept.deptName} 总薪资:`, totalSalary)
-
+    
     // 计算平均值并保留两位小数
     const avgSalary = Number((totalSalary / deptEmployees.length).toFixed(2))
-    console.log(`${dept.deptName} 平均薪资:`, avgSalary)
     
     return {
       name: dept.deptName,
       value: avgSalary
     }
   })
-
-  // 调试日志
-  console.log('部门薪资数据:', deptSalaries)
 
   return {
     title: {
@@ -236,33 +234,45 @@ const deptDistOption = computed(() => ({
 }))
 
 // 修改数据转换函数
-const convertEmployeeResponse = (item: EmployeeItemResponse): EmployeeItem => {
-  console.log('转换前的员工数据:', item) // 添加调试日志
+const convertEmployeeResponse = (item: EmployeeItemResponse): ExtendedEmployeeItem => {
+  // 检查item的类型，确保安全访问属性
+  const empData = item as any; // 使用any类型暂时绕过类型检查
+  
   return {
-    id: item.id,
-    empId: item.emp_id,
-    name: item.name,
-    gender: item.gender,
-    age: item.age,
-    deptName: item.dept_name || '', // 移除 trim()，先检查数据
-    position: item.position,
-    salary: Number(item.salary || 0),
-    status: item.status,
-    phone: item.phone || '',
-    email: item.email || '',
-    joinDate: item.join_date ? new Date(item.join_date).toLocaleDateString('zh-CN') : '',
-    createTime: item.create_time ? new Date(item.create_time).toLocaleString('zh-CN') : ''
+    id: empData.id,
+    empId: empData.emp_id,
+    name: empData.name,
+    gender: empData.gender,
+    age: empData.age,
+    // 使用any类型后可以安全访问可能不存在的属性
+    deptId: empData.dept_id || empData.deptId || undefined,
+    deptName: empData.dept_name || '',
+    position: empData.position,
+    // 确保薪资是数字类型，符合EmployeeItem的定义
+    salary: typeof empData.salary === 'string' ? parseFloat(empData.salary || '0') : (empData.salary || 0),
+    status: empData.status,
+    phone: empData.phone || '',
+    email: empData.email || '',
+    joinDate: empData.join_date ? new Date(empData.join_date).toLocaleDateString('zh-CN') : '',
+    createTime: empData.create_time ? new Date(empData.create_time).toLocaleString('zh-CN') : ''
   }
 }
 
-const convertDeptResponse = (item: DeptResponseData): DeptItem => ({
-  id: item.id,
-  deptName: item.dept_name?.trim() || '', // 添加可选链和默认值
-  manager: item.manager || '',
-  memberCount: item.member_count || 0,
-  description: item.description || '',
-  createTime: item.create_time ? new Date(item.create_time).toLocaleString('zh-CN') : ''
-})
+const convertDeptResponse = (item: DeptResponseData): ExtendedDeptItem => {
+  // 检查item的类型，确保安全访问属性
+  const deptData = item as any; // 使用any类型暂时绕过类型检查
+  
+  return {
+    id: deptData.id,
+    // 使用any类型后可以安全访问可能不存在的属性
+    deptId: deptData.dept_id || deptData.deptId || deptData.id,
+    deptName: deptData.dept_name || '',
+    manager: deptData.manager || '',
+    memberCount: deptData.member_count || 0,
+    description: deptData.description || '',
+    createTime: deptData.create_time ? new Date(deptData.create_time).toLocaleString('zh-CN') : ''
+  }
+}
 
 // 修改获取数据函数，添加更多错误处理
 const fetchData = async () => {
@@ -272,30 +282,32 @@ const fetchData = async () => {
       getDeptList()
     ])
 
-    // 打印原始数据
-    console.log('原始员工数据:', empRes.data)
-    console.log('原始部门数据:', deptRes.data)
-
     if (empRes?.code === 200 && Array.isArray(empRes.data)) {
       employeeData.value = empRes.data
-        .filter(item => item && item.dept_name) // 过滤掉没有部门的员工
-        .map(item => {
-          const converted = convertEmployeeResponse(item)
-          console.log(`员工 ${converted.name} 的部门:`, converted.deptName) // 添加调试日志
-          return converted
-        })
-      console.log('转换后的员工数据:', employeeData.value)
+        .filter(item => item) // 过滤掉无效数据
+        .map(item => convertEmployeeResponse(item))
+    } else {
+      console.error('员工数据格式错误:', empRes)
+      ElMessage.warning('员工数据获取异常')
+      employeeData.value = []
     }
 
     if (deptRes?.code === 200 && Array.isArray(deptRes.data)) {
       deptData.value = deptRes.data
-        .filter(item => item && item.dept_name) // 过滤掉无效部门
-        .map(item => {
-          const converted = convertDeptResponse(item)
-          console.log(`部门 ${converted.deptName} 的信息:`, converted) // 添加调试日志
-          return converted
-        })
-      console.log('转换后的部门数据:', deptData.value)
+        .filter(item => item) // 过滤掉无效数据
+        .map(item => convertDeptResponse(item))
+    } else {
+      console.error('部门数据格式错误:', deptRes)
+      ElMessage.warning('部门数据获取异常')
+      deptData.value = []
+    }
+
+    // 如果数据为空，显示提示
+    if (employeeData.value.length === 0) {
+      ElMessage.warning('没有获取到员工数据')
+    }
+    if (deptData.value.length === 0) {
+      ElMessage.warning('没有获取到部门数据')
     }
 
   } catch (error) {

@@ -1,13 +1,46 @@
-import type { ApiResponse, SubjectType } from './common'
-export type { SubjectType } // 重新导出类型
+import type { ApiResponse } from './common'
 
-// 成绩数据类型
-export type ScoreData = {
-  [K in SubjectType]: number
-} & {
+// 科目类型
+export type SubjectType = '语文' | '数学' | '英语' | '物理' | '化学' | '生物'
+
+// 科目成绩数据结构
+export interface SubjectScore {
+  sum: number
+  count: number
+}
+
+// 成绩数据结构
+export interface ScoreData {
+  语文: SubjectScore
+  数学: SubjectScore
+  英语: SubjectScore
+  物理: SubjectScore
+  化学: SubjectScore
+  生物: SubjectScore
   exam_type?: string
   exam_time?: string
 }
+
+// 成绩查询参数
+export interface ScoreQueryParams {
+  classId?: number
+  studentId?: number
+  examType?: string
+  startDate?: string
+  endDate?: string
+}
+
+// 成绩分布
+export interface ScoreDistribution {
+  excellent: number // 优秀 (90-100)
+  good: number      // 良好 (80-89)
+  average: number   // 中等 (70-79)
+  pass: number      // 及格 (60-69)
+  fail: number      // 不及格 (0-59)
+}
+
+// API响应类型
+export type ApiScoreResponse = ApiResponse<ScoreData>
 
 // 成绩统计接口
 export interface ScoreStatistics {
@@ -31,27 +64,6 @@ const scoreStats: ScoreStatistics = {
   },
   // ... 其他科目
 }
-
-// 分布数据
-export interface ScoreDistribution {
-  '<60': number
-  '60-70': number
-  '70-80': number
-  '80-90': number
-  '90-100': number
-}
-
-// API请求参数
-export interface ScoreQueryParams {
-  studentId?: number
-  className?: string
-  examType?: string
-  startTime?: string
-  endTime?: string
-}
-
-// API响应类型
-export type ApiScoreResponse = ApiResponse<ScoreData>
 
 // 成绩统计响应类型
 export type ApiScoreStatisticsResponse = ApiResponse<ScoreStatistics>

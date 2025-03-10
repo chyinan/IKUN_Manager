@@ -166,13 +166,16 @@ const handleLogout = () => {
                   <el-icon><Histogram /></el-icon>数据统计管理
                 </template>
                 <el-menu-item index="/empReport">
-                  <el-icon><InfoFilled /></el-icon>员工信息统计
+                  <el-icon><PieChart /></el-icon>员工信息统计
                 </el-menu-item>
                 <el-menu-item index="/stuReport">
-                  <el-icon><Share /></el-icon>学员信息统计
+                  <el-icon><DataAnalysis /></el-icon>学员信息统计
+                </el-menu-item>
+                <el-menu-item index="/exam">
+                  <el-icon><Calendar /></el-icon>考试管理
                 </el-menu-item>
                 <el-menu-item index="/score">
-                  <el-icon><Document /></el-icon>成绩管理
+                  <el-icon><Edit /></el-icon>成绩管理
                 </el-menu-item>
                 <el-menu-item index="/log">
                   <el-icon><Monitor/></el-icon>日志信息统计

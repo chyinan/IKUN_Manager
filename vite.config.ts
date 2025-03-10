@@ -4,12 +4,22 @@ import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/IKUN_Manager/', // 添加这行，使用你的仓库名称
   plugins: [vue()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(__dirname, 'src'),
+      'path': 'path-browserify'
     }
+  },
+  base: './',
+  optimizeDeps: {
+    include: ['vue-router']
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5175,
+    open: true,
+    cors: true
   },
   assetsInclude: ['**/*.jpg']
 })

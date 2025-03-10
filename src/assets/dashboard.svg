@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <style>
+    .st0{fill:#F5F7FA;}
+    .st1{fill:#409EFF;}
+    .st2{fill:#67C23A;}
+    .st3{fill:#E6A23C;}
+    .st4{fill:#F56C6C;}
+    .st5{fill:#FFFFFF;}
+    .st6{fill:#EBEEF5;}
+  </style>
+  <circle class="st0" cx="250" cy="250" r="250"/>
+  <g>
+    <rect class="st1" x="100" y="150" width="120" height="80" rx="8"/>
+    <rect class="st2" x="240" y="150" width="160" height="80" rx="8"/>
+    <rect class="st3" x="100" y="250" width="180" height="100" rx="8"/>
+    <rect class="st4" x="300" y="250" width="100" height="100" rx="8"/>
+    <circle class="st5" cx="160" cy="190" r="20"/>
+    <circle class="st5" cx="320" cy="190" r="20"/>
+    <circle class="st5" cx="190" cy="300" r="25"/>
+    <circle class="st5" cx="350" cy="300" r="25"/>
+    <rect class="st6" x="130" y="170" width="60" height="8" rx="4"/>
+    <rect class="st6" x="290" y="170" width="60" height="8" rx="4"/>
+    <rect class="st6" x="160" y="280" width="60" height="8" rx="4"/>
+    <rect class="st6" x="320" y="280" width="60" height="8" rx="4"/>
+    <rect class="st6" x="130" y="190" width="40" height="8" rx="4"/>
+    <rect class="st6" x="290" y="190" width="40" height="8" rx="4"/>
+    <rect class="st6" x="160" y="300" width="40" height="8" rx="4"/>
+    <rect class="st6" x="320" y="300" width="40" height="8" rx="4"/>
+  </g>
+</svg> 

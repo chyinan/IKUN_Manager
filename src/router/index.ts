@@ -1,95 +1,163 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
+import DefaultLayout from '@/layouts/DefaultLayout.vue'
 
-// 创建路由实例
+// 导入视图组件
+import Dashboard from '@/views/dashboard/index.vue'
+import Department from '@/views/dept/index.vue'
+import Employee from '@/views/emp/index.vue'
+import EmployeeReport from '@/views/empReport/empReport.vue'
+import Class from '@/views/clazz/index.vue'
+import Student from '@/views/stu/index.vue'
+import Score from '@/views/score/index.vue'
+import Exam from '@/views/exam/index.vue'
+import Log from '@/views/log/log.vue'
+import Profile from '@/views/profile/index.vue'
+import Login from '@/views/login/index.vue'
+import NotFound from '@/views/error/404.vue'
+
+// 路由配置
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/login',
-      name: 'login',
-      component: () => import('../views/login/login.vue')
-    },
-    {
       path: '/',
-      redirect: '/login'  // 重定向到登录页
-    },
-    {
-      path: '/home',
-      name: 'home',
-      component: () => import('../views/layout/index.vue'),
-      redirect: '/index',
-      meta: { requiresAuth: true },  // 添加需要认证标记
+      component: DefaultLayout,
+      redirect: '/dashboard',
       children: [
         {
-          path: '/index',
-          name: 'index',
-          component: () => import('../views/index/index.vue'),
-          meta: { requiresAuth: true }
+          path: 'dashboard',
+          name: 'Dashboard',
+          component: Dashboard,
+          meta: { title: '首页', icon: 'House' }
         },
         {
-          path: '/emp',
-          name: 'emp',
-          component: () => import('../views/emp/index.vue'),
-          meta: { requiresAuth: true }
+          path: 'employee',
+          name: 'Employee',
+          component: Employee,
+          meta: { title: '员工管理', icon: 'User' }
         },
         {
-          path: '/dept',
-          name: 'dept',
-          component: () => import('../views/dept/index.vue') //部门管理
+          path: 'dept',
+          name: 'Department',
+          component: Department,
+          meta: { title: '部门管理', icon: 'OfficeBuilding' }
         },
         {
-          path: '/clazz',
-          name: 'clazz',
-          component: () => import('../views/clazz/index.vue') //班级管理
+          path: 'emp-report',
+          name: 'EmployeeReport',
+          component: EmployeeReport,
+          meta: { title: '员工信息统计', icon: 'PieChart' }
         },
         {
-          path: '/stu',
-          name: 'stu',
-          component: () => import('../views/stu/index.vue') //学员管理
+          path: 'class',
+          name: 'Class',
+          component: Class,
+          meta: { title: '班级管理', icon: 'School' }
         },
         {
-          path: '/empReport',
-          name: 'empReport',
-          component: () => import('../views/empReport/empReport.vue') //员工信息统计
+          path: 'student',
+          name: 'Student',
+          component: Student,
+          meta: { title: '学生管理', icon: 'User' }
         },
         {
-          path: '/stuReport',
-          name: 'stuReport',
-          component: () => import('../views/stuReport/stuReport.vue') //学员信息统计
+          path: 'score',
+          name: 'Score',
+          component: Score,
+          meta: { title: '成绩管理', icon: 'DocumentChecked' }
         },
         {
-          path: '/log',
-          name: 'log',
-          component: () => import('../views/log/log.vue') //学员信息统计
+          path: 'exam',
+          name: 'Exam',
+          component: Exam,
+          meta: { title: '考试管理', icon: 'Calendar' }
         },
         {
-          path: '/score',
-          name: 'score',
-          component: () => import('../views/score/index.vue'),  // 修改路径
-          meta: { requiresAuth: true }
+          path: 'log',
+          name: 'Log',
+          component: Log,
+          meta: { title: '系统日志', icon: 'List' }
+        },
+        {
+          path: 'profile',
+          name: 'Profile',
+          component: Profile,
+          meta: { title: '个人中心', icon: 'UserFilled', hidden: true }
         }
       ]
+    },
+    {
+      path: '/login',
+      name: 'Login',
+      component: Login,
+      meta: { title: '登录', hidden: true }
+    },
+    {
+      path: '/404',
+      name: 'NotFound',
+      component: NotFound,
+      meta: { title: '404', hidden: true }
+    },
+    {
+      path: '/index',
+      redirect: '/dashboard',
+      meta: { hidden: true }
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/404',
+      meta: { hidden: true }
     }
   ]
 })
 
-// 修改路由守卫
-router.beforeEach((to, from, next) => {
-  console.log('路由跳转:', { from: from.path, to: to.path })
-  const token = localStorage.getItem('token')
+// 路由守卫
+router.beforeEach(async (to, from, next) => {
+  // 设置页面标题
+  document.title = `${to.meta.title ? to.meta.title + ' - ' : ''}IKUN管理系统`
   
+  // 获取用户信息
+  const userStore = useUserStore()
+  const token = userStore.token
+  
+  // 如果是登录页，直接放行
   if (to.path === '/login') {
     if (token) {
-      next('/home')
+      next('/')
     } else {
       next()
+    }
+    return
+  }
+  
+  // 如果没有token，重定向到登录页
+  if (!token) {
+    ElMessage.warning('请先登录')
+    next(`/login?redirect=${to.path}`)
+    return
+  }
+  
+  // 如果有token但没有用户信息，获取用户信息
+  if (token && !userStore.username) {
+    try {
+      const hasUserInfo = await userStore.getUserInfo()
+      if (hasUserInfo) {
+        next()
+      } else {
+        // 获取用户信息失败，可能是token过期
+        userStore.resetState()
+        ElMessage.error('获取用户信息失败，请重新登录')
+        next(`/login?redirect=${to.path}`)
+      }
+    } catch (error) {
+      userStore.resetState()
+      ElMessage.error('获取用户信息失败，请重新登录')
+      next(`/login?redirect=${to.path}`)
     }
   } else {
-    if (token) {
-      next()
-    } else {
-      next('/login')
-    }
+    next()
   }
 })
 

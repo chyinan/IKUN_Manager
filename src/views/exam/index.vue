@@ -627,31 +627,16 @@ const fetchExamList = async () => {
   loading.value = true
   emptyText.value = '加载中...'
   
-  // 直接使用模拟数据
-  console.log('加载模拟考试数据');
-  console.log('当前筛选条件:', {
-    考试类型: filterExamType.value,
-    日期范围: dateRange.value,
-    关键词: searchKeyword.value
-  });
-  
-  await mockExamList();
-  
-  // 更新分页数据 - 使用筛选后的数据计算总数
-  total.value = filteredExamList.value.length;
-  
-  loading.value = false;
-  
-  /*
   try {
     // 构建查询参数
-    const params: ExamQueryParams = {
+    const params: any = {
       page: currentPage.value,
       pageSize: pageSize.value,
       keyword: searchKeyword.value,
       examType: filterExamType.value,
       startDate: dateRange.value ? dateRange.value[0] : undefined,
-      endDate: dateRange.value ? dateRange.value[1] : undefined
+      endDate: dateRange.value ? dateRange.value[1] : undefined,
+      status: statusFilter.value !== null ? statusFilter.value : undefined
     }
     
     const res = await getExamList(params)
@@ -679,31 +664,52 @@ const fetchExamList = async () => {
       
       // 检查是否有有效数据
       if (listItems.length > 0) {
-        examList.value = listItems;
+        // 处理API返回的数据，确保格式一致
+        const processedExams = listItems.map((item: any) => {
+          // 确保返回的对象符合ExamInfo类型
+          return {
+            id: item.id || Math.floor(Math.random() * 10000),
+            exam_name: item.exam_name || item.examName || '未命名考试',
+            exam_type: item.exam_type || item.examType || '期末考试',
+            exam_date: item.exam_date || item.examDate || new Date().toISOString().split('T')[0],
+            duration: item.duration || 120,
+            subjects: item.subjects || item.subject || ['综合科目'],
+            status: typeof item.status === 'number' ? item.status : Math.floor(Math.random() * 3),
+            class_name: item.class_name || item.className || '未分配班级',
+            create_time: item.create_time || item.createTime || new Date().toISOString(),
+            remark: item.remark || item.description || '考试描述信息'
+          } as ExamInfo;
+        });
+        
+        examList.value = processedExams;
         total.value = totalItems;
+        console.log(`成功获取${examList.value.length}条考试数据`);
       } else {
         // 没有数据时生成模拟数据
-        console.log('API返回数据为空，生成模拟数据');
-        mockExamList();
+        console.warn('API返回数据为空，使用模拟数据');
+        await mockExamList();
       }
     } else {
-      console.log('API返回错误或无数据，生成模拟数据');
+      console.warn('API返回错误或无数据，使用模拟数据');
       ElMessage.warning(res.message || '获取考试列表失败，使用模拟数据')
       // 使用模拟数据
-      mockExamList();
+      await mockExamList();
     }
   } catch (error) {
     console.error('获取考试列表失败:', error)
     ElMessage.warning('获取考试列表失败，使用模拟数据')
     
     // 使用模拟数据
-    console.log('API调用异常，生成模拟数据');
-    mockExamList();
+    await mockExamList();
   } finally {
-    loading.value = false
+    loading.value = false;
+    
+    // 更新分页数据 - 使用筛选后的数据计算总数
+    setTimeout(() => {
+      total.value = filteredExamList.value.length;
+    }, 0);
   }
-  */
-}
+};
 
 // 添加更完善的生成模拟数据函数
 const mockExamList = async () => {

@@ -6,7 +6,7 @@
         <el-card class="welcome-card">
           <div class="welcome-content">
             <div class="welcome-text">
-              <h2>欢迎使用 IKUN 管理系统</h2>
+              <h2>欢迎使用高校人事管理系统</h2>
               <p>今天是 {{ currentDate }}，祝您工作愉快！</p>
             </div>
             <div class="welcome-image">
@@ -63,8 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { 
   User, 
   OfficeBuilding, 
@@ -75,8 +76,13 @@ import {
   List, 
   Setting 
 } from '@element-plus/icons-vue'
+import { getEmployeeStats } from '@/api/employee'
+import { getDeptList } from '@/api/dept'
+import { getClassList } from '@/api/class'
+import { getExamStats } from '@/api/exam'
 
 const router = useRouter()
+const loading = ref(true)
 
 // 当前日期
 const currentDate = computed(() => {
@@ -93,25 +99,25 @@ const currentDate = computed(() => {
 const statCards = ref([
   {
     title: '员工总数',
-    value: '128',
+    value: '0',
     icon: 'User',
     color: '#409EFF'
   },
   {
     title: '部门数量',
-    value: '12',
+    value: '0',
     icon: 'OfficeBuilding',
     color: '#67C23A'
   },
   {
     title: '班级数量',
-    value: '24',
+    value: '0',
     icon: 'School',
     color: '#E6A23C'
   },
   {
     title: '考试场次',
-    value: '36',
+    value: '0',
     icon: 'Calendar',
     color: '#F56C6C'
   }
@@ -173,6 +179,82 @@ const shortcuts = ref([
 const navigateTo = (path: string) => {
   router.push(path)
 }
+
+// 获取员工统计数据
+const fetchEmployeeStats = async () => {
+  try {
+    const response = await getEmployeeStats()
+    if (response && response.code === 200 && response.data) {
+      // 更新员工总数
+      statCards.value[0].value = response.data.totalCount.toString() || '0'
+    }
+  } catch (error) {
+    console.error('获取员工统计数据失败:', error)
+  }
+}
+
+// 获取部门数量
+const fetchDeptCount = async () => {
+  try {
+    const response = await getDeptList()
+    if (response && response.code === 200 && Array.isArray(response.data)) {
+      // 更新部门数量
+      statCards.value[1].value = response.data.length.toString() || '0'
+    }
+  } catch (error) {
+    console.error('获取部门数量失败:', error)
+  }
+}
+
+// 获取班级数量
+const fetchClassCount = async () => {
+  try {
+    const response = await getClassList()
+    if (response && response.code === 200 && Array.isArray(response.data)) {
+      // 更新班级数量
+      statCards.value[2].value = response.data.length.toString() || '0'
+    }
+  } catch (error) {
+    console.error('获取班级数量失败:', error)
+  }
+}
+
+// 获取考试场次
+const fetchExamCount = async () => {
+  try {
+    const response = await getExamStats()
+    if (response && response.code === 200 && response.data) {
+      // 更新考试场次
+      statCards.value[3].value = response.data.totalCount?.toString() || '0'
+    }
+  } catch (error) {
+    console.error('获取考试场次失败:', error)
+  }
+}
+
+// 初始化数据
+const initDashboardData = async () => {
+  loading.value = true
+  try {
+    // 并行获取所有统计数据
+    await Promise.all([
+      fetchEmployeeStats(),
+      fetchDeptCount(),
+      fetchClassCount(),
+      fetchExamCount()
+    ])
+  } catch (error) {
+    console.error('初始化仪表盘数据失败:', error)
+    ElMessage.warning('获取统计数据失败，显示默认值')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 页面加载时获取数据
+onMounted(() => {
+  initDashboardData()
+})
 </script>
 
 <style scoped>

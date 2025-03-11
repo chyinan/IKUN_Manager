@@ -242,63 +242,72 @@ const fetchData = async () => {
   try {
     loading.value = true
     const res = await getClassList()
-    if (res.code === 200 && res.data && res.data.length > 0) {
+    if (res.code === 200 && Array.isArray(res.data)) {
+      // 处理API返回的数据
       tableData.value = res.data.map((item: any) => {
         // 安全处理日期转换
         let createTimeDisplay;
         try {
           createTimeDisplay = item.create_time 
-            ? new Date(item.create_time).toLocaleString('zh-CN') 
-            : new Date().toLocaleString('zh-CN');
+            ? new Date(item.create_time).toLocaleString('zh-CN')
+            : '未知时间';
         } catch (e) {
-          createTimeDisplay = new Date().toLocaleString('zh-CN');
+          createTimeDisplay = '日期格式错误';
+          console.error('日期转换错误:', e);
         }
         
+        // 返回标准化的数据结构
         return {
-          id: item.id || Math.floor(Math.random() * 1000),
-          className: item.class_name || '未命名班级',
-          studentCount: item.student_count || Math.floor(Math.random() * 40 + 20),
-          teacher: item.teacher || '未分配',
+          id: item.id || Math.floor(Math.random() * 10000),
+          className: item.class_name || item.className || `未命名班级${Math.floor(Math.random() * 100)}`,
+          studentCount: item.student_count || item.studentCount || Math.floor(Math.random() * 40 + 10),
+          teacher: item.teacher || `教师${Math.floor(Math.random() * 100)}`,
           createTime: createTimeDisplay,
-          description: item.description || '班级描述信息'
+          description: item.description || '暂无描述'
         };
       });
+      
+      // 更新分页数据
       pagination.total = tableData.value.length;
+      console.log('成功获取班级数据:', tableData.value);
     } else {
-      // 如果没有数据则创建模拟数据
+      // 如果API返回错误或无数据，生成模拟数据
+      console.warn('API返回无效数据，使用模拟数据');
       generateMockData();
     }
   } catch (error) {
-    console.error('获取数据失败:', error);
-    ElMessage.error('获取数据失败');
-    // 出错时也生成模拟数据
+    console.error('获取班级列表失败:', error);
+    ElMessage.warning('获取班级数据失败，使用模拟数据');
     generateMockData();
   } finally {
     loading.value = false;
   }
 };
 
-// 添加生成模拟数据的函数
+// 生成模拟数据
 const generateMockData = () => {
-  const mockClasses = [
-    { name: '计算机科学2401班', teacher: '张教授', count: 35 },
-    { name: '软件工程2402班', teacher: '李教授', count: 42 },
-    { name: '人工智能2403班', teacher: '王教授', count: 38 },
-    { name: '大数据分析2404班', teacher: '赵教授', count: 32 },
-    { name: '网络安全2405班', teacher: '钱教授', count: 30 }
-  ];
+  const mockData: ClassItem[] = [];
+  const classTypes = ['计算机科学', '软件工程', '人工智能', '大数据', '网络安全'];
+  const teacherNames = ['张老师', '李老师', '王老师', '赵老师', '刘老师'];
   
-  tableData.value = mockClasses.map((cls, index) => ({
-    id: index + 1,
-    className: cls.name,
-    teacher: cls.teacher,
-    studentCount: cls.count,
-    description: `${cls.name}是一个优秀的班级，由${cls.teacher}负责。`,
-    createTime: new Date(2023, index, 15).toLocaleString('zh-CN')
-  }));
+  for (let i = 0; i < 20; i++) {
+    const classType = classTypes[Math.floor(Math.random() * classTypes.length)];
+    const classNum = Math.floor(Math.random() * 10) + 1;
+    const year = 2020 + Math.floor(Math.random() * 5);
+    
+    mockData.push({
+      id: i + 1,
+      className: `${classType}${year}0${classNum}班`,
+      studentCount: Math.floor(Math.random() * 20) + 20,
+      teacher: teacherNames[Math.floor(Math.random() * teacherNames.length)],
+      createTime: new Date(year, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleString('zh-CN'),
+      description: `${year}年${classType}专业${classNum}班`
+    });
+  }
   
-  pagination.total = tableData.value.length;
-  console.log('生成的模拟班级数据:', tableData.value);
+  tableData.value = mockData;
+  pagination.total = mockData.length;
+  console.log('生成的模拟数据:', mockData);
 };
 
 // 筛选数据

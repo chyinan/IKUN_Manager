@@ -13,6 +13,10 @@
       
       <!-- 学生选择区域 -->
       <div class="student-select-area">
+        <div class="area-title">
+          <el-icon><User /></el-icon>
+          <span>筛选</span>
+        </div>
         <el-form :inline="true" class="selection-form">
           <el-form-item label="班级">
             <el-select 
@@ -174,15 +178,13 @@
       </el-form>
     </el-card>
     
-    <!-- 未选择学生或考试类型时显示的提示 -->
+    <!-- 未选择学生或考试类型时显示的提示 - 移除了误导性按钮 -->
     <el-empty 
       v-else 
-      description="请选择班级、学生和考试类型查看成绩" 
+      description="请按照上方操作指引选择班级、学生和考试类型查看成绩" 
       :image-size="200"
       class="empty-placeholder"
-    >
-      <el-button type="primary">选择学生</el-button>
-    </el-empty>
+    />
   </div>
 </template>
 
@@ -195,7 +197,7 @@ import { getStudentList } from '@/api/student'
 import { getStudentScore, saveStudentScore, testScoreApi } from '@/api/score'
 import type { SubjectType, ScoreData } from '@/types/score'
 import type { StudentItemResponse } from '@/types/student'
-import { School, Calendar, UserFilled, Check, Close } from '@element-plus/icons-vue'
+import { School, Calendar, UserFilled, Check, Close, User } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -616,12 +618,30 @@ onMounted(async () => {
 
 .student-select-area {
   margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.area-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 5px;
+  border-left: 4px solid #409EFF;
+  padding-left: 10px;
 }
 
 .selection-form {
   display: flex;
   flex-wrap: wrap;
   gap: 15px;
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 6px;
 }
 
 .student-option {
@@ -766,6 +786,10 @@ onMounted(async () => {
 
 .empty-placeholder {
   margin-top: 40px;
+  background-color: #fcfcfc;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
 }
 
 /* 响应式调整 */

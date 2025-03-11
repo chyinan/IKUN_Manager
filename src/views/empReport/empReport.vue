@@ -205,20 +205,20 @@ const salaryOption = computed(() => {
   deptSalaries.sort((a, b) => b.value - a.value);
 
   return {
-    title: {
+  title: {
       text: '部门平均薪资',
       left: 'center'
-    },
-    tooltip: {
-      trigger: 'axis',
+  },
+  tooltip: {
+    trigger: 'axis',
       formatter: (params: any) => {
         const data = params[0]
         return `<strong>${data.name}</strong><br/>平均薪资: <span style="color:#FF9800;font-weight:bold">¥${data.value.toFixed(2)}</span>`
       },
-      axisPointer: {
-        type: 'shadow'
-      }
-    },
+    axisPointer: {
+      type: 'shadow'
+    }
+  },
     grid: {
       left: '5%',
       right: '5%',
@@ -226,8 +226,8 @@ const salaryOption = computed(() => {
       top: '15%',
       containLabel: true
     },
-    xAxis: {
-      type: 'category',
+  xAxis: {
+    type: 'category',
       data: deptSalaries.map(item => item.name),
       axisLabel: {
         interval: 0,
@@ -240,8 +240,8 @@ const salaryOption = computed(() => {
           color: '#E0E0E0'
         }
       }
-    },
-    yAxis: {
+  },
+  yAxis: {
       type: 'value',
       name: '平均薪资(元)',
       nameTextStyle: {
@@ -258,11 +258,11 @@ const salaryOption = computed(() => {
           color: '#E0E0E0'
         }
       }
-    },
-    series: [{
+  },
+  series: [{
       name: '部门平均薪资',
       data: deptSalaries,
-      type: 'bar',
+    type: 'bar',
       barWidth: '50%',
       label: {
         show: true,
@@ -303,15 +303,15 @@ const deptDistOption = computed(() => {
   pieData.sort((a, b) => b.value - a.value);
   
   return {
-    title: {
+  title: {
       text: '部门人员分布',
       left: 'center'
-    },
-    tooltip: {
+  },
+  tooltip: {
       trigger: 'item',
       formatter: '<strong>{b}</strong>: {c} 人 ({d}%)'  // 增强提示格式
-    },
-    legend: {
+  },
+  legend: {
       orient: 'vertical',
       right: '5%',
       top: 'middle',
@@ -320,10 +320,10 @@ const deptDistOption = computed(() => {
       textStyle: {
         fontSize: 12
       }
-    },
-    series: [{
+  },
+  series: [{
       name: '部门分布',
-      type: 'pie',
+    type: 'pie',
       radius: ['40%', '70%'], // 创建环形图
       center: ['40%', '50%'], // 调整图表位置
       avoidLabelOverlap: true,

@@ -590,26 +590,15 @@ const fetchData = async () => {
     // 确保有部门选项
     if (!deptOptions.value || deptOptions.value.length === 0) {
       deptOptions.value = initDeptOptions();
-      console.log('初始化默认部门选项:', deptOptions.value);
     }
     
     const res = await getEmployeeList()
-    console.log('员工API返回数据:', res);
     
     if (res.code === 200 && Array.isArray(res.data) && res.data.length > 0) {
-      // 直接检查数据结构 - 使用any类型规避类型检查
-      const firstItem = res.data[0] as any;
-      console.log('API返回的第一条数据:', firstItem);
-      console.log('API数据字段列表:', Object.keys(firstItem));
-      // 直接显示API返回的部门字段值和类型
-      console.log('API返回部门字段值:', firstItem.deptName);
-      console.log('API返回部门字段类型:', typeof firstItem.deptName);
-      
-      // 从API获取成功 - 完全绕过类型系统，确保能够正确处理
+      // 处理API返回的数据
       const processedData = res.data.map((item: any, index: number) => {
         // 获取API返回的部门名称
-        const apiDeptName = item.deptName;
-        console.log(`第${index+1}条记录的原始部门:`, apiDeptName, typeof apiDeptName);
+        const apiDeptName = item.deptName || item.department;
         
         // 确保部门名称有效
         let finalDeptName: string;
@@ -617,15 +606,13 @@ const fetchData = async () => {
           finalDeptName = apiDeptName;
         } else {
           finalDeptName = deptOptions.value[index % deptOptions.value.length];
-          console.log(`第${index+1}条记录的部门无效，使用默认部门:${finalDeptName}`);
         }
         
         // 返回处理后的记录
         return {
           id: item.id || index + 1,
-          empId: item.empId || `EMP${100000 + index}`,
+          empId: item.empId || item.emp_id || `EMP${100000 + index}`,
           name: item.name || `员工${index + 1}`,
-          // 使用明确处理过的部门名称
           deptName: finalDeptName,
           gender: item.gender || (Math.random() > 0.5 ? '男' : '女'),
           age: item.age || Math.floor(Math.random() * (50 - 22) + 22),
@@ -634,62 +621,35 @@ const fetchData = async () => {
           status: item.status || '在职',
           phone: item.phone || `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
           email: item.email || `user${index}@example.com`,
-          joinDate: item.joinDate 
-            ? new Date(item.joinDate).toLocaleDateString('zh-CN') 
+          joinDate: item.joinDate || item.join_date
+            ? new Date(item.joinDate || item.join_date).toLocaleDateString('zh-CN') 
             : new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('zh-CN'),
-          createTime: new Date().toLocaleString('zh-CN')
-        } as EmployeeItem;  // 明确指定类型
+          createTime: item.createTime || item.create_time 
+            ? new Date(item.createTime || item.create_time).toLocaleString('zh-CN')
+            : new Date().toLocaleString('zh-CN')
+        } as EmployeeItem;
       });
       
       // 使用处理好的数据
       tableData.value = processedData;
+      pagination.total = processedData.length;
       
-      // 检查处理后的数据
-      console.log('处理后数据第一条:', tableData.value[0]);
-      console.log('处理后数据字段:', Object.keys(tableData.value[0]));
-      console.log('处理后deptName:', tableData.value[0].deptName, typeof tableData.value[0].deptName);
-      
-      pagination.total = tableData.value.length;
-      console.log('处理后的员工数据:', tableData.value.length, '条');
-      
-      // 强制修复所有部门数据
-      fixAllDepts();
-      
-      // 自动检测和修复undefined字符串问题
-      autoFixUndefinedDepts();
-      
-      // 收集表格数据中的部门选项
+      // 更新部门选项
       updateDeptOptions();
       
-      // 检查处理后的数据格式
-      checkDataFormat();
+      console.log(`成功获取${processedData.length}条员工数据`);
     } else {
-      // API调用失败，生成模拟数据
-      console.log('API返回数据无效，生成模拟数据');
+      console.warn('API返回无效数据，使用模拟数据');
       generateMockData();
-      
-      // 收集表格数据中的部门选项
-      updateDeptOptions();
-      
-      // 检查生成的模拟数据格式
-      checkDataFormat();
     }
   } catch (error) {
     console.error('获取员工数据失败:', error);
     ElMessage.warning('获取员工数据失败，使用模拟数据');
-    
-    // 生成模拟数据
     generateMockData();
-    
-    // 收集表格数据中的部门选项
-    updateDeptOptions();
-    
-    // 检查生成的模拟数据格式
-    checkDataFormat();
   } finally {
     loading.value = false;
   }
-}
+};
 
 // 强制为所有记录分配部门
 const fixAllDepts = () => {

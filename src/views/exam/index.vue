@@ -1,70 +1,165 @@
 <template>
   <div class="exam-container">
-    <!-- 页面标题 -->
-    <el-card class="header-card">
-      <template #header>
-        <div class="page-header">
-          <div class="header-title">
-            <el-icon><Calendar /></el-icon>
-            <span>考试管理</span>
-          </div>
+    <!-- 页面标题区域 -->
+    <div class="page-header-area">
+      <div class="page-header">
+        <el-icon :size="24"><Calendar /></el-icon>
+        <div class="header-content">
+          <h2 class="header-title">考试管理</h2>
           <div class="header-desc">管理学校各类考试信息</div>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <el-button type="primary" @click="handleAddExam" :icon="Plus">新增考试</el-button>
+        <el-button @click="fetchExamList" :icon="Refresh">刷新数据</el-button>
+      </div>
+    </div>
+    
+    <!-- 搜索和筛选区域 -->
+    <el-card class="filter-card">
+      <template #header>
+        <div class="filter-header">
+          <span>搜索与筛选</span>
+          <el-button 
+            text
+            @click="clearFilters" 
+            type="primary" 
+            :disabled="!hasActiveFilters"
+          >
+            清除筛选
+          </el-button>
         </div>
       </template>
       
-      <!-- 搜索和操作区域 -->
-      <div class="operation-area">
-        <div class="search-area">
+      <div class="filter-content">
+        <!-- 搜索区域 -->
+        <div class="search-section">
+          <div class="section-title">
+            <el-icon><Search /></el-icon>
+            <span>关键词搜索</span>
+          </div>
           <el-input
             v-model="searchKeyword"
-            placeholder="搜索考试名称"
+            placeholder="输入考试名称搜索"
             clearable
             @clear="handleSearch"
             @keyup.enter="handleSearch"
           >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
             <template #append>
               <el-button @click="handleSearch">搜索</el-button>
             </template>
           </el-input>
-          
-          <el-select
-            v-model="filterExamType"
-            placeholder="考试类型"
-            clearable
-            @change="handleFilterChange"
-          >
-            <el-option
-              v-for="item in examTypes"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-          
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY/MM/DD"
-            value-format="YYYY-MM-DD"
-            @change="handleFilterChange"
-          />
         </div>
         
-        <div class="action-area">
-          <el-button type="primary" @click="handleAddExam" :icon="Plus">新增考试</el-button>
-          <el-button @click="fetchExamList" :icon="Refresh">刷新</el-button>
+        <!-- 筛选区域 -->
+        <div class="filter-section">
+          <div class="section-title">
+            <el-icon><Filter /></el-icon>
+            <span>筛选条件</span>
+          </div>
+          <div class="filter-options">
+            <el-select
+              v-model="filterExamType"
+              placeholder="考试类型"
+              clearable
+              @change="handleFilterChange"
+              class="filter-item"
+            >
+              <el-option
+                v-for="item in examTypes"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+            
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY/MM/DD"
+              value-format="YYYY-MM-DD"
+              @change="handleFilterChange"
+              class="filter-item date-picker"
+            />
+            
+            <el-select
+              v-model="statusFilter"
+              placeholder="考试状态"
+              clearable
+              @change="handleFilterChange"
+              class="filter-item"
+            >
+              <el-option label="未开始" :value="0" />
+              <el-option label="进行中" :value="1" />
+              <el-option label="已结束" :value="2" />
+            </el-select>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 筛选结果显示 -->
+      <div class="filter-results" v-if="hasActiveFilters">
+        <div class="results-info">
+          <el-icon><InfoFilled /></el-icon>
+          <span>当前筛选条件下共有 <strong>{{ filteredExamList.length }}</strong> 条数据</span>
+        </div>
+        
+        <div class="active-filters">
+          <el-tag 
+            v-if="searchKeyword" 
+            closable 
+            @close="searchKeyword = ''; handleSearch()"
+            class="filter-tag"
+          >
+            关键词: {{ searchKeyword }}
+          </el-tag>
+          
+          <el-tag 
+            v-if="filterExamType" 
+            closable 
+            @close="filterExamType = ''; handleFilterChange()"
+            type="success"
+            class="filter-tag"
+          >
+            考试类型: {{ filterExamType }}
+          </el-tag>
+          
+          <el-tag 
+            v-if="dateRange" 
+            closable 
+            @close="dateRange = null; handleFilterChange()"
+            type="warning"
+            class="filter-tag"
+          >
+            日期范围: {{ formatDateRangeDisplay(dateRange) }}
+          </el-tag>
+          
+          <el-tag 
+            v-if="statusFilter !== null && statusFilter !== undefined" 
+            closable 
+            @close="statusFilter = null; handleFilterChange()"
+            type="danger"
+            class="filter-tag"
+          >
+            考试状态: {{ getStatusText(statusFilter) }}
+          </el-tag>
         </div>
       </div>
     </el-card>
     
     <!-- 考试列表 -->
     <el-card class="exam-list-card">
+      <template #header>
+        <div class="list-header">
+          <span>考试列表</span>
+          <span class="data-count">共 {{ filteredExamList.length }} 条数据</span>
+        </div>
+      </template>
+      
       <el-table
         :data="paginatedExamList"
         style="width: 100%"
@@ -279,7 +374,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { 
   Calendar, Search, Plus, Edit, Delete, Refresh,
-  SuccessFilled, WarningFilled, CircleCheckFilled
+  SuccessFilled, WarningFilled, CircleCheckFilled,
+  Filter, InfoFilled
 } from '@element-plus/icons-vue'
 import { 
   getExamList, 
@@ -306,11 +402,32 @@ const subjectOptions = ['语文', '数学', '英语', '物理', '化学', '生�
 const loading = ref(false)
 const submitLoading = ref(false)
 const examList = ref<ExamInfo[]>([])
+const statusFilter = ref<number | null>(null)
+
+// 检查是否有激活的筛选条件
+const hasActiveFilters = computed(() => {
+  return !!searchKeyword.value || !!filterExamType.value || !!dateRange.value || statusFilter.value !== null;
+})
+
+// 格式化日期范围显示
+const formatDateRangeDisplay = (range: [string, string] | null) => {
+  if (!range) return '';
+  return `${range[0]} 至 ${range[1]}`;
+}
+
+// 清除所有筛选条件
+const clearFilters = () => {
+  searchKeyword.value = '';
+  filterExamType.value = '';
+  dateRange.value = null;
+  statusFilter.value = null;
+  handleFilterChange();
+}
 
 // 筛选数据计算属性
 const filteredExamList = computed(() => {
   // 如果没有筛选条件，直接返回所有数据
-  if (!filterExamType.value && !dateRange.value && !searchKeyword.value.trim()) {
+  if (!searchKeyword.value.trim() && !filterExamType.value && !dateRange.value && statusFilter.value === null) {
     return examList.value;
   }
   
@@ -319,6 +436,7 @@ const filteredExamList = computed(() => {
     let matchType = true;
     let matchDate = true;
     let matchKeyword = true;
+    let matchStatus = true;
     
     // 考试类型筛选
     if (filterExamType.value) {
@@ -342,7 +460,12 @@ const filteredExamList = computed(() => {
       matchKeyword = exam.exam_name.toLowerCase().includes(searchKeyword.value.toLowerCase());
     }
     
-    return matchType && matchDate && matchKeyword;
+    // 状态筛选
+    if (statusFilter.value !== null) {
+      matchStatus = exam.status === statusFilter.value;
+    }
+    
+    return matchType && matchDate && matchKeyword && matchStatus;
   });
 });
 
@@ -822,58 +945,132 @@ onMounted(() => {
   gap: 20px;
 }
 
-.header-card {
-  margin-bottom: 0;
+/* 页面标题区域样式 */
+.page-header-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 .page-header {
   display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-content {
+  display: flex;
   flex-direction: column;
-  gap: 5px;
 }
 
 .header-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: bold;
+  margin: 0;
+  color: #303133;
 }
 
 .header-desc {
   color: #909399;
   font-size: 14px;
+  margin-top: 5px;
 }
 
-.operation-area {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.search-area {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.search-area .el-input {
-  max-width: 300px;
-}
-
-.action-area {
+.header-actions {
   display: flex;
   gap: 10px;
 }
 
+/* 筛选卡片样式 */
+.filter-card {
+  margin-bottom: 0;
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+
+.filter-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
+}
+
+.filter-item {
+  min-width: 180px;
+}
+
+.date-picker {
+  width: 350px;
+}
+
+/* 筛选结果显示 */
+.filter-results {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.results-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #409EFF;
+  margin-bottom: 10px;
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-tag {
+  margin: 0;
+}
+
+/* 列表卡片样式 */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.data-count {
+  font-size: 14px;
+  color: #909399;
+  font-weight: normal;
+}
+
 .exam-list-card {
+  margin-bottom: 0;
   flex: 1;
 }
 
+/* 其他样式保持不变 */
 .pagination-container {
   margin-top: 20px;
   display: flex;
@@ -928,20 +1125,22 @@ onMounted(() => {
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-  .operation-area {
+  .page-header-area {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .filter-options {
     flex-direction: column;
     align-items: stretch;
   }
   
-  .search-area {
-    flex-direction: column;
+  .filter-item, .date-picker {
+    width: 100%;
   }
   
-  .search-area .el-input {
-    max-width: none;
-  }
-  
-  .action-area {
+  .header-actions {
     justify-content: flex-end;
   }
 }

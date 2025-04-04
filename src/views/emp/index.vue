@@ -184,11 +184,11 @@ import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
-import type { EmployeeItem, EmployeeFormData, DeptItem } from '@/types/employee'
+import type { EmployeeItem, EmployeeFormData, DeptItem, EmployeeItemResponse } from '@/types/employee'
 import { exportToExcel } from '@/utils/export'
 import type { Pagination } from '@/types/pagination'
-import type { DeptResponseData } from '@/types/dept'
-import type { ApiDeptResponse } from '@/types/dept'
+import type { DeptResponseData, ApiDeptResponse } from '@/types/dept'
+import type { ApiResponse } from '@/types/common'
 
 // 初始化部门数据
 const initDeptOptions = () => {
@@ -433,35 +433,40 @@ const handleExport = () => {
 const fetchDeptList = async () => {
   try {
     console.log('开始获取部门列表...');
-    const res = await getDeptList()
-    console.log('部门API返回数据:', res);
+    // 注意：getDeptList 返回的是 AxiosResponse<ApiResponse<DeptResponseData[]>>
+    const response = await getDeptList(); 
+    console.log('部门API返回数据:', response);
     
-    if (res.code === 200 && Array.isArray(res.data) && res.data.length > 0) {
-      // 使用类型注解和类型断言确保类型安全
-      const apiDepts = (res.data as DeptResponseData[]).map(
-        (item: DeptResponseData) => item.dept_name
-      );
+    // 正确检查 response.data.code 和 response.data.data
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+      const deptData = response.data.data as DeptResponseData[]; // 明确类型
       
-      if (apiDepts.length > 0) {
-        deptOptions.value = apiDepts;
-        console.log('从API获取的部门列表:', deptOptions.value);
-        return true;
+      if (deptData.length > 0) {
+        // 从 deptData 提取部门名称
+        const apiDepts = deptData.map(item => item.dept_name).filter(name => name); // 过滤掉空名称
+        
+        if (apiDepts.length > 0) {
+          deptOptions.value = apiDepts;
+          console.log('从API获取的部门列表:', deptOptions.value);
+          return true; // 表示成功从 API 获取
+        }
       }
-    } else {
-      console.log('API返回的部门数据无效，使用默认部门');
     }
+    // 如果以上条件不满足，则记录日志并准备使用默认值
+    console.log('API返回的部门数据无效或为空，将使用默认部门', response?.data);
+
   } catch (error) {
     console.error('获取部门列表失败:', error);
     ElMessage.warning('获取部门列表失败，使用默认部门');
   }
   
-  // 如果API获取失败，确保使用默认部门
+  // 如果API获取失败或数据无效，确保使用默认部门
   if (!deptOptions.value || deptOptions.value.length === 0) {
     deptOptions.value = initDeptOptions();
-    console.log('使用默认部门列表:', deptOptions.value);
+    console.log('已使用默认部门列表:', deptOptions.value);
   }
   
-  return false;
+  return false; // 表示未使用 API 数据
 }
 
 // 筛选数据
@@ -587,63 +592,63 @@ const fetchData = async () => {
   loading.value = true
   
   try {
-    // 确保有部门选项
     if (!deptOptions.value || deptOptions.value.length === 0) {
-      deptOptions.value = initDeptOptions();
+      console.log('fetchData: 部门选项为空，尝试重新获取');
+      await fetchDeptList();
     }
     
-    const res = await getEmployeeList()
-    
-    if (res.code === 200 && Array.isArray(res.data) && res.data.length > 0) {
-      // 处理API返回的数据
-      const processedData = res.data.map((item: any, index: number) => {
-        // 获取API返回的部门名称
-        const apiDeptName = item.deptName || item.department;
+    // getEmployeeList 返回的是 AxiosResponse<ApiResponse<EmployeeItemResponse[]>>
+    const response = await getEmployeeList(); 
+    console.log('员工列表原始API响应:', response); 
+
+    // 还原正确的条件检查：检查 response.data.code 和 response.data.data 是否为数组
+    // 忽略潜在的 Linter 误报
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+      const employeeData = response.data.data as EmployeeItemResponse[];
+      console.log('API返回了有效的员工数据数组', employeeData);
+      
+      if (employeeData.length > 0) {
+        // 直接使用 employeeData 进行映射
+        const processedData = employeeData.map((item, index) => {
+          const apiDeptName = item.dept_name;
+          let finalDeptName: string;
+          if (apiDeptName && typeof apiDeptName === 'string' && apiDeptName.trim() !== '' && apiDeptName !== 'undefined') {
+            finalDeptName = apiDeptName;
+          } else {
+            finalDeptName = deptOptions.value[index % deptOptions.value.length] || initDeptOptions()[0];
+          }
+          return {
+            id: item.id,
+            empId: item.emp_id,
+            name: item.name,
+            deptName: finalDeptName,
+            gender: item.gender,
+            age: item.age,
+            position: item.position,
+            salary: Number(item.salary),
+            status: item.status,
+            phone: item.phone || undefined,
+            email: item.email || undefined,
+            joinDate: item.join_date ? new Date(item.join_date).toLocaleDateString('zh-CN') : 'N/A',
+            createTime: item.create_time ? new Date(item.create_time).toLocaleString('zh-CN') : 'N/A'
+          } as EmployeeItem;
+        });
         
-        // 确保部门名称有效
-        let finalDeptName: string;
-        if (apiDeptName && typeof apiDeptName === 'string' && apiDeptName.trim() !== '' && apiDeptName !== 'undefined') {
-          finalDeptName = apiDeptName;
-        } else {
-          finalDeptName = deptOptions.value[index % deptOptions.value.length];
-        }
-        
-        // 返回处理后的记录
-        return {
-          id: item.id || index + 1,
-          empId: item.empId || item.emp_id || `EMP${100000 + index}`,
-          name: item.name || `员工${index + 1}`,
-          deptName: finalDeptName,
-          gender: item.gender || (Math.random() > 0.5 ? '男' : '女'),
-          age: item.age || Math.floor(Math.random() * (50 - 22) + 22),
-          position: item.position || ['讲师', '教授', '助教', '研究员'][Math.floor(Math.random() * 4)],
-          salary: Number(item.salary) || Math.floor(Math.random() * 10000 + 5000),
-          status: item.status || '在职',
-          phone: item.phone || `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
-          email: item.email || `user${index}@example.com`,
-          joinDate: item.joinDate || item.join_date
-            ? new Date(item.joinDate || item.join_date).toLocaleDateString('zh-CN') 
-            : new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('zh-CN'),
-          createTime: item.createTime || item.create_time 
-            ? new Date(item.createTime || item.create_time).toLocaleString('zh-CN')
-            : new Date().toLocaleString('zh-CN')
-        } as EmployeeItem;
-      });
-      
-      // 使用处理好的数据
-      tableData.value = processedData;
-      pagination.total = processedData.length;
-      
-      // 更新部门选项
-      updateDeptOptions();
-      
-      console.log(`成功获取${processedData.length}条员工数据`);
+        tableData.value = processedData;
+        pagination.total = processedData.length; 
+        console.log(`成功处理并显示 ${processedData.length} 条员工数据`);
+      } else {
+         console.log('API 返回员工数据为空数组');
+         tableData.value = [];
+         pagination.total = 0;
+      }
     } else {
-      console.warn('API返回无效数据，使用模拟数据');
+      // 如果 getEmployeeList 返回的响应格式不符合预期
+      console.warn('员工列表API响应格式不正确或 code !== 200，使用模拟数据。实际响应:', response?.data);
       generateMockData();
     }
   } catch (error) {
-    console.error('获取员工数据失败:', error);
+    console.error('获取员工数据时发生错误:', error);
     ElMessage.warning('获取员工数据失败，使用模拟数据');
     generateMockData();
   } finally {

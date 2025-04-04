@@ -124,8 +124,10 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await getDeptList()
-    if (res.code === 200 && Array.isArray(res.data)) {
-      tableData.value = res.data.map((item, index) => {
+    console.log('部门列表API响应:', res)
+    
+    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+      tableData.value = res.data.data.map((item: DeptResponseData) => {
         // 安全处理日期转换
         let createTimeDisplay;
         try {
@@ -137,23 +139,23 @@ const fetchData = async () => {
         }
 
         return {
-          id: item.id || index + 1,
-          deptName: item.dept_name || `部门${index + 1}`,
-          manager: item.manager || `管理员${index + 1}`,
-          memberCount: item.member_count || Math.floor(Math.random() * 30 + 5),
-          description: item.description || '这是一个部门描述...',
+          id: item.id,
+          deptName: item.dept_name || '',
+          manager: item.manager || '',
+          memberCount: item.member_count || 0,
+          description: item.description || '',
           createTime: createTimeDisplay
         };
       });
       total.value = tableData.value.length;
+      console.log('处理后的部门数据:', tableData.value);
     } else {
-      // 如果没有数据或响应错误，创建模拟数据
+      console.warn('部门列表API响应格式不正确或 code !== 200，使用模拟数据');
       generateMockData();
     }
   } catch (error) {
-    console.error('获取失败:', error);
+    console.error('获取部门列表失败:', error);
     ElMessage.error('获取数据失败');
-    // 出错时也生成模拟数据
     generateMockData();
   } finally {
     loading.value = false;

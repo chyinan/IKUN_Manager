@@ -8,6 +8,79 @@ import type {
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
+// 创建axios实例
+const service: AxiosInstance = axios.create({
+  // 默认使用模拟数据，如果需要连接真实后端，请取消下面一行的注释并注释掉baseURL: ''
+  baseURL: 'http://localhost:3000/api',
+  //baseURL: '',
+  timeout: 5000
+})
+
+// 请求拦截器
+service.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    // 添加token到请求头
+    const userStore = useUserStore()
+    if (userStore.token) {
+      config.headers['Authorization'] = `Bearer ${userStore.token}`
+    }
+    return config
+  },
+  (error) => {
+    console.error('请求错误:', error)
+    return Promise.reject(error)
+  }
+)
+
+// 响应拦截器
+service.interceptors.response.use(
+  (response: AxiosResponse) => {
+    // 如果是文件下载，直接返回
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+    
+    // 处理响应数据
+    const res = response.data
+    
+    // 如果是真实API响应，检查状态码
+    if (res && res.code !== undefined) {
+      // Check if the business code indicates success (e.g., 200 or 201)
+      if (res.code === 200 || res.code === 201) { 
+        // Business success, return the original Axios response
+        // The API function's .then block will receive this
+        return response 
+      } else {
+        // Business failure (but HTTP request succeeded)
+        ElMessage.error(res.message || '请求失败')
+        
+        // Handle specific error codes like 401
+        if (res.code === 401) {
+          // 未授权，清除用户信息并跳转到登录页
+          const userStore = useUserStore()
+          userStore.resetState()
+          window.location.href = '/login'
+        }
+        
+        // Reject the promise with the business error details
+        // The API function's .catch block will receive this
+        return Promise.reject(res) 
+      }
+    } else {
+      // Handle responses without a 'code' field or non-standard format
+      console.warn('响应数据格式不标准或无 code 字段:', response);
+      // Assuming these are still successful at the HTTP level
+      return response; 
+    }
+  },
+  (error) => {
+    console.error('响应错误:', error)
+    const errorMsg = error.response?.data?.message || error.message || '请求失败';
+    ElMessage.error(errorMsg)
+    return Promise.reject(error)
+  }
+)
+
 // 创建模拟数据对象
 const mockData: Record<string, any> = {
   // 班级相关
@@ -152,6 +225,17 @@ const mockData: Record<string, any> = {
     status: ['未开始', '进行中', '已结束'][i % 3],
     createTime: '2023-01-01'
   })),
+  'exam/stats': {
+    total: 10,
+    completedCount: 3,
+    inProgressCount: 3,
+    upcomingCount: 4,
+    typeDistribution: [
+      { type: '期中考试', count: 3 },
+      { type: '期末考试', count: 3 },
+      { type: '月考', count: 4 }
+    ]
+  },
   'exam/detail': (id: number) => ({
     id,
     examName: `${['期中考试', '期末考试', '月考'][id % 3]}-${Math.floor(id / 3) + 1}`,
@@ -245,236 +329,142 @@ const mockData: Record<string, any> = {
       }
     }
   },
-  'score/exam-types': ['期中考试', '期末考试', '月考'],
-  'score/subjects': ['语文', '数学', '英语', '物理', '化学', '生物'],
   
   // 日志相关
   'log': Array.from({ length: 100 }, (_, i) => ({
     id: i + 1,
     type: ['system', 'database', 'vue'][i % 3],
     operation: ['登录', '查询', '新增', '修改', '删除'][i % 5],
-    content: `${['用户', '学生', '员工', '班级', '部门'][i % 5]}${i % 10 + 1}的${['登录', '查询', '新增', '修改', '删除'][i % 5]}操作`,
-    operator: `管理员${i % 5 + 1}`,
-    createTime: new Date(Date.now() - i * 3600000).toISOString().replace('T', ' ').substring(0, 19)
+    content: `${['用户', '管理员', '系统'][i % 3]}${['登录系统', '查询数据', '新增记录', '修改记录', '删除记录'][i % 5]}`,
+    operator: `${['admin', 'user', 'system'][i % 3]}`,
+    createTime: new Date(2023, i % 12, Math.floor(Math.random() * 28) + 1).toISOString()
   })),
   'log/list': Array.from({ length: 100 }, (_, i) => ({
     id: i + 1,
     type: ['system', 'database', 'vue'][i % 3],
     operation: ['登录', '查询', '新增', '修改', '删除'][i % 5],
-    content: `${['用户', '学生', '员工', '班级', '部门'][i % 5]}${i % 10 + 1}的${['登录', '查询', '新增', '修改', '删除'][i % 5]}操作`,
-    operator: `管理员${i % 5 + 1}`,
-    createTime: new Date(Date.now() - i * 3600000).toISOString().replace('T', ' ').substring(0, 19)
-  })),
-  
-  // 用户相关
-  'user': {
-    id: 1,
-    username: 'admin',
-    email: 'admin@example.com',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    roles: ['admin'],
-    permissions: ['*:*:*']
-  },
-  'user/info': {
-    id: 1,
-    username: 'admin',
-    email: 'admin@example.com',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    roles: ['admin'],
-    permissions: ['*:*:*']
-  }
+    content: `${['用户', '管理员', '系统'][i % 3]}${['登录系统', '查询数据', '新增记录', '修改记录', '删除记录'][i % 5]}`,
+    operator: `${['admin', 'user', 'system'][i % 3]}`,
+    createTime: new Date(2023, i % 12, Math.floor(Math.random() * 28) + 1).toISOString()
+  }))
 }
 
-// 是否启用模拟数据
-const enableMock = true
-
-// 创建axios实例
-const service: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:3000/api', // 直接指定完整的后端API地址
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json'
+// 重写 get 方法以支持模拟数据
+const originalGet = service.get
+service.get = function <T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<R> {
+  const useMock = !service.defaults.baseURL // 根据 baseURL 是否为空判断是否使用 mock
+  if (useMock) {
+    const path = url.split('?')[0].replace(/^\//, '') // 移除查询参数和开头的斜杠
+    console.log(`[Mock] GET ${url} -> ${path}`)
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (mockData[path]) {
+          // 模拟 AxiosResponse 结构
+          const mockResponse = {
+            data: { code: 200, message: '获取成功', data: mockData[path] || null },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: config as InternalAxiosRequestConfig, // 类型断言
+          } as R // 使用 R 作为类型断言
+          resolve(mockResponse)
+        } else {
+          const mockResponse = {
+            data: { code: 404, message: '资源未找到', data: null },
+            status: 404,
+            statusText: 'Not Found',
+            headers: {},
+            config: config as InternalAxiosRequestConfig,
+          } as R
+          resolve(mockResponse) // Mock 也应该 resolve 而不是 reject 404，让拦截器或调用者处理
+        }
+      }, 300)
+    }) as Promise<R> // 确保返回 Promise<R>
   }
-})
-
-// 请求拦截器
-service.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // 在发送请求之前做些什么
-    const userStore = useUserStore()
-    const token = userStore.token
-    
-    // 如果有token，添加到请求头
-    if (token && config.headers) {
-      config.headers['Authorization'] = `Bearer ${token}`
-    }
-    
-    return config
-  },
-  (error) => {
-    // 对请求错误做些什么
-    console.error('请求错误:', error)
-    return Promise.reject(error)
-  }
-)
-
-// 响应拦截器
-service.interceptors.response.use(
-  (response: AxiosResponse) => {
-    const res = response.data
-    
-    if (response.config.responseType === 'blob') {
-      return res
-    }
-    
-    // 如果返回的是原始数据，直接返回
-    if (res.code === undefined) {
-      return res
-    }
-    
-    // 如果返回的是标准响应格式，判断状态码
-    if (res.code !== 200) {
-      ElMessage.error(res.message || '请求失败')
-      
-      if (res.code === 401) {
-        const userStore = useUserStore()
-        userStore.logout()
-      }
-      
-      return Promise.reject(new Error(res.message || '请求失败'))
-    }
-    
-    return res.data // 直接返回data部分
-  },
-  (error) => {
-    console.error('响应错误:', error)
-    
-    let message = '网络错误，请稍后重试'
-    
-    if (error.response) {
-      switch (error.response.status) {
-        case 400:
-          message = '请求错误'
-          break
-        case 401:
-          message = '未授权，请重新登录'
-          const userStore = useUserStore()
-          userStore.logout()
-          break
-        case 403:
-          message = '拒绝访问'
-          break
-        case 404:
-          message = '请求的资源不存在'
-          break
-        case 500:
-          message = '服务器内部错误'
-          break
-        default:
-          message = `请求失败: ${error.response.status}`
-      }
-    } else if (error.request) {
-      message = '服务器无响应，请稍后重试'
-    }
-    
-    ElMessage.error(message)
-    return Promise.reject(error)
-  }
-)
-
-// 模拟数据处理函数
-const handleMockData = (url: string, params?: any) => {
-  console.log('使用模拟数据:', url)
-  
-  // 移除开头的斜杠
-  const apiPath = url.startsWith('/') ? url.substring(1) : url
-  
-  // 查找对应的模拟数据
-  const mockResponse = mockData[apiPath]
-  
-  if (mockResponse) {
-    // 如果是函数，则调用函数获取数据
-    if (typeof mockResponse === 'function') {
-      const result = mockResponse(params)
-      console.log('模拟数据响应(函数):', apiPath, result)
-      // 包装成API响应格式
-      return Promise.resolve({
-        code: 200,
-        data: result,
-        message: 'success'
-      })
-    }
-    // 否则直接返回数据，包装成API响应格式
-    console.log('模拟数据响应(静态):', apiPath, mockResponse)
-    return Promise.resolve({
-      code: 200,
-      data: mockResponse,
-      message: 'success'
-    })
-  }
-  
-  // 没有找到对应的模拟数据
-  console.warn('未找到模拟数据:', apiPath)
-  
-  // 尝试使用通用模式匹配
-  const generalPath = apiPath.split('/')[0]
-  if (mockData[generalPath]) {
-    console.log('使用通用模拟数据:', generalPath)
-    const generalData = mockData[generalPath]
-    if (typeof generalData === 'function') {
-      const result = generalData(params)
-      console.log('通用模拟数据响应(函数):', generalPath, result)
-      return Promise.resolve({
-        code: 200,
-        data: result,
-        message: 'success'
-      })
-    }
-    console.log('通用模拟数据响应(静态):', generalPath, generalData)
-    return Promise.resolve({
-      code: 200,
-      data: generalData,
-      message: 'success'
-    })
-  }
-  
-  return Promise.resolve({
-    code: 404,
-    data: null,
-    message: '未找到模拟数据'
-  })
+  // 否则使用真实API
+  return originalGet.call(this, url, config) as Promise<R> // 添加类型断言
 }
 
-// 定义请求方法
-const request = {
-  get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    // 如果启用了模拟数据，则返回模拟数据
-    if (enableMock) {
-      return handleMockData(url, config?.params) as Promise<T>
-    }
-    return service.get(url, config)
-  },
-  post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    // 如果启用了模拟数据，则返回模拟数据
-    if (enableMock) {
-      return handleMockData(url, data) as Promise<T>
-    }
-    return service.post(url, data, config)
-  },
-  put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    // 如果启用了模拟数据，则返回模拟数据
-    if (enableMock) {
-      return handleMockData(url, data) as Promise<T>
-    }
-    return service.put(url, data, config)
-  },
-  delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    // 如果启用了模拟数据，则返回模拟数据
-    if (enableMock) {
-      return handleMockData(url, config?.params) as Promise<T>
-    }
-    return service.delete(url, config)
+// 重写 post 方法以支持模拟数据
+const originalPost = service.post
+service.post = function <T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
+   const useMock = !service.defaults.baseURL
+   if (useMock) {
+    const path = url.replace(/^\//, '')
+    console.log(`[Mock] POST ${url} -> ${path}`, data)
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 简单的模拟：假设总是成功，并返回包含 id 的数据
+        const id = Date.now() // 模拟生成ID
+        let responseData: any;
+        if (path === 'exam/add' || path === 'employee/add' || path === 'dept/add' || path === 'class/add' || path === 'student/add') {
+           responseData = { code: 200, message: '添加成功', data: { ...(data as object || {}), id } }
+        } else {
+           responseData = { code: 200, message: '操作成功', data: data } // 其他 POST 操作可能只返回消息
+        }
+         const mockResponse = {
+            data: responseData,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: config as InternalAxiosRequestConfig,
+          } as R
+        resolve(mockResponse)
+      }, 300)
+    }) as Promise<R>
   }
+  // 否则使用真实API
+  return originalPost.call(this, url, data, config) as Promise<R> // 添加类型断言
 }
 
-export default request
+// 重写 put 方法以支持模拟数据
+const originalPut = service.put
+service.put = function <T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
+  const useMock = !service.defaults.baseURL
+  if (useMock) {
+    const path = url.replace(/^\//, '')
+    console.log(`[Mock] PUT ${url} -> ${path}`, data)
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 简单的模拟：假设总是成功
+         const mockResponse = {
+            data: { code: 200, message: '更新成功', data: data }, // PUT 通常返回更新后的数据或null/void
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: config as InternalAxiosRequestConfig,
+          } as R
+        resolve(mockResponse)
+      }, 300)
+    }) as Promise<R>
+  }
+  // 否则使用真实API
+  return originalPut.call(this, url, data, config) as Promise<R> // 添加类型断言
+}
+
+// 重写 delete 方法以支持模拟数据
+const originalDelete = service.delete
+service.delete = function <T = any, R = AxiosResponse<T>, D = any>(url: string, config?: AxiosRequestConfig<D>): Promise<R> {
+  const useMock = !service.defaults.baseURL
+  if (useMock) {
+    const path = url.replace(/^\//, '')
+    console.log(`[Mock] DELETE ${url} -> ${path}`)
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 简单的模拟：假设总是成功
+         const mockResponse = {
+            data: { code: 200, message: '删除成功', data: null }, // DELETE 通常返回 null 或 void
+            status: 200, // 或者 204 No Content
+            statusText: 'OK',
+            headers: {},
+            config: config as InternalAxiosRequestConfig,
+          } as R
+        resolve(mockResponse)
+      }, 300)
+    }) as Promise<R>
+  }
+  // 否则使用真实API
+  return originalDelete.call(this, url, config) as Promise<R> // 添加类型断言
+}
+
+export default service

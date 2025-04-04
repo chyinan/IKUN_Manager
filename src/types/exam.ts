@@ -22,15 +22,15 @@ export interface ExamQueryParams {
   endDate?: string;
 }
 
-// 考试列表响应
+// 考试列表响应 (定义 data 字段的结构)
 export interface ExamListResponse {
   list: ExamInfo[];
   total: number;
 }
 
-// API响应
-export interface ApiExamResponse {
-  code: number;
-  message: string;
-  data: ExamInfo | ExamListResponse | null;
-}
+// API响应 (这个通用类型可能在 src/types/common.ts 中定义)
+// 假设 ApiResponse<T> 结构为 { code: number; message: string; data: T | null; }
+// export interface ApiResponse<T> { ... }
+
+// (可选，但推荐) 为 getExamList 定义一个更具体的响应类型
+// export interface ApiGetExamListResponse extends ApiResponse<ExamListResponse> {}

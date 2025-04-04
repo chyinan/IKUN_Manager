@@ -67,10 +67,10 @@
               class="filter-item"
             >
               <el-option
-                v-for="item in examTypes"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
+                v-for="item in dynamicExamTypeOptions"
+                :key="item"
+                :label="item"
+                :value="item"
               />
             </el-select>
             
@@ -200,19 +200,11 @@
         </el-table-column>
         
         <!-- 考试科目列 -->
-        <el-table-column label="考试科目" min-width="180" show-overflow-tooltip>
-          <template #default="{row}">
-            <div class="subject-tags" v-if="row.subjects">
-              <el-tag
-                v-for="subject in row.subjects.split(',')"
-                :key="subject"
-                size="small"
-                effect="light"
-                class="subject-tag"
-              >
-                {{ subject }}
-              </el-tag>
-            </div>
+        <el-table-column prop="subjects" label="关联科目" min-width="150">
+          <template #default="{ row }">
+            <span v-if="Array.isArray(row.subjects) && row.subjects.length > 0">
+              {{ row.subjects.join(', ') }}
+            </span>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -291,10 +283,10 @@
         <el-form-item label="考试类型" prop="exam_type">
           <el-select v-model="examForm.exam_type" placeholder="请选择考试类型" style="width: 100%">
             <el-option
-              v-for="item in examTypes"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
+              v-for="item in dynamicExamTypeOptions"
+              :key="item"
+              :label="item"
+              :value="item"
             />
           </el-select>
         </el-form-item>
@@ -340,9 +332,9 @@
         
         <el-form-item label="考试状态" prop="status">
           <el-radio-group v-model="examForm.status">
-            <el-radio :label="0">未开始</el-radio>
-            <el-radio :label="1">进行中</el-radio>
-            <el-radio :label="2">已结束</el-radio>
+            <el-radio :value="0">未开始</el-radio>
+            <el-radio :value="1">进行中</el-radio>
+            <el-radio :value="2">已结束</el-radio>
           </el-radio-group>
         </el-form-item>
         
@@ -382,18 +374,16 @@ import {
   addExam, 
   updateExam, 
   deleteExam, 
-  updateExamStatus 
+  updateExamStatus,
+  publishExam,
+  unpublishExam,
+  getExamTypeOptions
 } from '@/api/exam'
 import type { ExamInfo, ExamQueryParams } from '@/types/exam'
 
 // 考试类型选项
-const examTypes = [
-  { label: '月考', value: '月考' },
-  { label: '期中考试', value: '期中' },
-  { label: '期末考试', value: '期末' },
-  { label: '模拟考试', value: '模拟' },
-  { label: '单元测试', value: '单元' }
-]
+const dynamicExamTypeOptions = ref<string[]>([])
+const examTypeLoading = ref(false)
 
 // 科目选项
 const subjectOptions = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '政治']
@@ -421,7 +411,8 @@ const clearFilters = () => {
   filterExamType.value = '';
   dateRange.value = null;
   statusFilter.value = null;
-  handleFilterChange();
+  currentPage.value = 1;
+  fetchExamList();
 }
 
 // 筛选数据计算属性
@@ -588,196 +579,125 @@ const getStatusText = (status: number) => {
 
 // 筛选变化处理
 const handleFilterChange = () => {
-  console.log('筛选条件变化:', {
-    类型: filterExamType.value,
-    日期: dateRange.value
-  });
   currentPage.value = 1;
-  // 使用setTimeout确保计算属性已更新
-  setTimeout(() => {
-    total.value = filteredExamList.value.length;
-  }, 0);
+  fetchExamList();
 }
 
 // 搜索处理
 const handleSearch = () => {
-  console.log('搜索关键词:', searchKeyword.value);
   currentPage.value = 1;
-  // 使用setTimeout确保计算属性已更新
-  setTimeout(() => {
-    total.value = filteredExamList.value.length;
-  }, 0);
+  fetchExamList();
 }
 
 // 页码变化处理
 const handleCurrentChange = (page: number) => {
-  currentPage.value = page
-  // 不需要重新获取数据
+  currentPage.value = page;
+  fetchExamList();
 }
 
 // 每页条数变化处理
 const handleSizeChange = (size: number) => {
-  pageSize.value = size
-  currentPage.value = 1
-  // 不需要重新获取数据
+  pageSize.value = size;
+  currentPage.value = 1;
+  fetchExamList();
 }
 
 // 获取考试列表
 const fetchExamList = async () => {
   loading.value = true
   emptyText.value = '加载中...'
-  
+  // 重置列表和总数，避免显示旧数据
+  examList.value = [];
+  total.value = 0;
+
   try {
-    // 构建查询参数
     const params: any = {
       page: currentPage.value,
       pageSize: pageSize.value,
-      keyword: searchKeyword.value,
-      examType: filterExamType.value,
+      // 只有当值不为空时才传递参数，减少不必要的查询条件
+      keyword: searchKeyword.value || undefined,
+      examType: filterExamType.value || undefined,
       startDate: dateRange.value ? dateRange.value[0] : undefined,
       endDate: dateRange.value ? dateRange.value[1] : undefined,
-      status: statusFilter.value !== null ? statusFilter.value : undefined
-    }
-    
-    const res = await getExamList(params)
-    
-    if (res.code === 200 && res.data) {
-      // 尝试从API响应中解析数据
-      let listItems: any[] = [];
-      let totalItems = 0;
-      
-      // 使用类型断言处理可能的数据结构
-      const responseData = res.data as any;
-      
-      if (responseData && typeof responseData === 'object') {
-        // 如果是包含list属性的对象
-        if (responseData.list && Array.isArray(responseData.list)) {
-          listItems = responseData.list;
-          totalItems = responseData.total || listItems.length;
-        } 
-        // 如果data本身就是数组
-        else if (Array.isArray(responseData)) {
-          listItems = responseData;
-          totalItems = listItems.length;
-        }
-      }
-      
-      // 检查是否有有效数据
-      if (listItems.length > 0) {
-        // 处理API返回的数据，确保格式一致
-        const processedExams = listItems.map((item: any) => {
-          // 确保返回的对象符合ExamInfo类型
-          return {
-            id: item.id || Math.floor(Math.random() * 10000),
-            exam_name: item.exam_name || item.examName || '未命名考试',
-            exam_type: item.exam_type || item.examType || '期末考试',
-            exam_date: item.exam_date || item.examDate || new Date().toISOString().split('T')[0],
-            duration: item.duration || 120,
-            subjects: item.subjects || item.subject || ['综合科目'],
-            status: typeof item.status === 'number' ? item.status : Math.floor(Math.random() * 3),
-            class_name: item.class_name || item.className || '未分配班级',
-            create_time: item.create_time || item.createTime || new Date().toISOString(),
-            remark: item.remark || item.description || '考试描述信息'
-          } as ExamInfo;
-        });
-        
-        examList.value = processedExams;
-        total.value = totalItems;
-        console.log(`成功获取${examList.value.length}条考试数据`);
-      } else {
-        // 没有数据时生成模拟数据
-        console.warn('API返回数据为空，使用模拟数据');
-        await mockExamList();
-      }
+      status: (statusFilter.value !== null && statusFilter.value !== undefined) ? statusFilter.value : undefined
+    };
+
+    // 清理 undefined 参数
+    Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
+
+    console.log('调用getExamList API, 清理后参数:', params); // 确认最终参数
+    const res = await getExamList(params); // API 调用
+
+    // 这个检查现在类型上是正确的
+    if (res && res.code === 200 && res.data && typeof res.data === 'object' && Array.isArray(res.data.list) && typeof res.data.total === 'number') {
+      console.log('考试列表API响应成功 (Data):', res.data); // res.data is ExamListResponse { list, total }
+
+      const listItems: ExamInfo[] = res.data.list; // 类型匹配
+      const totalItems: number = res.data.total; // 类型匹配
+
+      // 规范化数据
+      examList.value = listItems.map(item => ({
+        ...item,
+        subjects: typeof item.subjects === 'string'
+          ? item.subjects.split(',').map(s => s.trim()).filter(Boolean) // 分割、去空格、去空项
+          : Array.isArray(item.subjects) ? item.subjects : []
+      }));
+
+      total.value = totalItems; // 使用后端返回的总数
+
+      // 更新空状态文本
+      emptyText.value = totalItems === 0 ? '暂无符合条件的考试数据' : '';
+      console.log('考试列表数据处理完成:', examList.value.length, '总数:', total.value);
+
     } else {
-      console.warn('API返回错误或无数据，使用模拟数据');
-      ElMessage.warning(res.message || '获取考试列表失败，使用模拟数据')
-      // 使用模拟数据
-      await mockExamList();
+      // 处理非 200 或数据结构错误的响应
+      console.warn('API响应异常或数据格式不正确:', res); // 打印整个 res 对象查看原因
+      ElMessage.warning(res?.message || '获取考试列表失败，响应格式或状态码错误');
+      emptyText.value = '加载数据失败';
+      // 清空列表和总数
+      examList.value = [];
+      total.value = 0;
     }
-  } catch (error) {
-    console.error('获取考试列表失败:', error)
-    ElMessage.warning('获取考试列表失败，使用模拟数据')
-    
-    // 使用模拟数据
-    await mockExamList();
+  } catch (error: any) {
+    console.error('获取考试列表失败 (catch):', error);
+    let errorMsg = '获取考试列表失败';
+    if (error.response && error.response.data && error.response.data.message) {
+      errorMsg = `获取考试列表失败: ${error.response.data.message}`;
+    } else if (error.message) {
+       errorMsg = `获取考试列表失败: ${error.message}`;
+    }
+    ElMessage.error(errorMsg); // 使用 Error 提示更醒目
+    emptyText.value = '加载数据失败';
+    // 这里可以选择是否加载模拟数据
+    // await mockExamList();
+    // total.value = examList.value.length;
   } finally {
     loading.value = false;
-    
-    // 更新分页数据 - 使用筛选后的数据计算总数
-    setTimeout(() => {
-      total.value = filteredExamList.value.length;
-    }, 0);
+    // 不再需要手动更新 total，它应该在 try 块中从后端获取
   }
 };
 
-// 添加更完善的生成模拟数据函数
-const mockExamList = async () => {
-  // 生成模拟的考试数据
-  const mockData: ExamInfo[] = [];
-  const examTypeValues = examTypes.map(type => type.value); // 使用实际的考试类型选项
-  const subjectsList = [
-    ['语文', '数学', '英语'],
-    ['数学', '物理', '化学'],
-    ['语文', '英语', '历史', '地理'],
-    ['数学', '物理', '化学', '生物'],
-    ['语文', '数学', '英语', '物理', '化学']
-  ];
-
-  // 生成30条模拟数据，便于测试分页
-  for (let i = 0; i < 30; i++) {
-    // 生成考试时间，近三个月内随机时间
-    const examDate = new Date();
-    examDate.setDate(examDate.getDate() - Math.floor(Math.random() * 90));
-    
-    // 计算考试时长（分钟）
-    const duration = [90, 120, 150, 180][i % 4];
-
-    // 确保创建时间格式正确
-    const createTime = new Date(examDate.getTime() - 1000 * 60 * 60 * 24 * 7).toISOString().replace('T', ' ').split('.')[0];
-    
-    // 选择随机科目组合并拼接为字符串
-    const selectedSubjects = subjectsList[i % subjectsList.length];
-    
-    // 选择考试类型
-    const examType = examTypeValues[i % examTypeValues.length];
-    
-    // 考试名称前缀（根据考试类型）
-    const namePrefix = examType === '期中' ? '期中考试' : 
-                       examType === '期末' ? '期末考试' : 
-                       examType === '模拟' ? '模拟测试' : 
-                       examType === '单元' ? '单元测试' : 
-                       '月度测试';
-    
-    // 创建模拟数据对象
-    const examItem: ExamInfo = {
-      id: i + 1,
-      exam_name: `${namePrefix} ${Math.floor(i / examTypeValues.length) + 1}`,
-      exam_type: examType,
-      exam_date: examDate.toISOString().split('T')[0],
-      duration: duration,
-      subjects: selectedSubjects.join(','),
-      status: i % 3, // 0: 未开始, 1: 进行中, 2: 已结束
-      remark: i % 2 === 0 ? '重要考试，请提前准备' : '',
-      create_time: createTime
-    };
-
-    mockData.push(examItem);
+// 获取动态考试类型选项
+const fetchExamTypes = async () => {
+  examTypeLoading.value = true;
+  try {
+    const res = await getExamTypeOptions();
+    if (res.code === 200 && Array.isArray(res.data)) {
+      // 将从后端获取的类型列表赋值给 ref
+      dynamicExamTypeOptions.value = res.data;
+      console.log('成功获取动态考试类型:', dynamicExamTypeOptions.value);
+    } else {
+      ElMessage.warning(res.message || '获取考试类型选项失败');
+      dynamicExamTypeOptions.value = []; // 清空以防万一
+    }
+  } catch (error: any) {
+    console.error('获取考试类型选项失败 (catch):', error);
+    ElMessage.error(error.message || '获取考试类型选项失败');
+    dynamicExamTypeOptions.value = []; // 清空
+  } finally {
+    examTypeLoading.value = false;
   }
-
-  console.log('生成的模拟考试数据:', mockData);
-  
-  // 更新列表数据
-  examList.value = mockData;
-  // 更新总数
-  setTimeout(() => {
-    // 使用setTimeout确保计算属性已更新
-    total.value = filteredExamList.value.length;
-    emptyText.value = filteredExamList.value.length > 0 ? '显示模拟数据' : '没有符合条件的考试数据';
-  }, 0);
-  
-  return mockData;
-}
+};
 
 // 新增考试
 const handleAddExam = () => {
@@ -795,8 +715,8 @@ const handleEditExam = (row: ExamInfo) => {
   Object.keys(examForm).forEach(key => {
     const k = key as keyof ExamInfo
     if (k === 'subjects' && typeof row[k] === 'string') {
-      // 处理科目字符串转数组
-      examForm[k] = (row[k] as string).split(',') as unknown as string
+      // 确保 rowData.subjects 是字符串再 split，否则给空数组
+      examForm[k] = typeof row[k] === 'string' && row[k] ? row[k].split(',') : []
     } else if (k in row) {
       // 使用类型断言确保类型安全
       (examForm[k] as any) = row[k]
@@ -810,7 +730,7 @@ const handleEditExam = (row: ExamInfo) => {
 }
 
 // 删除考试
-const handleDeleteExam = (row: ExamInfo) => {
+const handleDeleteExam = async (row: ExamInfo) => {
   if (!row.id) {
     ElMessage.warning('无效的考试ID')
     return
@@ -932,11 +852,33 @@ const submitExamForm = async () => {
   })
 }
 
+// 发布/取消发布考试
+const handlePublish = async (id: number, status: number) => {
+  try {
+    console.log(`${status === 1 ? '发布' : '取消发布'}考试, ID:`, id);
+    
+    const response = status === 1 
+      ? await publishExam(id)
+      : await unpublishExam(id);
+    
+    console.log('发布/取消发布响应:', response);
+    
+    if (response.code === 200) {
+      ElMessage.success(status === 1 ? '发布成功' : '取消发布成功');
+      await fetchExamList();
+    } else {
+      ElMessage.error(response.message || (status === 1 ? '发布失败' : '取消发布失败'));
+    }
+  } catch (error) {
+    console.error('发布/取消发布异常:', error);
+    ElMessage.error(status === 1 ? '发布考试失败' : '取消发布考试失败');
+  }
+}
+
 // 页面初始化
-onMounted(() => {
-  fetchExamList();
-  
-  // 添加调试信息，帮助确认筛选功能是否正常工作
+onMounted(async () => {
+  await fetchExamList();
+  await fetchExamTypes();
   console.log('考试管理页面初始化完成，已启用筛选功能');
 })
 </script>

@@ -15,8 +15,8 @@ export interface PageResponse<T = any> extends ApiResponse<T> {
 // 基础字段类型
 export interface BaseFields {
   id: number
-  createTime: string
-  updateTime?: string 
+  create_time?: string
+  update_time?: string 
 }
 
 export type ResponseData<T> = T extends Array<any> ? T : T[]
@@ -44,19 +44,45 @@ export interface Pagination {
 // 基础数据类型
 export interface ClassItem {
   id: number
-  className: string
+  class_name: string
   teacher: string
-  studentCount: number
+  student_count: number
+  description: string | null
   createTime: string
 }
 
-export interface StudentItem {
-  id: number
+// 学生类型 - 从后端接收的格式
+export interface StudentItemResponse extends BaseFields {
+  student_id: string
+  name: string
+  gender: string
+  class_id?: number
+  class_name?: string
+  phone?: string
+  email?: string
+  join_date: string
+}
+
+// 学生类型 - 前端使用的格式
+export interface StudentItem extends BaseFields {
   studentId: string
   name: string
-  class_name: string
-  phone: string
-  email: string
+  gender: string
+  className?: string
+  phone?: string
+  email?: string
+  joinDate: string
+}
+
+// 学生类型 - 前端提交的格式
+export interface StudentSubmitData {
+  id?: number
+  studentId: string
+  name: string
+  gender: string
+  className?: string
+  phone?: string
+  email?: string
   joinDate: string
 }
 
@@ -119,3 +145,11 @@ export type DeptResponse = ApiResponse<DeptItem[]>
 export type EmployeeResponse = ApiResponse<EmployeeItem[]>
 export type ScoreResponse = ApiResponse<ScoreData>
 export type LogResponse = ApiResponse<LogItem[]>
+
+// 分页响应类型
+export interface PaginatedResponse<T> {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+}

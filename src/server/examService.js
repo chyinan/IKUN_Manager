@@ -1,0 +1,373 @@
+// 考试服务
+const db = require('./db');
+
+/**
+ * 获取考试统计数据
+ * @returns {Promise<Object>} 统计数据
+ */
+async function getExamStats() {
+  try {
+    // 获取考试总数
+    const totalQuery = 'SELECT COUNT(*) as total FROM exam';
+    const totalResult = await db.query(totalQuery);
+    const total = totalResult[0].total;
+
+    // 获取已完成考试数量
+    const completedQuery = "SELECT COUNT(*) as count FROM exam WHERE status = 2"; // 2表示已结束
+    const completedResult = await db.query(completedQuery);
+    const completedCount = completedResult[0].count;
+
+    // 获取进行中考试数量
+    const inProgressQuery = "SELECT COUNT(*) as count FROM exam WHERE status = 1"; // 1表示进行中
+    const inProgressResult = await db.query(inProgressQuery);
+    const inProgressCount = inProgressResult[0].count;
+
+    // 获取未开始考试数量
+    const upcomingQuery = "SELECT COUNT(*) as count FROM exam WHERE status = 0"; // 0表示未开始
+    const upcomingResult = await db.query(upcomingQuery);
+    const upcomingCount = upcomingResult[0].count;
+
+    // 获取考试类型分布
+    const typeQuery = `
+      SELECT 
+        exam_type as type, 
+        COUNT(*) as count 
+      FROM 
+        exam 
+      GROUP BY 
+        exam_type
+    `;
+    const typeDistribution = await db.query(typeQuery);
+
+    return {
+      total,
+      completedCount,
+      inProgressCount,
+      upcomingCount,
+      typeDistribution
+    };
+  } catch (error) {
+    console.error('获取考试统计数据失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取考试列表
+ * @param {Object} params 查询参数
+ * @returns {Promise<Object>} 包含考试列表和总数的对象
+ */
+async function getExamList(params = {}) {
+  try {
+    // --- 构建查询条件和基础查询语句 ---
+    let baseQuery = `
+      SELECT
+        e.id,
+        e.exam_name,
+        e.exam_type,
+        e.exam_date,
+        e.duration,
+        e.subjects,
+        e.status,
+        e.remark,
+        e.create_time
+      FROM
+        exam e
+    `;
+    // 用于计算总数的查询语句（不包含 LIMIT 和 ORDER BY）
+    let countQuery = 'SELECT COUNT(*) as total FROM exam e';
+
+    const conditions = [];
+    const values = []; // 用于 baseQuery 的参数 (仅包含 WHERE 条件的参数)
+    const countValues = []; // 用于 countQuery 的参数
+
+    // --- 构建 WHERE 条件 (同时添加到 baseQuery 和 countQuery) ---
+    if (params.keyword) {
+      conditions.push('(e.exam_name LIKE ? OR e.exam_type LIKE ? OR e.subjects LIKE ?)');
+      const keywordLike = `%${params.keyword}%`;
+      values.push(keywordLike, keywordLike, keywordLike);
+      countValues.push(keywordLike, keywordLike, keywordLike);
+    }
+    if (params.examType) {
+      conditions.push('e.exam_type = ?');
+      values.push(params.examType);
+      countValues.push(params.examType);
+    }
+    // 确保 status 是有效值 (0, 1, 2) 才加入条件
+    if (params.status !== undefined && params.status !== null && params.status !== '') {
+       const statusNum = parseInt(params.status, 10);
+       // 确保转换后是数字才加入条件
+       if (!isNaN(statusNum)) {
+         conditions.push('e.status = ?');
+         values.push(statusNum);
+         countValues.push(statusNum);
+       }
+    }
+    if (params.startDate) {
+      conditions.push('DATE(e.exam_date) >= ?');
+      values.push(params.startDate);
+      countValues.push(params.startDate);
+    }
+    if (params.endDate) {
+      conditions.push('DATE(e.exam_date) <= ?');
+      values.push(params.endDate);
+      countValues.push(params.endDate);
+    }
+
+    if (conditions.length > 0) {
+      const whereClause = ' WHERE ' + conditions.join(' AND ');
+      baseQuery += whereClause;
+      countQuery += whereClause;
+    }
+
+    // --- 查询总数 ---
+    console.log('Executing Count Query:', countQuery, countValues); // 调试日志
+    const totalResult = await db.query(countQuery, countValues);
+    const total = totalResult[0].total;
+
+    // --- 添加排序 ---
+    baseQuery += ' ORDER BY e.exam_date DESC'; // 或者其他排序逻辑
+
+    // --- 添加分页 (直接构建 LIMIT 子句，不使用占位符) ---
+    if (params.page && params.pageSize) {
+      const page = parseInt(params.page, 10);
+      const pageSize = parseInt(params.pageSize, 10);
+
+      // 验证 page 和 pageSize 是有效的正整数
+      if (Number.isInteger(page) && page > 0 && Number.isInteger(pageSize) && pageSize > 0) {
+        const offset = (page - 1) * pageSize;
+        // 直接将验证后的整数值拼接到 SQL 字符串
+        baseQuery += ` LIMIT ${offset}, ${pageSize}`;
+        // 注意：不再将 offset 和 pageSize 添加到 values 数组中
+      } else {
+        // 如果分页参数无效，可以选择记录警告或应用默认限制，这里仅记录警告
+        console.warn(`Received invalid pagination parameters: page=${params.page}, pageSize=${params.pageSize}. Skipping LIMIT clause.`);
+      }
+    }
+
+    // --- 执行列表查询 ---
+    // 此时 'values' 数组只包含 WHERE 子句对应的参数
+    console.log('Executing List Query:', baseQuery, values); // 调试日志
+    const exams = await db.query(baseQuery, values); // 传递 baseQuery 和仅包含 WHERE 参数的 values
+
+    console.log(`获取到 ${exams.length} 条考试记录，总计 ${total} 条`);
+    // 返回包含列表和总数的对象
+    return { list: exams, total: total };
+
+  } catch (error) {
+    console.error('获取考试列表失败:', error);
+    // 在错误时打印最终尝试执行的 SQL 和参数，帮助调试
+    console.error('Failed Query String:', baseQuery); // 打印最终构建的 SQL 字符串
+    console.error('Failed Query Params (for WHERE):', values); // 打印传递给 WHERE 子句的参数
+    // 向上抛出错误，让路由处理函数捕获并返回 500
+    throw error;
+  }
+}
+
+/**
+ * 获取考试详情
+ * @param {number} id 考试ID
+ * @returns {Promise<Object>} 考试详情
+ */
+async function getExamDetail(id) {
+  try {
+    // 获取考试基本信息
+    const examQuery = `
+      SELECT 
+        e.id, 
+        e.exam_name, 
+        e.exam_type, 
+        e.exam_date, 
+        e.duration, 
+        e.subjects, 
+        e.status, 
+        e.remark, 
+        e.create_time
+      FROM 
+        exam e
+      WHERE 
+        e.id = ?
+    `;
+    
+    const exams = await db.query(examQuery, [id]);
+    const exam = exams[0];
+    
+    if (!exam) {
+      return null;
+    }
+    
+    // 获取考试关联的班级
+    const classQuery = `
+      SELECT 
+        c.id, 
+        c.class_name, 
+        c.teacher, 
+        c.student_count
+      FROM 
+        class c
+      JOIN 
+        exam_class ec ON c.id = ec.class_id
+      WHERE 
+        ec.exam_id = ?
+    `;
+    
+    const classes = await db.query(classQuery, [id]);
+    
+    return {
+      ...exam,
+      classes
+    };
+  } catch (error) {
+    console.error(`获取考试详情失败 (ID: ${id}):`, error);
+    throw error;
+  }
+}
+
+/**
+ * 更新考试信息
+ * @param {number} id 考试ID
+ * @param {Object} examData 考试更新数据
+ * @returns {Promise<Object>} 更新后的考试信息
+ */
+async function updateExam(id, examData) {
+  try {
+    // 1. 校验并格式化 examData
+    const allowedFields = ['exam_name', 'exam_type', 'exam_date', 'duration', 'subjects', 'status', 'remark'];
+    const fieldsToUpdate = {};
+    const values = [];
+
+    for (const field of allowedFields) {
+      if (examData[field] !== undefined && examData[field] !== null) {
+        if (field === 'subjects' && Array.isArray(examData[field])) {
+          // 处理科目数组
+          fieldsToUpdate[field] = examData[field].join(',');
+        } else if (field === 'exam_date') {
+          // 处理日期格式
+          try {
+            const date = new Date(examData[field]);
+            if (isNaN(date.getTime())) {
+              throw new Error(`无效的日期值: ${examData[field]}`);
+            }
+            // 格式化为 YYYY-MM-DD HH:MM:SS
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            // MySQL DATETIME 不关心时分秒，但为了完整性可以设为 00:00:00 或保留原时分秒（如果需要）
+            // 这里我们设为 00:00:00，因为前端选择的是日期
+            fieldsToUpdate[field] = `${year}-${month}-${day} 00:00:00`;
+          } catch (dateError) {
+            console.error(`处理日期字段 '${field}' 时出错:`, dateError);
+            throw new Error(`日期格式错误: ${dateError.message}`);
+          }
+        } else {
+          // 其他字段直接赋值
+          fieldsToUpdate[field] = examData[field];
+        }
+      }
+    }
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      throw new Error('没有提供有效的更新字段');
+    }
+
+    // 2. 构建 UPDATE SQL 语句
+    const setClauses = Object.keys(fieldsToUpdate).map(key => `${key} = ?`).join(', ');
+    const sql = `UPDATE exam SET ${setClauses}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    // 将更新值和 ID 添加到 values 数组
+    const updateValues = [...Object.values(fieldsToUpdate), id];
+
+    // 3. 执行更新操作
+    console.log('Executing Exam Update Query:', sql, updateValues); // 调试日志
+    const result = await db.query(sql, updateValues);
+
+    // 4. 检查更新是否影响了行
+    if (result.affectedRows === 0) {
+      throw new Error(`未找到 ID 为 ${id} 的考试记录`);
+    }
+
+    // 5. 返回更新后的考试信息 (可选，可以重新查询或基于更新数据)
+    console.log(`考试 ID ${id} 更新成功`);
+    return { id, ...fieldsToUpdate }; // 返回包含ID和已更新字段的对象
+
+  } catch (error) {
+    console.error(`更新考试 ID ${id} 失败:`, error);
+    throw error; // 将错误向上抛出，由路由处理
+  }
+}
+
+/**
+ * 获取考试类型选项
+ * @returns {Promise<Array>} 考试类型列表
+ */
+async function getExamTypeOptions() {
+  try {
+    const query = `
+      SELECT DISTINCT exam_type 
+      FROM exam 
+      ORDER BY exam_type
+    `;
+    
+    const results = await db.query(query);
+    return results.map(item => item.exam_type);
+  } catch (error) {
+    console.error('获取考试类型选项失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取科目选项
+ * @returns {Promise<Array>} 科目列表
+ */
+async function getSubjectOptions() {
+  try {
+    const query = `
+      SELECT subject_name, subject_code
+      FROM subject
+      ORDER BY subject_name
+    `;
+    
+    return await db.query(query);
+  } catch (error) {
+    console.error('获取科目选项失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取不重复的考试类型
+ * @returns {Promise<Array<string>>} 考试类型字符串数组
+ */
+async function getDistinctExamTypes() {
+  try {
+    const sql = `
+      SELECT DISTINCT exam_type 
+      FROM exam 
+      WHERE exam_type IS NOT NULL AND exam_type <> '' 
+      ORDER BY exam_type ASC
+    `;
+    // Use the exported db.query function
+    const rows = await db.query(sql); 
+    // Ensure rows is an array before mapping
+    if (!Array.isArray(rows)) {
+        console.error('Database query for distinct exam types did not return an array:', rows);
+        return []; // Return empty array or throw error
+    }
+    // Map the array of result objects to an array of strings
+    return rows.map(row => row.exam_type);
+  } catch (error) {
+    console.error('获取不重复考试类型失败:', error);
+    throw new Error('数据库查询失败'); // Re-throw error for the route handler
+  }
+}
+
+module.exports = {
+  getExamStats,
+  getExamList,
+  getExamDetail,
+  getExamTypeOptions,
+  getSubjectOptions,
+  getDistinctExamTypes,
+  updateExam
+}; 

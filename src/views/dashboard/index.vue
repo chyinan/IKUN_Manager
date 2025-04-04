@@ -183,58 +183,139 @@ const navigateTo = (path: string) => {
 // 获取员工统计数据
 const fetchEmployeeStats = async () => {
   try {
-    const response = await getEmployeeStats()
-    if (response && response.code === 200 && response.data) {
-      // 更新员工总数
-      statCards.value[0].value = response.data.totalCount.toString() || '0'
+    console.log('开始获取员工统计数据...');
+    const response = await getEmployeeStats();
+    console.log('员工统计数据API响应:', response);
+    
+    // 检查响应和数据结构
+    if (response && response.data && response.data.code === 200 && response.data.data) {
+      const statsData = response.data.data; // 正确的数据层级
+      
+      if (statsData.total !== undefined) {
+        statCards.value[0].value = statsData.total.toString() || '0';
+        console.log('员工总数(从total):', statCards.value[0].value);
+      } else if (statsData.count !== undefined) { // 备用字段
+         statCards.value[0].value = statsData.count.toString() || '0';
+         console.log('员工总数(从count):', statCards.value[0].value);
+      } else {
+        console.warn('在 response.data.data 中未找到员工总数(total 或 count)，使用默认值');
+        statCards.value[0].value = '0';
+      }
+    } else {
+      console.warn('员工统计数据响应格式不正确或无数据，使用默认值', response?.data);
+      statCards.value[0].value = '0';
     }
   } catch (error) {
-    console.error('获取员工统计数据失败:', error)
+    console.error('获取员工统计数据异常:', error);
+    statCards.value[0].value = '0';
   }
 }
 
 // 获取部门数量
 const fetchDeptCount = async () => {
   try {
-    const response = await getDeptList()
-    if (response && response.code === 200 && Array.isArray(response.data)) {
-      // 更新部门数量
-      statCards.value[1].value = response.data.length.toString() || '0'
+    console.log('开始获取部门数量...');
+    const response = await getDeptList();
+    console.log('部门列表API响应:', response);
+    
+    // 检查响应和数据结构
+    if (response && response.data && response.data.code === 200 && response.data.data) {
+       const deptData = response.data.data; // 正确的数据层级
+      
+       if (Array.isArray(deptData)) {
+         statCards.value[1].value = deptData.length.toString() || '0';
+         console.log('部门数量(从数组长度):', statCards.value[1].value);
+       } else if (typeof deptData === 'object' && deptData !== null && deptData.total !== undefined) { // 假设列表接口也可能返回 { total: number, list: [] }
+         statCards.value[1].value = deptData.total.toString() || '0';
+         console.log('部门数量(从total):', statCards.value[1].value);
+       } else if (typeof deptData === 'object' && deptData !== null && deptData.count !== undefined) { // 备用字段
+         statCards.value[1].value = deptData.count.toString() || '0';
+         console.log('部门数量(从count):', statCards.value[1].value);
+       }
+       else {
+         console.warn('在 response.data.data 中未找到部门列表数据(数组或total/count)，使用默认值');
+         statCards.value[1].value = '0';
+       }
+    } else {
+      console.warn('部门列表API响应格式不正确或无数据，使用默认值', response?.data);
+      statCards.value[1].value = '0';
     }
   } catch (error) {
-    console.error('获取部门数量失败:', error)
+    console.error('获取部门数量异常:', error);
+    statCards.value[1].value = '0';
   }
 }
 
 // 获取班级数量
 const fetchClassCount = async () => {
   try {
-    const response = await getClassList()
-    if (response && response.code === 200 && Array.isArray(response.data)) {
-      // 更新班级数量
-      statCards.value[2].value = response.data.length.toString() || '0'
+    console.log('开始获取班级数量...');
+    const response = await getClassList();
+    console.log('班级列表API响应:', response);
+    
+    // 检查响应和数据结构
+    if (response && response.data && response.data.code === 200 && response.data.data) {
+      const classData = response.data.data; // 正确的数据层级
+
+      if (Array.isArray(classData)) {
+        statCards.value[2].value = classData.length.toString() || '0';
+        console.log('班级数量(从数组长度):', statCards.value[2].value);
+      } else if (typeof classData === 'object' && classData !== null && classData.total !== undefined) { // 假设列表接口也可能返回 { total: number, list: [] }
+        statCards.value[2].value = classData.total.toString() || '0';
+        console.log('班级数量(从total):', statCards.value[2].value);
+      } else if (typeof classData === 'object' && classData !== null && classData.count !== undefined) { // 备用字段
+        statCards.value[2].value = classData.count.toString() || '0';
+        console.log('班级数量(从count):', statCards.value[2].value);
+      } else {
+        console.warn('在 response.data.data 中未找到班级列表数据(数组或total/count)，使用默认值');
+        statCards.value[2].value = '0';
+      }
+    } else {
+      console.warn('班级列表API响应格式不正确或无数据，使用默认值', response?.data);
+      statCards.value[2].value = '0';
     }
   } catch (error) {
-    console.error('获取班级数量失败:', error)
+    console.error('获取班级数量异常:', error);
+    statCards.value[2].value = '0';
   }
 }
 
 // 获取考试场次
 const fetchExamCount = async () => {
   try {
-    const response = await getExamStats()
-    if (response && response.code === 200 && response.data) {
-      // 更新考试场次
-      statCards.value[3].value = response.data.totalCount?.toString() || '0'
+    console.log('开始获取考试场次...');
+    const response = await getExamStats();
+    console.log('考试统计API响应:', response);
+    
+    // 检查响应和数据结构
+    if (response && response.data && response.data.code === 200 && response.data.data) {
+       const examStatsData = response.data.data; // 正确的数据层级
+
+       if (examStatsData.total !== undefined) {
+         statCards.value[3].value = examStatsData.total.toString() || '0';
+         console.log('考试场次(从total):', statCards.value[3].value);
+       } else if (examStatsData.count !== undefined) { // 备用字段
+          statCards.value[3].value = examStatsData.count.toString() || '0';
+          console.log('考试场次(从count):', statCards.value[3].value);
+       } else {
+         console.warn('在 response.data.data 中未找到考试场次(total 或 count)，使用默认值');
+         statCards.value[3].value = '0';
+       }
+    } else {
+      console.warn('考试统计数据响应格式不正确或无数据，使用默认值', response?.data);
+      statCards.value[3].value = '0';
     }
   } catch (error) {
-    console.error('获取考试场次失败:', error)
+    console.error('获取考试场次异常:', error);
+    statCards.value[3].value = '0';
   }
 }
 
 // 初始化数据
 const initDashboardData = async () => {
-  loading.value = true
+  loading.value = true;
+  console.log('开始初始化仪表盘数据...');
+  
   try {
     // 并行获取所有统计数据
     await Promise.all([
@@ -242,12 +323,19 @@ const initDashboardData = async () => {
       fetchDeptCount(),
       fetchClassCount(),
       fetchExamCount()
-    ])
+    ]);
+    
+    console.log('仪表盘数据初始化完成，当前数据:', {
+      员工总数: statCards.value[0].value,
+      部门数量: statCards.value[1].value,
+      班级数量: statCards.value[2].value,
+      考试场次: statCards.value[3].value
+    });
   } catch (error) {
-    console.error('初始化仪表盘数据失败:', error)
-    ElMessage.warning('获取统计数据失败，显示默认值')
+    console.error('初始化仪表盘数据失败:', error);
+    ElMessage.warning('获取统计数据失败，显示默认值');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 

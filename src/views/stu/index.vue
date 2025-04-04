@@ -92,8 +92,8 @@
         </el-form-item>
         <el-form-item label="性别" prop="gender">
           <el-radio-group v-model="formData.gender">
-            <el-radio label="男">男</el-radio>
-            <el-radio label="女">女</el-radio>
+            <el-radio value="男">男</el-radio>
+            <el-radio value="女">女</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="所属班级" prop="className">
@@ -132,8 +132,12 @@ import { Delete, Edit, Plus, Search, Download, Male, Female } from '@element-plu
 import type { FormInstance, FormRules } from 'element-plus'
 import { exportToExcel } from '@/utils/export'
 import { getClassList } from '@/api/class'
-import type { ClassItem, StudentItem } from '@/types/common'
+import type { StudentItem, StudentItemResponse, StudentSubmitData } from '@/types/common'
 import type { Pagination } from '@/types/response'
+import dayjs from 'dayjs'
+
+// 新增：班级选项列表
+const classList = ref<string[]>([])
 
 // 表单数据类型
 interface StudentFormData {
@@ -190,35 +194,55 @@ const loading = ref(false)
 const searchKey = ref('')
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
-const tableData = ref<StudentFormData[]>([])
+const tableData = ref<StudentItem[]>([])
 const formRef = ref<FormInstance>()
 
 // 获取学生列表
 const fetchData = async () => {
-  loading.value = true
   try {
-    const students = await getStudentList()
-    if (Array.isArray(students) && students.length > 0) {
-      tableData.value = students.map(item => ({
-        id: item.id || Math.floor(Math.random() * 1000),
-        studentId: item.studentId || `2024${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-        name: item.name || `学生${Math.floor(Math.random() * 100)}`,
-        className: item.class_name || '未分配班级',
-        gender: item.gender || (Math.random() > 0.5 ? '男' : '女'),
-        phone: item.phone || `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
-        email: item.email || `student${Math.floor(Math.random() * 100)}@example.com`,
-        joinDate: item.joinDate ? new Date(item.joinDate).toLocaleDateString('zh-CN') : new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('zh-CN')
-      }))
-      pagination.total = students.length
+    loading.value = true
+    console.log('开始获取学生列表...')
+    const res = await getStudentList()
+    console.log('学生列表API响应:', res)
+    
+    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+      // 处理API返回的数据
+      tableData.value = res.data.data.map((item: StudentItemResponse): StudentItem => {
+        // 处理入学时间格式
+        let joinDateDisplay = item.join_date;
+        try {
+          if (item.join_date) {
+            // 使用 dayjs 处理日期，保持原始日期不变
+            joinDateDisplay = dayjs(item.join_date).format('YYYY-MM-DD');
+          }
+        } catch (e) {
+          console.error('日期转换错误:', e);
+          joinDateDisplay = item.join_date;
+        }
+
+        return {
+          id: item.id,
+          studentId: item.student_id,
+          name: item.name,
+          gender: item.gender,
+          className: item.class_name,
+          phone: item.phone || '',
+          email: item.email || '',
+          joinDate: joinDateDisplay,
+        }
+      })
+      
+      // 更新分页数据
+      pagination.total = tableData.value.length
+      console.log('成功获取学生数据:', tableData.value)
     } else {
-      // 数据为空，生成模拟数据
-      generateMockStudentData()
+      console.warn('学生列表API响应格式不正确或 code !== 200，使用模拟数据')
+      generateMockData()
     }
   } catch (error) {
-    console.error('获取失败:', error)
-    ElMessage.error('获取数据失败')
-    // 出错时也生成模拟数据
-    generateMockStudentData()
+    console.error('获取学生列表失败:', error)
+    ElMessage.warning('获取学生数据失败，使用模拟数据')
+    generateMockData()
   } finally {
     loading.value = false
   }
@@ -243,14 +267,27 @@ const filteredTableData = computed(() => {
 // 生成下一个学号
 const generateNextStudentId = async () => {
   try {
-    const maxId = await getMaxStudentId() || '2024000'
-    // 确保取到的是字符串类型
-    const maxIdStr = maxId.toString()
-    formData.studentId = (parseInt(maxIdStr) + 1).toString().padStart(7, '0')
+    console.log('获取最大学生ID...')
+    const response = await getMaxStudentId()
+    console.log('最大学生ID响应:', response)
+    
+    if (response.code === 200 && response.data) {
+      // 确保取到的是字符串类型
+      const maxIdStr = response.data.toString()
+      const nextId = (parseInt(maxIdStr) + 1).toString()
+      // 确保是7位数字
+      formData.studentId = nextId.padStart(7, '0')
+      console.log('生成的下一个学号:', formData.studentId)
+    } else {
+      // 如果获取失败，使用默认值
+      formData.studentId = '2024001'
+      console.log('使用默认学号:', formData.studentId)
+    }
   } catch (error) {
     console.error('获取最大学号失败:', error)
     // 默认值
     formData.studentId = '2024001'
+    console.log('获取失败，使用默认学号:', formData.studentId)
   }
 }
 
@@ -285,21 +322,25 @@ const handleDelete = async (row: StudentFormData) => {
     )
 
     loading.value = true
-    await deleteStudent(row.id!)
-    ElMessage.success('删除成功')
+    console.log(`开始删除学生，ID: ${row.id}`)
+    const response = await deleteStudent(row.id!)
+    console.log('删除学生响应:', response)
     
+    if (response.code === 200) {
+      ElMessage.success('删除成功')
+      await fetchData() // 重新获取数据
+    } else {
+      ElMessage.error(response.message || '删除失败')
+    }
   } catch (error: any) {
     if (error?.toString().includes('cancel')) {
       ElMessage.info('已取消删除')
-    } else if (!error?.toString().includes('timeout')) {  // 忽略timeout错误
-      console.error('删除失败:', error)
-      ElMessage.success('删除成功')
     } else {
-      ElMessage.success('删除成功')  // timeout情况下也显示成功
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
     }
   } finally {
     loading.value = false
-    await fetchData()
   }
 }
 
@@ -310,28 +351,43 @@ const handleSubmit = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        loading.value = true
+        
         // 准备提交数据
-        const submitData: StudentItem = {
-          id: formData.id || 0,
+        const submitData: StudentSubmitData = {
+          id: formData.id,
           studentId: formData.studentId,
           name: formData.name,
-          class_name: formData.className,
+          gender: formData.gender,
+          className: formData.className,
           phone: formData.phone || '',
           email: formData.email || '',
-          joinDate: new Date(formData.joinDate).toISOString().split('T')[0]
+          joinDate: formData.joinDate
         }
         
+        console.log(`开始${dialogType.value === 'add' ? '添加' : '更新'}学生，数据:`, submitData)
+        
+        let response
         if (dialogType.value === 'add') {
-          await addStudent(submitData)
-          ElMessage.success('新增成功')
+          response = await addStudent(submitData)
+          console.log('添加学生响应:', response)
         } else {
-          await updateStudent(formData.id!, submitData)
-          ElMessage.success('修改成功')
+          response = await updateStudent(formData.id!, submitData)
+          console.log('更新学生响应:', response)
         }
-        dialogVisible.value = false
-        fetchData()
+        
+        if (response.code === 200) {
+          ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
+          dialogVisible.value = false
+          await fetchData() // 重新获取数据
+        } else {
+          ElMessage.error(response.message || (dialogType.value === 'add' ? '新增失败' : '修改失败'))
+        }
       } catch (error: any) {
+        console.error(`${dialogType.value === 'add' ? '新增' : '修改'}失败:`, error)
         ElMessage.error(error.message || (dialogType.value === 'add' ? '新增失败' : '修改失败'))
+      } finally {
+        loading.value = false
       }
     }
   })
@@ -356,9 +412,6 @@ const handleExport = () => {
   ElMessage.success('导出成功')
 }
 
-// 班级列表
-const classList = ref<string[]>([])
-
 // 获取班级列表
 const fetchClassList = async () => {
   try {
@@ -380,7 +433,7 @@ const pagination = reactive<Pagination>({
 })
 
 // 添加模拟学生数据生成函数
-const generateMockStudentData = () => {
+const generateMockData = () => {
   // 使用班级列表，如果为空则创建默认班级
   const classNames = classList.value.length > 0 ? 
     classList.value : 
@@ -409,10 +462,36 @@ const generateMockStudentData = () => {
   console.log('生成的模拟学生数据:', tableData.value)
 }
 
+// 新增：获取班级选项列表
+const fetchClassOptions = async () => {
+  try {
+    console.log('开始获取班级选项...');
+    // 使用从 @/api/class 导入的 getClassList
+    const res = await getClassList(); 
+    console.log('班级选项API响应:', res);
+
+    // 检查响应和数据结构
+    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
+      // 提取班级名称列表
+      // 后端返回的是 ClassItemResponse[], 需要取 class_name
+      classList.value = res.data.data.map((item: any) => item.class_name).filter(Boolean);
+      console.log('成功获取班级选项:', classList.value);
+    } else {
+      console.warn('获取班级选项失败或响应格式不正确:', res);
+      ElMessage.warning(res?.data?.message || '获取班级选项失败');
+      classList.value = []; // 清空列表
+    }
+  } catch (error) {
+    console.error('获取班级选项失败 (catch):', error);
+    ElMessage.error('获取班级选项时出错');
+    classList.value = []; // 清空列表
+  }
+};
+
 // 页面初始化时获取数据
-onMounted(() => {
-  fetchData()
-  fetchClassList()
+onMounted(async () => {
+  await fetchData() // Fetch student list
+  await fetchClassOptions() // Fetch class options for the dropdown
 })
 </script>
 

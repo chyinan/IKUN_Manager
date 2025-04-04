@@ -126,36 +126,36 @@ export function getStudentOptions() {
 
 // 获取考试类型选项
 export function getExamTypeOptions(): Promise<ApiResponse<string[]>> {
-  return request.get<ApiResponse<string[]>>('/score/exam-types').then(res => res.data)
+  return request.get<ApiResponse<string[]>>('/score/exam-types')
 }
 
 // 获取科目选项
 export function getSubjectOptions(): Promise<ApiResponse<string[]>> {
-  return request.get<ApiResponse<string[]>>('/score/subjects').then(res => res.data)
+  return request.get<ApiResponse<string[]>>('/score/subjects')
 }
 
 // 获取学生成绩
 export function getStudentScore(studentId: number, examType: string): Promise<ApiResponse<ScoreData>> {
   return request.get<ApiResponse<ScoreData>>(`/score/student/${studentId}`, {
     params: { examType }
-  }).then(res => res.data)
+  })
 }
 
 // 保存学生成绩
 export function saveStudentScore(data: SaveScoreParams): Promise<ApiResponse<boolean>> {
-  return request.post<ApiResponse<boolean>>('/score/save', data).then(res => res.data)
+  return request.post<ApiResponse<boolean>>('/score/save', data)
 }
 
 // 获取班级成绩
 export function getClassScores(classId: number, examType: string): Promise<ApiResponse<any>> {
   return request.get<ApiResponse<any>>(`/score/class/${classId}`, {
     params: { examType }
-  }).then(res => res.data)
+  })
 }
 
 // 测试API
 export function testScoreApi(): Promise<ApiResponse<boolean>> {
-  return request.get<ApiResponse<boolean>>('/score/test').then(res => res.data)
+  return request.get<ApiResponse<boolean>>('/score/test')
 }
 
 // 获取学生成绩详细统计

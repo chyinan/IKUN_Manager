@@ -111,7 +111,7 @@ import {
 } from '@element-plus/icons-vue'
 import { getStudentList } from '@/api/student'
 import { getClassList } from '@/api/class'
-import { getStudentScore, getClassScores } from '@/api/score'
+import { getStudentScoreByType, getClassScores } from '@/api/score'
 import type { SubjectType as ImportedSubjectType } from '@/types/score'  // 重命名导入的类型
 // import type { ClassItem } from '@/types/class' (removed duplicate import)
 // import type { StudentItem } from '@/types/student' (removed duplicate import)
@@ -270,7 +270,7 @@ const updateGradeDistribution = async () => {
 
     // 添加考试类型参数
     const scoreRes = await Promise.all(
-      classStudents.map(student => getStudentScore(student.id, selectedExamType.value))
+      classStudents.map(student => getStudentScoreByType(student.id, selectedExamType.value))
     )
 
     // 统计成绩分布
@@ -427,7 +427,7 @@ const updateAvgScores = async () => {
 
     // 添加考试类型参数
     const scoreRes = await Promise.all(
-      classStudents.map(student => getStudentScore(student.id, selectedExamType.value))
+      classStudents.map(student => getStudentScoreByType(student.id, selectedExamType.value))
     )
 
     // 计算各科平均分
@@ -502,7 +502,7 @@ const calculateExcellentRate = async () => {
   try {
     // 获取所有学生的成绩
     const scoreRes = await Promise.all(
-      students.value.map(student => getStudentScore(student.id, selectedExamType.value))
+      students.value.map(student => getStudentScoreByType(student.id, selectedExamType.value))
     )
 
     let excellentCount = 0

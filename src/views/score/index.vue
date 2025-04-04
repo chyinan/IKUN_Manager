@@ -72,12 +72,29 @@
               />
             </el-select>
           </el-form-item>
+
+          <el-form-item label="考试名称">
+            <el-select 
+              v-model="selectedExamName" 
+              placeholder="请选择考试名称"
+              :disabled="!selectedExamType || examNames.length === 0"
+              @change="handleExamNameChange"
+              clearable
+              style="width: 200px">
+              <el-option
+                v-for="item in examNames"
+                :key="item.id"
+                :label="item.exam_name"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
         </el-form>
       </div>
     </el-card>
 
     <!-- 成绩编辑表单 -->
-    <el-card v-if="selectedStudent && selectedExamType" class="score-form-card">
+    <el-card v-if="selectedStudent && selectedExamType && selectedExamName" class="score-form-card">
       <template #header>
         <div class="card-header">
           <div class="student-info">
@@ -90,7 +107,7 @@
           <div class="exam-info">
             <el-tag effect="plain" type="info" class="exam-date-tag">
               <el-icon><Calendar /></el-icon>
-              <span>考试日期: {{ examDate || '暂无记录' }}</span>
+              <span>考试日期: {{ formattedExamDate || '暂无记录' }}</span>
             </el-tag>
           </div>
         </div>
@@ -107,7 +124,7 @@
             v-for="subject in subjects" 
             :key="subject"
             class="subject-card"
-            :class="{ 'high-score': scoreForm[subject] >= 90, 'low-score': scoreForm[subject] < 60 }"
+            :class="{ 'high-score': (scoreForm[subject] ?? 0) >= 90, 'low-score': (scoreForm[subject] ?? 100) < 60 }"
             shadow="hover"
           >
             <template #header>
@@ -136,7 +153,7 @@
               <div class="score-visual">
                 <div 
                   class="score-bar" 
-                  :style="{ width: `${scoreForm[subject]}%`, backgroundColor: getScoreColor(scoreForm[subject]) }"
+                  :style="{ width: `${scoreForm[subject] ?? 0}%`, backgroundColor: getScoreColor(scoreForm[subject]) }"
                 ></div>
               </div>
             </div>
@@ -189,15 +206,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, type FormInstance } from 'element-plus'
 import { getClassList } from '@/api/class'
 import { getStudentList } from '@/api/student'
-import { getStudentScore, saveStudentScore, testScoreApi } from '@/api/score'
-import type { SubjectType, ScoreData } from '@/types/score'
-import type { StudentItemResponse } from '@/types/student'
+import { createExamIfNotExists, getExamListByType } from '@/api/exam'
+import type { SubjectType, ScoreData, ApiResponse, StudentItemResponse } from '@/types/common'
 import { School, Calendar, UserFilled, Check, Close, User } from '@element-plus/icons-vue'
+import dayjs from 'dayjs'
+
+// 导入新的score API
+import * as scoreApi from '@/api/score'
+import { 
+  testScoreApi, 
+  getExamTypeOptions, 
+  getSubjectOptions,
+  getScoreList,
+  type ScoreQueryParams,
+  type SaveScoreParams
+} from '@/api/score'
 
 const router = useRouter()
 
@@ -206,381 +234,482 @@ defineOptions({
   name: 'ScoreManagement'
 })
 
-// 班级和学生数据
+// 定义响应式变量
 const classList = ref<string[]>([])
-// 修改学生列表的类型
-const studentList = ref<StudentItemResponse[]>([])
+const studentList = ref<any[]>([])
+const scoreList = ref<any[]>([])
 const selectedClass = ref('')
 const selectedStudent = ref<number | null>(null)
+const selectedExamType = ref('')
+const selectedExamName = ref<number | null>(null)
+const selectedStudentName = ref('')
+const examDate = ref('')
+const examTypes = ref<Array<{label: string; value: string}>>([])
+const examNames = ref<Array<{id: number; exam_name: string; exam_date: string}>>([])
+const loading = ref(false)
+const formRef = ref<FormInstance | null>(null)
 
 // 科目列表
 const subjects: SubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物']
 
-// 成绩表单数据
-const scoreForm = ref<Record<SubjectType, number>>({
-  语文: 0,
-  数学: 0,
-  英语: 0,
-  物理: 0,
-  化学: 0,
-  生物: 0
-})
+// Revert both scoreForm and originalScores to use ref
+const scoreForm = ref<Record<SubjectType, number | null>>(
+  subjects.reduce((acc, subject) => {
+    acc[subject] = null;
+    return acc;
+  }, {} as Record<SubjectType, number | null>)
+);
 
-// 添加考试类型和日期数据
-const examTypes = [
-  { label: '月考', value: '月考' },
-  { label: '期中考试', value: '期中' },
-  { label: '期末考试', value: '期末' }
-]
-const selectedExamType = ref('')
-const examDate = ref('')
-
-// 添加loading状态
-const loading = ref(false)
+const originalScores = ref<Record<SubjectType, number | null>>(
+  subjects.reduce((acc, subject) => {
+    acc[subject] = null;
+    return acc;
+  }, {} as Record<SubjectType, number | null>)
+);
+const isScoreChanged = ref(false);
 
 // 根据选择的班级筛选学生
 const filteredStudents = computed(() => {
   return studentList.value.filter(student => student.class_name === selectedClass.value)
 })
 
-// 获取选中学生姓名
-const selectedStudentName = computed(() => {
-  const student = studentList.value.find(s => s.id === selectedStudent.value)
-  return student ? student.name : ''
-})
+// 考试类型选项
+interface ExamTypeOption {
+  label: string
+  value: string
+}
 
-// 获取班级列表
-const fetchClassList = async () => {
+// 获取考试类型选项
+const fetchExamTypes = async () => {
   try {
-    const response = await getClassList()
-    console.log('班级列表响应:', response)
+    console.log('获取考试类型选项')
+    const response = await getExamTypeOptions()
+    console.log('考试类型API响应:', response)
+    
     if (response && response.code === 200 && Array.isArray(response.data)) {
-      // 只使用className属性
-      classList.value = response.data.map(item => item.className || '未命名班级')
+      // 将字符串数组转换为选项格式
+      examTypes.value = response.data.map(type => ({
+        label: type,
+        value: type
+      }))
+      console.log('成功获取考试类型选项:', examTypes.value)
     } else {
-      // 生成模拟班级数据
-      classList.value = [
-        '计算机科学2401班', 
-        '软件工程2402班', 
-        '人工智能2403班', 
-        '大数据分析2404班', 
-        '网络安全2405班'
+      console.warn('考试类型API响应格式不正确或 code !== 200')
+      examTypes.value = [
+        { label: '月考', value: '月考' },
+        { label: '期中', value: '期中' },
+        { label: '期末', value: '期末' }
       ]
     }
   } catch (error) {
-    console.error('获取班级列表失败:', error)
-    ElMessage.warning('获取班级列表失败，使用模拟数据')
-    classList.value = [
-      '计算机科学2401班', 
-      '软件工程2402班', 
-      '人工智能2403班', 
-      '大数据分析2404班', 
-      '网络安全2405班'
+    console.error('获取考试类型选项失败:', error)
+    ElMessage.error('获取考试类型选项失败')
+    examTypes.value = [
+      { label: '月考', value: '月考' },
+      { label: '期中', value: '期中' },
+      { label: '期末', value: '期末' }
     ]
   }
 }
 
-// 修改获取学生列表函数，将属性名修正为类型定义中的名称
-const fetchStudentList = async () => {
+// 获取班级列表
+const fetchClassList = async () => {
   try {
-    const response = await getStudentList()
-    console.log('学生列表响应:', response)
-    if (response && response.code === 200 && Array.isArray(response.data) && response.data.length > 0) {
-      // 按类型定义修正属性名
-      studentList.value = response.data.map(item => {
-        // 添加类型断言
-        const student = item as any;
-        return {
-          id: student.id || Math.floor(Math.random() * 1000),
-          student_id: student.studentId || `2024${String(Math.floor(Math.random() * 100)).padStart(3, '0')}`,
-          name: student.name || `学生${Math.floor(Math.random() * 100)}`,
-          // 添加缺失的gender属性
-          gender: Math.random() > 0.5 ? '男' : '女',
-          // 使用正确的属性名 class_name
-          class_name: student.class_name || classList.value[Math.floor(Math.random() * classList.value.length)],
-          phone: student.phone || `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
-          email: student.email || `student${Math.floor(Math.random() * 100)}@example.com`,
-          join_date: student.joinDate || new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-          create_time: new Date().toISOString()
-        };
-      });
+    console.log('开始获取班级列表...')
+    const response = await getClassList()
+    console.log('班级列表API响应:', response)
+    
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+      classList.value = response.data.data.map(item => item.class_name || '')
+      console.log('成功获取班级列表:', classList.value)
     } else {
-      generateMockStudents();
+      console.warn('班级列表API响应格式不正确或 code !== 200，使用默认值')
+      generateMockClassData()
     }
   } catch (error) {
-    console.error('获取学生列表失败:', error);
-    ElMessage.warning('获取学生列表失败，使用模拟数据');
-    generateMockStudents();
+    console.error('获取班级列表失败:', error)
+    ElMessage.error('获取班级列表失败')
+    generateMockClassData()
   }
 }
 
-// 添加生成模拟学生数据函数
-const generateMockStudents = () => {
-  const mockStudents = [];
-  
-  for (let i = 0; i < 30; i++) {
-    const gender = Math.random() > 0.5 ? '男' : '女';
-    const className = classList.value[Math.floor(Math.random() * classList.value.length)];
-    
-    mockStudents.push({
-      id: i + 1,
-      student_id: `2024${String(i + 1).padStart(3, '0')}`,
-      name: `${gender === '男' ? '张' : '李'}同学${i + 1}`,
-      gender: gender,
-      class_name: className,
-      phone: `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
-      email: `student${i + 1}@example.com`,
-      join_date: new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-      create_time: new Date().toISOString()
-    });
-  }
-  
-  studentList.value = mockStudents;
-  console.log('生成的模拟学生数据:', studentList.value);
-}
-
-// 处理班级选择变化
-const handleClassChange = () => {
-  selectedStudent.value = null
-  scoreForm.value = {
-    语文: 0,
-    数学: 0,
-    英语: 0,
-    物理: 0,
-    化学: 0,
-    生物: 0
-  }
-}
-
-// 处理学生选择
-const handleStudentSelect = async () => {
-  if (!selectedStudent.value) return
-  selectedExamType.value = '' // 清空考试类型选择
-  resetScoreForm()
-}
-
-// 修改考试类型变化处理函数
-const handleExamTypeChange = async () => {
-  if (!selectedStudent.value || !selectedExamType.value) return
-  
+// 获取学生列表
+const fetchStudentList = async (className: string) => {
   try {
-    const response = await getStudentScore(selectedStudent.value, selectedExamType.value)
-    console.log('获取成绩响应:', response)
+    console.log('开始获取学生列表, 班级:', className)
+    const response = await getStudentList() // response is AxiosResponse
+    console.log('学生列表API响应:', response)
     
-    if (response && response.code === 200 && response.data) {
-      const scoreData = response.data
-      // 只有当考试类型匹配时才使用数据库中的成绩
-      if (scoreData.exam_type === selectedExamType.value) {
-        scoreForm.value = {
-          语文: scoreData.语文?.sum || 0,
-          数学: scoreData.数学?.sum || 0,
-          英语: scoreData.英语?.sum || 0,
-          物理: scoreData.物理?.sum || 0,
-          化学: scoreData.化学?.sum || 0,
-          生物: scoreData.生物?.sum || 0
-        }
-        examDate.value = scoreData.exam_time || ''
-      } else {
-        // 生成随机成绩
-        generateMockScores()
-      }
-      // 保存原始成绩用于比较
-      originalScores.value = { ...scoreForm.value }
-      isScoreChanged.value = false
+    // Check the actual API data within response.data
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+      // Filter the actual student array from response.data.data
+      studentList.value = response.data.data.filter((student: StudentItemResponse) => 
+        student.class_name && student.class_name === className
+      )
+      console.log('筛选后的学生列表:', studentList.value)
     } else {
-      // 生成随机成绩
-      generateMockScores()
-      ElMessage.info('未找到成绩记录，生成随机成绩')
+      // Log the actual response data for debugging if the format is wrong
+      console.warn('学生列表API响应格式不正确或 code !== 200, 响应数据:', response.data)
+      studentList.value = []
     }
-  } catch (error: any) {
-    console.error('获取成绩失败:', error)
-    ElMessage.info('获取成绩失败，生成随机成绩')
-    generateMockScores()
+  } catch (error) {
+    console.error('获取学生列表异常:', error)
+    studentList.value = []
   }
 }
 
-// 添加生成随机成绩函数
-const generateMockScores = () => {
-  // 生成随机成绩，平均分在70-95之间
-  const baseScore = Math.floor(Math.random() * 25) + 70;
-  
-  scoreForm.value = {
-    语文: baseScore + Math.floor(Math.random() * 20 - 10),
-    数学: baseScore + Math.floor(Math.random() * 20 - 10),
-    英语: baseScore + Math.floor(Math.random() * 20 - 10),
-    物理: baseScore + Math.floor(Math.random() * 20 - 10),
-    化学: baseScore + Math.floor(Math.random() * 20 - 10),
-    生物: baseScore + Math.floor(Math.random() * 20 - 10)
-  };
-  
-  // 确保分数在合理范围内
-  subjects.forEach(subject => {
-    if (scoreForm.value[subject] > 100) scoreForm.value[subject] = 100;
-    if (scoreForm.value[subject] < 50) scoreForm.value[subject] = 50;
-  });
-  
-  originalScores.value = { ...scoreForm.value };
-  isScoreChanged.value = false;
-  
-  // 设置考试日期为过去某个日期
-  const randomDate = new Date();
-  randomDate.setDate(randomDate.getDate() - Math.floor(Math.random() * 60));
-  examDate.value = randomDate.toISOString().split('T')[0];
-  
-  console.log('生成的模拟成绩:', scoreForm.value);
-}
-
-// 重置成绩表单
-const resetScoreForm = () => {
-  scoreForm.value = {
-    语文: 0,
-    数学: 0,
-    英语: 0,
-    物理: 0,
-    化学: 0,
-    生物: 0
-  }
-  originalScores.value = { ...scoreForm.value }
-  isScoreChanged.value = false
-}
-
-// 取消编辑
-const handleCancel = () => {
-  // 恢复原始成绩
-  scoreForm.value = { ...originalScores.value }
-  isScoreChanged.value = false
-}
-
-// 修改保存成绩方法
-const handleSave = async () => {
+// 获取成绩列表
+const fetchScoreList = async () => {
+  // 如果没有选择学生或考试类型，不调用API
   if (!selectedStudent.value || !selectedExamType.value) {
-    ElMessage.warning('请选择学生和考试类型')
+    scoreList.value = []
     return
   }
 
   try {
-    loading.value = true
-    const today = new Date().toISOString().split('T')[0]
-
-    // 构建数据对象
-    const scoreData = {
+    console.log('开始获取成绩列表...')
+    const params: ScoreQueryParams = {
       studentId: selectedStudent.value,
-      scores: scoreForm.value,
-      examType: selectedExamType.value,
-      examDate: today
+      examType: selectedExamType.value
     }
-
-    const response = await saveStudentScore(scoreData)
-
-    if (response && response.code === 200) {
-      ElMessage.success('保存成功')
-      originalScores.value = { ...scoreForm.value }
-      isScoreChanged.value = false
-      examDate.value = today
+    
+    const response = await getScoreList(params)
+    console.log('成绩列表API响应:', response)
+    
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+      scoreList.value = response.data.data
+      console.log('成绩列表:', scoreList.value)
     } else {
-      ElMessage.success('保存成功') // 模拟成功响应
+      console.warn('成绩列表API响应格式不正确或 code !== 200')
+      scoreList.value = []
     }
   } catch (error) {
-    console.error('保存失败:', error)
-    ElMessage.success('保存成功') // 即使出错也显示成功
-  } finally {
-    loading.value = false
+    console.error('获取成绩列表异常:', error)
+    scoreList.value = []
   }
 }
 
-// 添加成绩是否被修改的标记
-const isScoreChanged = ref(false)
-// 修改原始成绩的类型定义
-const originalScores = ref<Record<SubjectType, number>>({
-  语文: 0,
-  数学: 0,
-  英语: 0,
-  物理: 0,
-  化学: 0,
-  生物: 0
-})
+// 处理班级选择变化
+const handleClassChange = async () => {
+  selectedStudent.value = null;
+  selectedExamType.value = '';
+  selectedExamName.value = null;
+  // Reset scoreForm.value
+  scoreForm.value = subjects.reduce((acc, subject) => {
+    acc[subject] = null;
+    return acc;
+  }, {} as Record<SubjectType, number | null>);
+  originalScores.value = { ...scoreForm.value }; // Reset original as well
+  isScoreChanged.value = false;
 
-// 处理成绩输入变化
-const handleScoreChange = () => {
-  const hasChanges = subjects.some(subject => 
-    scoreForm.value[subject] !== originalScores.value[subject]
-  )
-  isScoreChanged.value = hasChanges
+  if (selectedClass.value) {
+    // Call the correct fetchStudentList - assuming it's defined elsewhere or kept from previous state
+    // await fetchStudentList(selectedClass.value); // You might need to adjust this if fetchStudentList was changed
+     await fetchStudentListForClass(selectedClass.value); // Assuming a function to fetch all students for a class exists
+  } else {
+    studentList.value = []; // Clear student list if no class selected
+  }
+};
+
+// Fetch all students for a class (helper needed after revert)
+const fetchStudentListForClass = async (className: string) => {
+  try {
+    const response = await getStudentList(); // Fetch all students
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+        // Filter locally
+        studentList.value = response.data.data.filter((student: StudentItemResponse) =>
+            student.class_name && student.class_name === className
+        );
+    } else {
+        studentList.value = [];
+    }
+  } catch (error) {
+      console.error('获取学生列表失败:', error);
+      studentList.value = [];
+  }
+};
+
+// 处理学生选择
+const handleStudentSelect = async () => {
+  if (!selectedStudent.value) {
+      selectedStudentName.value = '';
+      selectedExamType.value = '';
+      selectedExamName.value = null;
+      examNames.value = [];
+      resetScoreForm(); // Resets scoreForm.value and originalScores.value
+      return;
+  }
+  selectedExamType.value = '';
+  selectedExamName.value = null;
+  examNames.value = [];
+  resetScoreForm();
+
+  const selectedStudentData = studentList.value.find(s => s.id === selectedStudent.value);
+  if (selectedStudentData) {
+    selectedStudentName.value = selectedStudentData.name;
+  }
 }
 
-// 计算总分
+// 处理考试类型变化
+const handleExamTypeChange = async () => {
+  if (!selectedStudent.value || !selectedExamType.value) {
+      selectedExamName.value = null;
+      examNames.value = [];
+      resetScoreForm();
+      return;
+  }
+
+  selectedExamName.value = null;
+  examNames.value = [];
+  resetScoreForm();
+
+  try {
+    loading.value = true;
+    const examListResult = await scoreApi.getExams(selectedExamType.value);
+    if (Array.isArray(examListResult) && examListResult.length > 0) {
+      examNames.value = examListResult.map(item => ({
+        id: item.id,
+        exam_name: item.exam_name,
+        exam_date: item.exam_date
+      }));
+      if (examNames.value.length > 0) {
+        ElMessage.info(`请选择具体的${selectedExamType.value}考试`);
+      } else {
+        ElMessage.warning(`未找到${selectedExamType.value}类型的考试记录`);
+      }
+    } else {
+      ElMessage.warning(`未找到${selectedExamType.value}类型的考试记录`);
+    }
+  } catch (error) {
+    console.error('获取考试名称列表失败:', error);
+    ElMessage.error('获取考试名称列表失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 处理考试名称变化
+const handleExamNameChange = async () => {
+    resetScoreForm(); // Reset first
+    if (!selectedStudent.value || !selectedExamType.value || !selectedExamName.value) {
+        examDate.value = '';
+        return;
+    }
+
+    const selectedExam = examNames.value.find(e => e.id === selectedExamName.value);
+    examDate.value = selectedExam?.exam_date || ''; // Update raw exam date for formatter
+
+    // Fetch scores using the existing fetchStudentScores function
+    await fetchStudentScores(selectedStudent.value, selectedExamName.value);
+}
+
+// 获取学生成绩 (Refactored to use ref)
+const fetchStudentScores = async (studentId: number, examId: number) => {
+  if (!studentId || !examId) return;
+  console.log(`开始获取学生 ${studentId} 在考试 ${examId} 的成绩...`);
+  loading.value = true;
+  resetScoreForm(); // Resets scoreForm.value and originalScores.value
+  // examDate is set in handleExamNameChange
+
+  try {
+    const res = await scoreApi.getStudentScoreByExamId(studentId, examId);
+    console.log('获取学生成绩响应:', res);
+
+    if (res) {
+      // Populate scoreForm.value, converting string scores to numbers
+      subjects.forEach(subject => {
+        const scoreValue = res[subject];
+        if (scoreValue !== undefined && scoreValue !== null) {
+            const numericScore = parseFloat(scoreValue); // Attempt to convert string to number
+            if (!isNaN(numericScore)) { // Check if the conversion resulted in a valid number
+                scoreForm.value[subject] = numericScore;
+            } else {
+                scoreForm.value[subject] = null; // Assign null if conversion fails
+                console.warn(`Received non-numeric score value for ${subject}:`, scoreValue);
+            }
+        } else {
+            scoreForm.value[subject] = null; // Assign null if subject is missing in response
+        }
+      });
+      // examDate.value is already set from selectedExam in handleExamNameChange
+      // examDate.value = res.exam_time || ''; // Keep this if backend 'exam_time' is more accurate
+
+      // Update originalScores.value
+      originalScores.value = { ...scoreForm.value };
+      console.log('学生成绩加载完成', scoreForm.value);
+      isScoreChanged.value = false; // Ensure changed flag is reset after load
+    } else {
+      console.warn('未找到学生成绩记录或API响应无效, 表单已重置.');
+       ElMessage.info(`未找到考试成绩记录，可编辑并保存新成绩`);
+      // Form is already reset by resetScoreForm()
+    }
+  } catch (error) {
+    console.error('获取学生成绩失败 (catch):', error);
+    ElMessage.error('获取学生成绩失败');
+    // Form is already reset
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 重置成绩表单 (Using ref)
+const resetScoreForm = () => {
+  scoreForm.value = subjects.reduce((acc, subject) => {
+    acc[subject] = null;
+    return acc;
+  }, {} as Record<SubjectType, number | null>);
+  originalScores.value = { ...scoreForm.value }; // Keep original in sync with reset
+  isScoreChanged.value = false;
+};
+
+// 取消修改 (Using ref)
+const handleCancel = () => {
+  // Restore from originalScores.value
+  scoreForm.value = { ...originalScores.value };
+  isScoreChanged.value = false;
+  ElMessage.info('修改已取消');
+};
+
+// 计算总分 (Using ref)
 const calculateTotalScore = () => {
-  return subjects.reduce((total, subject) => total + scoreForm.value[subject], 0).toFixed(1)
-}
+  return subjects.reduce((sum, subject) => {
+    const score = scoreForm.value[subject];
+    return sum + (typeof score === 'number' ? score : 0);
+  }, 0).toFixed(1);
+};
 
-// 计算平均分
+// 计算平均分 (Using ref)
 const calculateAverageScore = () => {
-  const total = subjects.reduce((sum, subject) => sum + scoreForm.value[subject], 0)
-  return (total / subjects.length).toFixed(1)
-}
+  const validScores = subjects.map(subject => scoreForm.value[subject]).filter(score => typeof score === 'number') as number[];
+  if (validScores.length === 0) return '0.0';
+  const sum = validScores.reduce((acc, score) => acc + score, 0);
+  return (sum / validScores.length).toFixed(1);
+};
+
+// 保存成绩 (Using ref)
+const handleSave = async () => {
+  if (!selectedExamName.value || !selectedStudent.value) {
+    ElMessage.warning('请先选择学生和具体考试');
+    return;
+  }
+
+  const scoresToSave: Record<string, number> = {};
+  let hasValidScore = false;
+  subjects.forEach(subject => {
+    const score = scoreForm.value[subject];
+    if (typeof score === 'number' && !isNaN(score)) {
+      scoresToSave[subject] = score;
+      hasValidScore = true;
+    }
+  });
+
+  // Removed the !hasValidScore check to allow saving even if all scores are deleted (set to null)
+  // if (!hasValidScore) {
+  //   ElMessage.warning('请输入至少一个有效成绩');
+  //   return;
+  // }
+
+  const saveData: SaveScoreParams = {
+    studentId: selectedStudent.value,
+    examId: selectedExamName.value,
+    examType: selectedExamType.value,
+    scores: scoresToSave
+  };
+
+  loading.value = true;
+  try {
+    const res = await scoreApi.saveStudentScore(saveData);
+    if (res.code === 200 || res.code === 201) {
+      ElMessage.success('成绩保存成功');
+      originalScores.value = { ...scoreForm.value }; // Update original scores
+      isScoreChanged.value = false;
+    } else {
+      ElMessage.error(res.message || '成绩保存失败');
+    }
+  } catch (error: any) {
+    console.error('保存成绩失败 (catch):', error);
+    ElMessage.error(error.message || '保存成绩失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 处理成绩输入变化 (Using ref)
+const handleScoreChange = () => {
+  isScoreChanged.value = JSON.stringify(scoreForm.value) !== JSON.stringify(originalScores.value);
+};
 
 // 根据分数获取颜色
-const getScoreColor = (score: number) => {
-  if (score >= 90) return '#67C23A' // 优秀 - 绿色
-  if (score >= 80) return '#409EFF' // 良好 - 蓝色
-  if (score >= 70) return '#E6A23C' // 中等 - 黄色
-  if (score >= 60) return '#F56C6C' // 及格 - 红色
-  return '#909399' // 不及格 - 灰色
+const getScoreColor = (score: number | null): string => {
+  if (score === null) return '#909399'; // 未录入 - Gray
+  if (score < 60) return '#909399';    // 不及格 - Gray (Changed from Red)
+  if (score < 70) return '#F56C6C';    // 及格   - Red (New range for Red)
+  if (score < 80) return '#E6A23C';    // 中等   - Orange/Yellow (Kept)
+  if (score < 90) return '#409EFF';    // 良好   - Blue (Changed from Gray)
+  return '#67C23A';                   // 优秀   - Green (Kept)
 }
 
 // 根据分数获取标签类型
-const getScoreTagType = (score: number) => {
-  if (score >= 90) return 'success'
-  if (score >= 80) return 'primary'
-  if (score >= 70) return 'warning'
-  if (score >= 60) return 'danger'
-  return 'info'
+const getScoreTagType = (score: number | null): 'success' | 'warning' | 'danger' | 'info' | 'primary' => {
+  if (score === null) return 'info';     // 未录入 - Gray
+  if (score < 60) return 'info';     // 不及格 - Gray (Changed from danger)
+  if (score < 70) return 'danger';   // 及格   - Red (New range for danger)
+  if (score < 80) return 'warning';  // 中等   - Orange/Yellow (Kept)
+  if (score < 90) return 'primary';  // 良好   - Blue (Changed from info)
+  return 'success';                  // 优秀   - Green (Kept)
 }
 
 // 根据分数获取等级
-const getScoreLevel = (score: number) => {
-  if (score >= 90) return '优秀'
-  if (score >= 80) return '良好'
-  if (score >= 70) return '中等'
-  if (score >= 60) return '及格'
-  return '不及格'
+const getScoreLevel = (score: number | null): string => {
+  if (score === null) return '未录入';
+  if (score < 60) return '不及格';
+  if (score < 70) return '及格';
+  if (score < 80) return '中等';
+  if (score < 90) return '良好';
+  return '优秀';
+}
+
+// 生成模拟班级数据
+const generateMockClassData = () => {
+  const mockClasses = [
+    '计算机科学2401班',
+    '软件工程2402班',
+    '人工智能2403班',
+    '大数据分析2404班',
+    '网络安全2405班'
+  ]
+  classList.value = mockClasses
+  console.log('生成的模拟班级数据:', classList.value)
 }
 
 // 页面初始化
 onMounted(async () => {
   try {
-    // 测试成绩API是否可用
-    const testRes = await testScoreApi()
-    console.log('成绩API测试结果:', testRes)
-    
-    // 获取其他数据
-    await fetchClassList()
-    await fetchStudentList()
-    
-    // 如果没有学生数据，生成模拟数据
-    if (studentList.value.length === 0) {
-      generateMockStudents()
+    const apiTestResult = await testScoreApi()
+    if (apiTestResult) {
+      await fetchClassList() // Fetches class names
+      // Don't fetch all students initially, wait for class selection
+      await fetchExamTypes()
+      // fetchScoreList is likely unnecessary here as no student/exam selected
+    } else {
+      ElMessage.error('成绩API连接失败，请检查网络连接')
     }
   } catch (error) {
-    console.error('初始化失败:', error)
-    ElMessage.warning('系统初始化失败，使用模拟数据')
-    
-    // 生成模拟数据
-    if (classList.value.length === 0) {
-      classList.value = [
-        '计算机科学2401班',
-        '软件工程2402班',
-        '人工智能2403班',
-        '大数据分析2404班',
-        '网络安全2405班'
-      ]
-    }
-    
-    if (studentList.value.length === 0) {
-      generateMockStudents()
-    }
+    console.error('页面初始化失败:', error)
+    ElMessage.error('页面初始化失败，请刷新重试')
   }
 })
+
+// Keep the formattedExamDate computed property
+const formattedExamDate = computed(() => {
+    if (!examDate.value) return '';
+    try {
+        return dayjs(examDate.value).format('YYYY-MM-DD HH:mm');
+    } catch (e) {
+        console.error("Error formatting exam date:", e);
+        return examDate.value;
+    }
+});
 </script>
 
 <style scoped>

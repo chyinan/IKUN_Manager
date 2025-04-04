@@ -412,8 +412,8 @@ const fetchData = async () => {
     console.log('部门数据响应:', deptRes)
 
     // 首先生成部门数据，这样员工数据可以使用它
-    if (deptRes && Array.isArray(deptRes.data) && deptRes.data.length > 0) {
-      deptData.value = deptRes.data
+    if (deptRes && deptRes.data && deptRes.data.code === 200 && Array.isArray(deptRes.data.data)) {
+      deptData.value = deptRes.data.data
         .filter((item: DeptResponseData) => item)
         .map((item: DeptResponseData) => convertDeptResponse(item))
     } else {
@@ -422,8 +422,8 @@ const fetchData = async () => {
     }
 
     // 然后生成员工数据
-    if (empRes && Array.isArray(empRes.data) && empRes.data.length > 0) {
-      employeeData.value = empRes.data
+    if (empRes && empRes.data && empRes.data.code === 200 && Array.isArray(empRes.data.data)) {
+      employeeData.value = empRes.data.data
         .filter((item: EmployeeItemResponse) => item)
         .map((item: EmployeeItemResponse) => convertEmployeeResponse(item))
     } else {

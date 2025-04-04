@@ -188,9 +188,28 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Delete, Edit, Plus, Search, View, Download, Male, Female } from '@element-plus/icons-vue'
 import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
-import type { ClassItem, ClassFormData, ClassItemResponse, ClassBackendData } from '@/types/class'
+import type { ClassItem, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
 import type { Pagination } from '@/types/common'
+
+// 表单数据类型
+interface ClassFormData {
+  id?: number
+  className: string
+  teacher: string
+  studentCount: number
+  description?: string
+}
+
+// 后端返回的班级数据类型
+interface ClassItemResponse {
+  id: number
+  class_name: string
+  teacher: string
+  student_count: number
+  description: string | null
+  create_time: string
+}
 
 // 基础数据状态
 const loading = ref(false)
@@ -242,28 +261,30 @@ const fetchData = async () => {
   try {
     loading.value = true
     const res = await getClassList()
-    if (res.code === 200 && Array.isArray(res.data)) {
+    console.log('班级列表API响应:', res)
+    
+    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
       // 处理API返回的数据
-      tableData.value = res.data.map((item: any) => {
+      const responseData = res.data.data as ClassItemResponse[];
+      tableData.value = responseData.map((item: ClassItemResponse): ClassItem => {
         // 安全处理日期转换
         let createTimeDisplay;
         try {
           createTimeDisplay = item.create_time 
             ? new Date(item.create_time).toLocaleString('zh-CN')
-            : '未知时间';
+            : new Date().toLocaleString('zh-CN');
         } catch (e) {
-          createTimeDisplay = '日期格式错误';
+          createTimeDisplay = new Date().toLocaleString('zh-CN');
           console.error('日期转换错误:', e);
         }
         
-        // 返回标准化的数据结构
         return {
-          id: item.id || Math.floor(Math.random() * 10000),
-          className: item.class_name || item.className || `未命名班级${Math.floor(Math.random() * 100)}`,
-          studentCount: item.student_count || item.studentCount || Math.floor(Math.random() * 40 + 10),
-          teacher: item.teacher || `教师${Math.floor(Math.random() * 100)}`,
+          id: item.id,
+          className: item.class_name || '',
+          studentCount: item.student_count || 0,
+          teacher: item.teacher || '',
           createTime: createTimeDisplay,
-          description: item.description || '暂无描述'
+          description: item.description || ''
         };
       });
       
@@ -271,8 +292,7 @@ const fetchData = async () => {
       pagination.total = tableData.value.length;
       console.log('成功获取班级数据:', tableData.value);
     } else {
-      // 如果API返回错误或无数据，生成模拟数据
-      console.warn('API返回无效数据，使用模拟数据');
+      console.warn('班级列表API响应格式不正确或 code !== 200，使用模拟数据');
       generateMockData();
     }
   } catch (error) {
@@ -294,13 +314,14 @@ const generateMockData = () => {
     const classType = classTypes[Math.floor(Math.random() * classTypes.length)];
     const classNum = Math.floor(Math.random() * 10) + 1;
     const year = 2020 + Math.floor(Math.random() * 5);
+    const createTime = new Date(year, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleString('zh-CN');
     
     mockData.push({
       id: i + 1,
       className: `${classType}${year}0${classNum}班`,
       studentCount: Math.floor(Math.random() * 20) + 20,
       teacher: teacherNames[Math.floor(Math.random() * teacherNames.length)],
-      createTime: new Date(year, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleString('zh-CN'),
+      createTime,
       description: `${year}年${classType}专业${classNum}班`
     });
   }
@@ -340,18 +361,20 @@ const handleSubmit = async () => {
         loading.value = true
         
         // 创建一个符合后端 API 格式的数据对象
-        const backendData: ClassBackendData = {
-          class_name: formData.className,
+        const backendData: ClassItem = {
+          id: formData.id || 0,
+          className: formData.className,
           teacher: formData.teacher,
-          student_count: formData.studentCount || 0,
-          description: formData.description
+          studentCount: formData.studentCount || 0,
+          description: formData.description || '',
+          createTime: new Date().toLocaleString('zh-CN')
         }
 
         if (dialogType.value === 'add') {
-          await addClass(backendData as any as ClassItem)
+          await addClass(backendData)
           ElMessage.success('新增成功')
         } else if (formData.id) {
-          await updateClass(formData.id, backendData as any as ClassItem)
+          await updateClass(formData.id, backendData)
           ElMessage.success('修改成功')
         }
         
@@ -410,7 +433,7 @@ const handleDelete = async (row: ClassItem) => {
 
     loading.value = true
     const res = await deleteClass(row.id)
-    if (res.code === 200) {
+    if (res.data?.code === 200) {
       ElMessage.success('删除成功')
       await fetchData()
     }

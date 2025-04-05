@@ -237,16 +237,45 @@ async function updateEmployee(id, employeeData) {
 /**
  * 删除员工
  * @param {number} id 员工ID
- * @returns {Promise<boolean>} 删除结果
+ * @returns {Promise<{success: boolean, emp_id: string | null}>} 删除结果及员工工号
  */
 async function deleteEmployee(id) {
+  let connection;
   try {
-    const query = 'DELETE FROM employee WHERE id = ?';
-    const result = await db.query(query, [id]);
-    return result.affectedRows > 0;
+    if (!id || isNaN(id)) {
+      throw new Error('无效的员工ID');
+    }
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. 先查询员工工号
+    const selectQuery = 'SELECT emp_id FROM employee WHERE id = ?';
+    const [rows] = await connection.query(selectQuery, [id]);
+    const emp_id = rows.length > 0 ? rows[0].emp_id : null;
+
+    // 2. 执行删除操作
+    const deleteQuery = 'DELETE FROM employee WHERE id = ?';
+    const [result] = await connection.query(deleteQuery, [id]);
+    const success = result.affectedRows > 0;
+
+    await connection.commit();
+
+    if (success) {
+      console.log(`员工删除成功, ID: ${id}, 工号: ${emp_id}`);
+    } else {
+      console.log(`尝试删除员工失败或未找到记录, ID: ${id}`);
+    }
+
+    // 返回包含成功状态和工号的对象
+    return { success, emp_id }; 
+
   } catch (error) {
-    console.error(`删除员工失败 (ID: ${id}):`, error);
-    throw error;
+    if (connection) await connection.rollback();
+    console.error(`删除员工数据库操作失败 (ID: ${id}):`, error);
+    throw error; // Re-throw
+  } finally {
+    if (connection) connection.release();
   }
 }
 

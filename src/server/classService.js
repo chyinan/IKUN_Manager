@@ -155,38 +155,48 @@ async function addClass(classData) {
 /**
  * 删除班级
  * @param {number} id 班级ID
- * @returns {Promise<boolean>} 删除是否成功
+ * @returns {Promise<{success: boolean, class_name: string | null}>} 删除结果及班级名称
  */
 async function deleteClass(id) {
+  let connection;
   try {
-    // 注意：删除班级会级联删除关联的学生和成绩（根据外键约束）
-    // 如果不希望级联删除，需要修改数据库外键设置或先处理关联数据
-    // 这里我们假设级联删除是期望的行为
-
-    // 检查班级是否存在
-    const checkSql = 'SELECT id FROM class WHERE id = ?';
-    const checkResult = await db.query(checkSql, [id]);
-    if (checkResult.length === 0) {
-      console.log(`尝试删除班级 ID ${id}，但未找到该班级`);
-      return false; // 班级不存在
+    if (!id || isNaN(id)) {
+      throw new Error('无效的班级ID');
     }
 
-    // 执行删除
-    const sql = 'DELETE FROM class WHERE id = ?';
-    const result = await db.query(sql, [id]);
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    if (result.affectedRows > 0) {
-      console.log(`删除班级成功, ID: ${id}`);
-      return true; // 删除成功
+    // 1. 先查询班级名称
+    const selectQuery = 'SELECT class_name FROM class WHERE id = ?';
+    const [rows] = await connection.query(selectQuery, [id]);
+    const class_name = rows.length > 0 ? rows[0].class_name : null;
+
+    // 2. 执行删除操作
+    const deleteQuery = 'DELETE FROM class WHERE id = ?';
+    const [result] = await connection.query(deleteQuery, [id]);
+    const success = result.affectedRows > 0;
+
+    await connection.commit();
+
+    if (success) {
+      console.log(`班级删除成功, ID: ${id}, 名称: ${class_name}`);
     } else {
-      // 理论上因为上面检查过，不应该到这里，但也处理一下
-      console.log(`尝试删除班级 ID ${id}，但删除操作未影响任何行`);
-      return false; 
+      console.log(`尝试删除班级失败或未找到记录, ID: ${id}`);
     }
+
+    return { success, class_name };
+
   } catch (error) {
-    console.error(`删除班级失败 (ID: ${id}):`, error);
-    // 可以根据 error.code 判断是否是外键约束等问题
-    throw error; // 将错误向上抛出
+    if (connection) await connection.rollback();
+    // Check for foreign key constraint (students in class)
+    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
+        throw new Error('无法删除：该班级下仍有学生');
+    }
+    console.error(`删除班级数据库操作失败 (ID: ${id}):`, error);
+    throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 

@@ -216,18 +216,46 @@ async function updateStudent(id, studentData) {
 /**
  * 删除学生
  * @param {number} id 学生ID
- * @returns {Promise<boolean>} 删除结果
+ * @returns {Promise<{success: boolean, student_id_str: string | null}>} 删除结果及学生学号
  */
 async function deleteStudent(id) {
+  let connection;
   try {
-    // 删除学生记录
+    if (!id || isNaN(id)) {
+      throw new Error('无效的学生ID');
+    }
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. 先查询学生学号
+    const selectQuery = 'SELECT student_id FROM student WHERE id = ?';
+    const [rows] = await connection.query(selectQuery, [id]);
+    const student_id_str = rows.length > 0 ? rows[0].student_id : null;
+
+    // 2. 执行删除操作
+    // 假设数据库已设置级联删除学生成绩（ON DELETE CASCADE）
     const deleteQuery = 'DELETE FROM student WHERE id = ?';
-    const result = await db.query(deleteQuery, [id]);
-    
-    return result.affectedRows === 1;
+    const [result] = await connection.query(deleteQuery, [id]);
+    const success = result.affectedRows > 0;
+
+    await connection.commit();
+
+    if (success) {
+      console.log(`学生删除成功, ID: ${id}, 学号: ${student_id_str}`);
+    } else {
+      console.log(`尝试删除学生失败或未找到记录, ID: ${id}`);
+    }
+
+    return { success, student_id_str };
+
   } catch (error) {
-    console.error(`删除学生失败 (ID: ${id}):`, error);
+    if (connection) await connection.rollback();
+    // Handle potential foreign key constraints if cascade delete is not set
+    console.error(`删除学生数据库操作失败 (ID: ${id}):`, error);
     throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 

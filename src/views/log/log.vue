@@ -28,8 +28,7 @@
         <span class="log-content">
           <template v-if="log.operator && log.operation">
             <span class="log-operator">{{ log.operator }}</span>
-            <span class="log-operation">{{ log.operation }}</span>
-            <span class="log-message">{{ formatLogContent(log.content) }}</span>
+            <span class="log-message">{{ log.content }}</span>
           </template>
           <template v-else>
             {{ log.content }}
@@ -85,38 +84,11 @@ const formatTime = (timeStr: string | undefined) => {
   }
 }
 
-// 格式化日志内容，去除重复的用户名和操作
-const formatLogContent = (content: string | undefined) => {
-  if (!content) return '';
-  
-  // 检查内容是否包含用户名和操作（通常是重复的）
-  const parts = content.split(' ');
-  
-  // 如果内容以用户名开头，后面跟着操作，则去除这部分
-  if (parts.length >= 2) {
-    // 检查第一部分是否与operator相同，第二部分是否与operation相同
-    // 这里我们简单地检查内容的格式，如果符合"用户名 操作 其他内容"的模式，则只返回"其他内容"部分
-    return parts.slice(2).join(' ');
-  }
-  
-  return content;
-}
-
 // 添加日志
 const addLog = (log: LogEntry) => {
-  // 确保日志有创建时间
+  // Ensure log has createTime
   if (!log.createTime) {
     log.createTime = new Date().toLocaleString();
-  }
-  
-  // 处理可能的内容重复问题
-  if (log.content && log.operator && log.operation) {
-    // 检查内容是否以用户名和操作开头
-    const prefix = `${log.operator} ${log.operation}`;
-    if (log.content.startsWith(prefix)) {
-      // 移除重复的前缀
-      log.content = log.content.substring(prefix.length).trim();
-    }
   }
   
   logs.value.push(log);
@@ -139,27 +111,18 @@ const scrollToBottom = () => {
 const loadHistoryLogs = async () => {
   try {
     console.log('调用 API 获取历史日志');
-    // Pass pagination parameters correctly - Change pageSize to 30
     const response = await getLogList({ pageSize: 30, page: 1 });
 
-    // Check response.data for code and data presence
     if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      const logEntries = response.data.data; // Access logs from response.data.data
+      const logEntries = response.data.data; 
 
       const historyLogs = logEntries
         .sort((a, b) => {
           const dateA = a.createTime ? new Date(a.createTime).getTime() : 0;
           const dateB = b.createTime ? new Date(b.createTime).getTime() : 0;
-          return dateA - dateB; // Sort ascending (oldest first, newest at bottom)
+          return dateA - dateB; 
         })
         .map(log => {
-          // Keep the prefix removal logic
-          if (log.content && log.operator && log.operation) {
-            const prefix = `${log.operator} ${log.operation}`;
-            if (log.content.startsWith(prefix)) {
-              log.content = log.content.substring(prefix.length).trim();
-            }
-          }
           return {
             ...log,
             createTime: log.createTime || new Date().toLocaleString()
@@ -168,13 +131,10 @@ const loadHistoryLogs = async () => {
 
       logs.value = historyLogs;
       console.log(`成功加载 ${historyLogs.length} 条历史日志`);
-      // Ensure scroll happens AFTER logs are assigned and potentially rendered
-      // Using nextTick might be safer if direct call doesn't work reliably
       nextTick(() => {
          scrollToBottom();
       });
     } else {
-      // Log the actual response structure for debugging if the check fails
       console.error('加载历史日志失败: API 返回无效数据结构或错误代码', response?.data);
       ElMessage.warning('加载历史日志失败，请检查后端服务或API响应');
     }
@@ -350,11 +310,6 @@ onUnmounted(() => {
 .log-operator {
   color: #64B5F6;
   font-weight: bold;
-}
-
-.log-operation {
-  color: #9575CD;
-  font-style: italic;
 }
 
 .log-message {

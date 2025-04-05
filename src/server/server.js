@@ -205,7 +205,7 @@ app.post(`${apiPrefix}/exam/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `考试 名称: ${newExam?.exam_name || '(未知)'}`, 
+      content: `新增 考试: 名称=${newExam?.exam_name || '(未知)'}`,
       operator: 'system'
     });
     // --- End Logging ---
@@ -242,7 +242,7 @@ app.put(`${apiPrefix}/exam/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `考试 ID: ${examId}`,
+      content: `更新 考试: ID=${examId}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -280,7 +280,7 @@ app.delete(`${apiPrefix}/exam/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '删除',
-      content: `考试 ID: ${examId}`,
+      content: `删除 考试: ID=${examId}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -350,15 +350,18 @@ app.get('/api/employee/:id', async (req, res) => {
 app.post('/api/employee/add', async (req, res) => {
   try {
     const employeeData = req.body;
+    // Call the service function
     const newEmployee = await employeeService.addEmployee(employeeData);
-    // --- Add Logging ---
+
+    // --- Log ONLY AFTER successful insertion --- 
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `员工 工号: ${newEmployee?.emp_id || '(未知)'}`, // Use newEmployee data if available
+      content: `新增 员工: 工号=${newEmployee?.emp_id || '(未知)'}`, // Use newEmployee data if available
       operator: 'system' 
     });
-    // --- End Logging ---
+    
+    // Send success response
     res.json({
       code: 200,
       message: '添加员工成功',
@@ -366,9 +369,24 @@ app.post('/api/employee/add', async (req, res) => {
     });
   } catch (error) {
     console.error('添加员工失败:', error);
-    res.status(500).json({
-      code: 500,
-      message: '添加员工失败: ' + error.message,
+    // --- Improved Error Handling ---
+    let statusCode = 500;
+    let message = '添加员工失败: 服务器内部错误';
+
+    if (error.code === 'ER_DUP_ENTRY') {
+      statusCode = 400; // Bad Request due to duplicate entry
+      message = `添加员工失败: 工号 ${req.body?.emp_id || ''} 已存在`;
+    } else if (error.message) {
+      // Keep other specific error messages if they exist
+      message = `添加员工失败: ${error.message}`;
+      if (error.message.includes('不能为空')) { // Example check
+          statusCode = 400;
+      }
+    }
+    
+    res.status(statusCode).json({
+      code: statusCode,
+      message: message,
       data: null
     });
   }
@@ -392,7 +410,7 @@ app.put('/api/employee/:id', async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `员工 ID: ${id}`,
+      content: `更新 员工: ID=${id}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -414,24 +432,27 @@ app.put('/api/employee/:id', async (req, res) => {
 app.delete('/api/employee/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const success = await employeeService.deleteEmployee(id);
+    // Call the modified service function which returns { success, emp_id }
+    const deleteResult = await employeeService.deleteEmployee(id); 
     
-    if (!success) {
+    if (!deleteResult.success) {
       return res.status(404).json({
         code: 404,
-        message: '员工不存在',
+        message: '员工不存在或删除失败', // More accurate message
         data: null
       });
     }
     
-    // --- Add Logging ---
+    // --- Add Logging using the returned emp_id ---
     logService.addLog({
       type: 'database',
       operation: '删除',
-      content: `员工 ID: ${id}`,
+      // Use emp_id for content, fallback to ID if emp_id was null (shouldn't happen if found)
+      content: `删除 员工: 工号=${deleteResult.emp_id || '(ID: ' + id + ')'}`,
       operator: 'system' 
     });
     // --- End Logging ---
+    
     res.json({
       code: 200,
       message: '删除员工成功',
@@ -465,7 +486,7 @@ app.delete('/api/employee/batch', async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '批量删除',
-      content: `员工 IDs: ${ids.join(', ')}`,
+      content: `批量删除 员工: IDs=${ids.join(', ')}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -545,7 +566,7 @@ app.post(`${apiPrefix}/dept/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `部门 名称: ${newDept?.dept_name || '(未知)'}`,
+      content: `新增 部门: 名称=${newDept?.dept_name || '(未知)'}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -583,7 +604,7 @@ app.put(`${apiPrefix}/dept/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `部门 ID: ${id}`,
+      content: `更新 部门: ID=${id}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -613,14 +634,14 @@ app.delete(`${apiPrefix}/dept/:id`, async (req, res) => {
     console.log(`收到删除部门请求, ID: ${id}`);
 
     // 调用 deptService 中的 deleteDept 函数
-    const success = await deptService.deleteDept(id);
+    const deleteResult = await deptService.deleteDept(id);
 
-    if (success) {
+    if (deleteResult.success) {
       // --- Add Logging ---
       logService.addLog({
         type: 'database',
         operation: '删除',
-        content: `部门 ID: ${id}`,
+        content: `删除 部门: 名称=${deleteResult.dept_name || '(ID: ' + id + ')'}`,
         operator: 'system' 
       });
       // --- End Logging ---
@@ -732,7 +753,7 @@ app.post(`${apiPrefix}/class/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `班级 名称: ${newClass?.class_name || '(未知)'}`,
+      content: `新增 班级: 名称=${newClass?.class_name || '(未知)'}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -762,14 +783,14 @@ app.delete(`${apiPrefix}/class/:id`, async (req, res) => {
     console.log(`收到删除班级请求, ID: ${id}`);
 
     // 调用 classService 中的 deleteClass 函数
-    const success = await classService.deleteClass(id);
+    const deleteResult = await classService.deleteClass(id);
 
-    if (success) {
+    if (deleteResult.success) {
       // --- Add Logging ---
       logService.addLog({
         type: 'database',
         operation: '删除',
-        content: `班级 ID: ${id}`,
+        content: `删除 班级: 名称=${deleteResult.class_name || '(ID: ' + id + ')'}`,
         operator: 'system' 
       });
       // --- End Logging ---
@@ -848,7 +869,7 @@ app.post(`${apiPrefix}/student/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `学生 学号: ${newStudent?.student_id || '(未知)'}`, 
+      content: `新增 学生: 学号=${newStudent?.student_id || '(未知)'}`, 
       operator: 'system' 
     });
     // --- End Logging ---
@@ -877,7 +898,7 @@ app.put(`${apiPrefix}/student/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `学生 ID: ${id}`,
+      content: `更新 学生: ID=${id}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -900,24 +921,23 @@ app.delete(`${apiPrefix}/student/:id`, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`收到删除学生请求, ID: ${id}`);
-    const success = await studentService.deleteStudent(id);
+    const deleteResult = await studentService.deleteStudent(id);
     
-    if (!success) {
+    if (!deleteResult.success) {
       return res.status(404).json({
         code: 404,
-        message: '学生不存在',
+        message: '学生不存在或删除失败', 
         data: null
       });
     }
     
-    // --- Add Logging ---
     logService.addLog({
       type: 'database',
       operation: '删除',
-      content: `学生 ID: ${id}`,
+      content: `删除 学生: 学号=${deleteResult.student_id_str || '(ID: ' + id + ')'}`,
       operator: 'system' 
     });
-    // --- End Logging ---
+    
     res.json({
       code: 200,
       message: '删除学生成功',
@@ -948,14 +968,12 @@ app.delete(`${apiPrefix}/student/batch`, async (req, res) => {
     
     const success = await studentService.batchDeleteStudent(ids);
     
-    // --- Add Logging ---
     logService.addLog({
       type: 'database',
       operation: '批量删除',
-      content: `学生 IDs: ${ids.join(', ')}`,
+      content: `批量删除 学生: IDs=${ids.join(', ')}`,
       operator: 'system' 
     });
-    // --- End Logging ---
     res.json({
       code: 200,
       message: '批量删除学生成功',
@@ -1014,10 +1032,12 @@ app.get(`${apiPrefix}/student/max-id`, async (req, res) => {
 // 测试成绩API连接
 app.get(`${apiPrefix}/score/test`, (req, res) => {
   console.log('成绩API连接测试');
+  // Return standard format with code, data, and message
   res.json({ 
-    success: true, 
-    message: 'Score API connection successful', 
-    timestamp: new Date().toISOString() 
+    code: 200,
+    data: true, // Indicate success within the data field
+    message: 'Score API connection successful'
+    // timestamp is no longer needed here as it's not standard
   });
 });
 
@@ -1172,7 +1192,7 @@ app.post(`${apiPrefix}/score/save`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '保存',
-      content: `学生成绩 学生ID: ${backendData.student_id}, 考试ID: ${backendData.exam_id}`,
+      content: `保存 学生成绩: 学生ID=${backendData.student_id}, 考试ID=${backendData.exam_id}`,
       operator: 'system' 
     });
     // --- End Logging ---
@@ -1440,6 +1460,14 @@ app.delete(`${apiPrefix}/log/batch`, async (req, res) => {
       });
     }
     const deletedCount = await logService.batchDeleteLog(ids);
+    // --- Add Logging ---
+    logService.addLog({
+        type: 'system', // Or 'database'
+        operation: '批量删除',
+        content: `批量删除 日志: 数量=${deletedCount}`,
+        operator: 'system' // Or admin user
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: `批量删除日志成功, 删除了 ${deletedCount} 条记录`,
@@ -1460,6 +1488,14 @@ app.delete(`${apiPrefix}/log/clear`, async (req, res) => {
   try {
     console.log('收到清空日志请求');
     await logService.clearLogs();
+    // --- Add Logging ---
+    logService.addLog({
+        type: 'system', // Or 'database'
+        operation: '清空',
+        content: `清空 系统日志`,
+        operator: 'system' // Or admin user
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '清空日志成功',

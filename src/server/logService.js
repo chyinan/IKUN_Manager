@@ -147,12 +147,22 @@ async function addLog(logData) {
         connection = await db.getConnection(); // Get connection for transaction
         await connection.beginTransaction();
 
+        // Check if content already starts with the operation word
+        let finalContent = content;
+        if (typeof content === 'string' && content.trim().startsWith(operation)) {
+            console.warn(`Log content already starts with operation '${operation}'. Keeping original content.`);
+            // Keep original content, don't prepend operation again
+        } else {
+            // Prepend operation if it's not already there
+            finalContent = `${operation} ${content}`;
+        }
+
         const insertQuery = `
             INSERT INTO system_log (type, operation, content, operator)
             VALUES (?, ?, ?, ?)
         `;
         // Correct access to insertId
-        const [insertResult] = await connection.query(insertQuery, [type, operation, content, operator || 'system']);
+        const [insertResult] = await connection.query(insertQuery, [type, operation, finalContent, operator || 'system']);
         const newLogId = insertResult.insertId;
 
         if (!newLogId) {

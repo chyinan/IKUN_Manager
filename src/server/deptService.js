@@ -120,30 +120,48 @@ async function addDept(deptData) {
 /**
  * 删除部门
  * @param {number} id 部门ID
- * @returns {Promise<boolean>} 删除是否成功
+ * @returns {Promise<{success: boolean, dept_name: string | null}>} 删除结果及部门名称
  */
 async function deleteDept(id) {
+  let connection;
   try {
-    // 可以在删除前检查部门下是否还有员工，如果需要则阻止删除
-    const checkEmployeeSql = 'SELECT COUNT(*) as count FROM employee WHERE dept_id = ?';
-    const employeeResult = await db.query(checkEmployeeSql, [id]);
-    if (employeeResult[0].count > 0) {
-      throw new Error('无法删除：该部门下仍有员工');
+    if (!id || isNaN(id)) {
+      throw new Error('无效的部门ID');
     }
 
-    const sql = 'DELETE FROM department WHERE id = ?';
-    const result = await db.query(sql, [id]);
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    if (result.affectedRows > 0) {
-      console.log(`删除部门成功, ID: ${id}`);
-      return true; // 删除成功
+    // 1. 先查询部门名称
+    const selectQuery = 'SELECT dept_name FROM department WHERE id = ?';
+    const [rows] = await connection.query(selectQuery, [id]);
+    const dept_name = rows.length > 0 ? rows[0].dept_name : null;
+
+    // 2. 执行删除操作
+    const deleteQuery = 'DELETE FROM department WHERE id = ?';
+    const [result] = await connection.query(deleteQuery, [id]);
+    const success = result.affectedRows > 0;
+
+    await connection.commit();
+
+    if (success) {
+      console.log(`部门删除成功, ID: ${id}, 名称: ${dept_name}`);
     } else {
-      console.log(`尝试删除部门 ID ${id}，但未找到该部门`);
-      return false; // 未找到部门或未删除
+      console.log(`尝试删除部门失败或未找到记录, ID: ${id}`);
     }
+
+    return { success, dept_name };
+
   } catch (error) {
-    console.error(`删除部门失败 (ID: ${id}):`, error);
-    throw error; // 将错误向上抛出
+    if (connection) await connection.rollback();
+    // Check for foreign key constraint error (e.g., employees still in dept)
+    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
+        throw new Error('无法删除：该部门下仍有员工');
+    }
+    console.error(`删除部门数据库操作失败 (ID: ${id}):`, error);
+    throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -205,6 +223,6 @@ module.exports = {
   getDeptList,
   getDeptDetail,
   addDept,
-  deleteDept, // 导出删除函数
-  updateDept // 导出更新函数
+  deleteDept,
+  updateDept
 }; 

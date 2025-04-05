@@ -1,61 +1,75 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { login, logout, getUserInfo } from '@/api/user'
 import router from '@/router'
 import { ElMessage } from 'element-plus'
 
+// Define a type for the user info object
+interface UserInfo {
+  id: number;
+  username: string;
+  email: string;
+  // Add other relevant fields if returned by the API
+}
+
 export const useUserStore = defineStore('user', () => {
-  // 状态
+  // State
   const token = ref<string>(localStorage.getItem('token') || '')
+  const userInfo = ref<UserInfo | null>(null) // Store user object
   const username = ref<string>('')
   const avatar = ref<string>('')
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
 
-  // 登录
-  const loginAction = async (userInfo: { username: string; password: string }) => {
+  // Login Action (Updated)
+  const loginAction = async (credentials: { username: string; password: string }) => {
     try {
-      // 开发环境下模拟登录
-      if (import.meta.env.DEV) {
-        if (userInfo.username === 'admin' && userInfo.password === '123456') {
-          const mockToken = 'mock-token-' + Date.now()
-          token.value = mockToken
-          username.value = userInfo.username
-          localStorage.setItem('token', mockToken)
-          ElMessage.success('登录成功')
-          return true
-        } else {
-          ElMessage.error('用户名或密码错误')
-          return false
-        }
-      }
+      // Call the actual backend login API
+      // 'res' here is the full Axios response object because the interceptor returns it
+      const res = await login(credentials);
+      
+      // Access the backend payload from res.data
+      const backendPayload = res.data; 
 
-      // 生产环境下使用实际API
-      const res = await login(userInfo)
-      if (res.code === 200 && res.data) {
-        token.value = res.data.token
-        username.value = res.data.username
-        localStorage.setItem('token', res.data.token)
-        ElMessage.success('登录成功')
-        return true
+      // Check for successful response based on backend structure within backendPayload
+      if (backendPayload?.code === 200 && backendPayload?.data?.token && backendPayload?.data?.user) {
+        // Extract token and user info from backendPayload.data
+        const receivedToken = backendPayload.data.token;
+        const receivedUser = backendPayload.data.user;
+        
+        // Update store state
+        token.value = receivedToken;
+        userInfo.value = receivedUser; 
+        username.value = receivedUser.username; // Keep this for convenience if needed elsewhere
+        
+        // Save token to localStorage
+        localStorage.setItem('token', receivedToken);
+        
+        ElMessage.success('登录成功');
+        return true; // Indicate success
       } else {
-        ElMessage.error(res.message || '登录失败')
-        return false
+        // Handle login failure using message from backendPayload
+        ElMessage.error(backendPayload?.message || '登录失败: 无效的响应数据');
+        return false;
       }
-    } catch (error) {
-      console.error('登录失败:', error)
-      ElMessage.error('登录失败，请稍后重试')
-      return false
+    } catch (error: any) {
+      console.error('登录 API 调用失败 (catch block):', error);
+      // Error might be from network or interceptor rejection
+      // Use the error message provided by the interceptor or a default
+      const message = error?.message || '登录失败，请稍后重试'; 
+      ElMessage.error(message);
+      return false;
     }
   }
 
-  // 获取用户信息
+  // Get User Info Action (Keep existing logic for now)
   const getUserInfoAction = async () => {
     if (!token.value) return false
     
     try {
       // 开发环境下模拟用户信息
       if (import.meta.env.DEV) {
+        userInfo.value = { id: 1, username: 'admin', email: 'admin@example.com'}; // Update mock user info
         username.value = 'admin'
         avatar.value = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
         roles.value = ['admin']
@@ -64,39 +78,48 @@ export const useUserStore = defineStore('user', () => {
       }
 
       // 生产环境下使用实际API
+      // This API call might need adjustment depending on your backend /api/user/info route
       const res = await getUserInfo()
       if (res.code === 200 && res.data) {
+        userInfo.value = res.data; // Assuming API returns the user object directly in data
         username.value = res.data.username
         avatar.value = res.data.avatar || ''
         roles.value = res.data.roles || []
         permissions.value = res.data.permissions || []
         return true
       } else {
+        // Optionally clear state if fetching info fails after login
+        // resetState(); 
         return false
       }
     } catch (error) {
       console.error('获取用户信息失败:', error)
+      // Optionally clear state on error
+      // resetState();
       return false
     }
   }
 
-  // 登出
+  // Logout Action (Keep existing logic)
   const logoutAction = async () => {
     try {
       if (token.value && !import.meta.env.DEV) {
+        // Call backend logout if it exists
         await logout()
       }
     } catch (error) {
-      console.error('登出失败:', error)
+      console.error('登出 API 调用失败:', error)
+      // Still proceed with local state reset even if API fails
     } finally {
       resetState()
-      router.push('/login')
+      router.push('/login') // Redirect to login
     }
   }
 
-  // 重置状态
+  // Reset State (Updated)
   const resetState = () => {
     token.value = ''
+    userInfo.value = null // Reset user info object
     username.value = ''
     avatar.value = ''
     roles.value = []
@@ -104,8 +127,21 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('token')
   }
 
+  // Attempt to load user info if token exists on initial store creation
+  // This helps maintain login state across page refreshes
+  if (token.value) {
+      console.log('Token found in localStorage, attempting to fetch user info...');
+      getUserInfoAction().then(success => {
+          if (!success) {
+              console.warn('Failed to fetch user info with existing token. Clearing state.');
+              resetState(); // Clear invalid token/state
+          }
+      });
+  }
+
   return {
     token,
+    userInfo, // Export new state
     username,
     avatar,
     roles,
@@ -113,6 +149,11 @@ export const useUserStore = defineStore('user', () => {
     login: loginAction,
     getUserInfo: getUserInfoAction,
     logout: logoutAction,
-    resetState
+    resetState,
+    // Add a getter for easier checking of authentication status
+    isAuthenticated: computed(() => !!token.value && !!userInfo.value)
   }
+}, {
+  // Optional: Enable persistence if needed, though manual localStorage is used here
+  // persist: true,
 }) 

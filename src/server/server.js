@@ -13,6 +13,8 @@ const classService = require('./classService');
 const studentService = require('./studentService');
 const scoreService = require('./scoreService');
 const logService = require('./logService');
+const jwt = require('jsonwebtoken'); // Import jsonwebtoken
+const userService = require('./userService'); // Import userService
 
 // 创建Express应用
 const app = express();
@@ -194,8 +196,44 @@ app.get('/api/exam/:id', async (req, res) => {
   }
 });
 
-// 新增考试 (Added)
-app.post(`${apiPrefix}/exam/add`, async (req, res) => {
+// --- JWT Secret (IMPORTANT: Use environment variable in production!) ---
+const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME'; 
+if (JWT_SECRET === 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME') {
+    console.warn('WARNING: Using default JWT secret. Please set a secure JWT_SECRET environment variable in production!');
+}
+
+// --- Authentication Middleware (Updated with JWT Verification) ---
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token == null) {
+    // If no token, treat as unauthenticated ('system' for logging)
+    req.user = { username: 'system' }; 
+    console.log('[Auth] No token provided.');
+    // For protected routes, you might want to return 401 here instead of calling next()
+    // return res.sendStatus(401); 
+    return next(); // Allow request for now, log as system
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      console.error('[Auth] Token verification failed:', err.message);
+      // If token is invalid/expired, treat as unauthenticated ('system' for logging)
+      req.user = { username: 'system' }; 
+      // For protected routes, return 403 Forbidden here instead of calling next()
+      // return res.sendStatus(403); 
+      return next(); // Allow request for now, log as system
+    }
+    // Token is valid, attach decoded payload (user info) to request
+    req.user = decoded; // decoded payload usually contains user id, username, etc.
+    console.log(`[Auth] Token verified successfully. User: ${req.user?.username}`);
+    next();
+  });
+};
+
+// 新增考试 (Apply middleware)
+app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
   try {
     const examData = req.body;
     console.log('收到新增考试请求, 数据:', examData);
@@ -206,7 +244,7 @@ app.post(`${apiPrefix}/exam/add`, async (req, res) => {
       type: 'database',
       operation: '新增',
       content: `新增 考试: 名称=${newExam?.exam_name || '(未知)'}`,
-      operator: 'system'
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.status(201).json({
@@ -226,8 +264,8 @@ app.post(`${apiPrefix}/exam/add`, async (req, res) => {
   }
 });
 
-// 新增：更新考试信息
-app.put(`${apiPrefix}/exam/:id`, async (req, res) => {
+// 新增：更新考试信息 (Apply middleware)
+app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
   try {
     const examId = parseInt(req.params.id);
     const examData = req.body;
@@ -243,7 +281,7 @@ app.put(`${apiPrefix}/exam/:id`, async (req, res) => {
       type: 'database',
       operation: '更新',
       content: `更新 考试: ID=${examId}`,
-      operator: 'system' 
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -262,8 +300,8 @@ app.put(`${apiPrefix}/exam/:id`, async (req, res) => {
   }
 });
 
-// 删除考试
-app.delete(`${apiPrefix}/exam/:id`, async (req, res) => {
+// 删除考试 (Apply middleware)
+app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
   try {
     const examId = parseInt(req.params.id);
     const success = await examService.deleteExam(examId);
@@ -281,7 +319,7 @@ app.delete(`${apiPrefix}/exam/:id`, async (req, res) => {
       type: 'database',
       operation: '删除',
       content: `删除 考试: ID=${examId}`,
-      operator: 'system' 
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -347,7 +385,7 @@ app.get('/api/employee/:id', async (req, res) => {
   }
 });
 
-app.post('/api/employee/add', async (req, res) => {
+app.post('/api/employee/add', authenticateToken, async (req, res) => {
   try {
     const employeeData = req.body;
     // Call the service function
@@ -357,8 +395,8 @@ app.post('/api/employee/add', async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `新增 员工: 工号=${newEmployee?.emp_id || '(未知)'}`, // Use newEmployee data if available
-      operator: 'system' 
+      content: `员工: 工号=${newEmployee?.emp_id || '(未知)'}`,
+      operator: req.user?.username || 'system'
     });
     
     // Send success response
@@ -392,7 +430,7 @@ app.post('/api/employee/add', async (req, res) => {
   }
 });
 
-app.put('/api/employee/:id', async (req, res) => {
+app.put('/api/employee/:id', authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const employeeData = req.body;
@@ -410,8 +448,8 @@ app.put('/api/employee/:id', async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `更新 员工: ID=${id}`,
-      operator: 'system' 
+      content: `员工: ID=${id}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -429,7 +467,7 @@ app.put('/api/employee/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/employee/:id', async (req, res) => {
+app.delete('/api/employee/:id', authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     // Call the modified service function which returns { success, emp_id }
@@ -448,8 +486,8 @@ app.delete('/api/employee/:id', async (req, res) => {
       type: 'database',
       operation: '删除',
       // Use emp_id for content, fallback to ID if emp_id was null (shouldn't happen if found)
-      content: `删除 员工: 工号=${deleteResult.emp_id || '(ID: ' + id + ')'}`,
-      operator: 'system' 
+      content: `员工: 工号=${deleteResult.emp_id || '(ID: ' + id + ')'}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     
@@ -468,7 +506,7 @@ app.delete('/api/employee/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/employee/batch', async (req, res) => {
+app.delete('/api/employee/batch', authenticateToken, async (req, res) => {
   try {
     const { ids } = req.body;
     
@@ -486,8 +524,8 @@ app.delete('/api/employee/batch', async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '批量删除',
-      content: `批量删除 员工: IDs=${ids.join(', ')}`,
-      operator: 'system' 
+      content: `员工: IDs=${ids.join(', ')}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -554,8 +592,8 @@ app.get(`${apiPrefix}/dept/:id`, async (req, res) => {
   }
 });
 
-// 新增部门
-app.post(`${apiPrefix}/dept/add`, async (req, res) => {
+// 新增部门 (Apply middleware)
+app.post(`${apiPrefix}/dept/add`, authenticateToken, async (req, res) => {
   try {
     const deptData = req.body;
     console.log('收到新增部门请求, 数据:', deptData);
@@ -566,8 +604,8 @@ app.post(`${apiPrefix}/dept/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `新增 部门: 名称=${newDept?.dept_name || '(未知)'}`,
-      operator: 'system' 
+      content: `部门: 名称=${newDept?.dept_name || '(未知)'}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.status(201).json({
@@ -586,8 +624,8 @@ app.post(`${apiPrefix}/dept/add`, async (req, res) => {
   }
 });
 
-// 更新部门
-app.put(`${apiPrefix}/dept/:id`, async (req, res) => {
+// 更新部门 (Apply middleware)
+app.put(`${apiPrefix}/dept/:id`, authenticateToken, async (req, res) => {
   console.log(`[ROUTE HANDLER] Received PUT request for /api/dept/${req.params.id}`); // 添加日志
   try {
     const id = parseInt(req.params.id);
@@ -604,8 +642,8 @@ app.put(`${apiPrefix}/dept/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `更新 部门: ID=${id}`,
-      operator: 'system' 
+      content: `部门: ID=${id}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -624,8 +662,8 @@ app.put(`${apiPrefix}/dept/:id`, async (req, res) => {
   }
 });
 
-// 删除部门
-app.delete(`${apiPrefix}/dept/:id`, async (req, res) => {
+// 删除部门 (Apply middleware)
+app.delete(`${apiPrefix}/dept/:id`, authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -641,8 +679,8 @@ app.delete(`${apiPrefix}/dept/:id`, async (req, res) => {
       logService.addLog({
         type: 'database',
         operation: '删除',
-        content: `删除 部门: 名称=${deleteResult.dept_name || '(ID: ' + id + ')'}`,
-        operator: 'system' 
+        content: `部门: 名称=${deleteResult.dept_name || '(ID: ' + id + ')'}`,
+        operator: req.user?.username || 'system'
       });
       // --- End Logging ---
       res.json({ code: 200, message: '部门删除成功', data: null });
@@ -732,8 +770,8 @@ app.get(`${apiPrefix}/class/:id/students`, async (req, res) => {
   }
 });
 
-// 新增班级
-app.post(`${apiPrefix}/class/add`, async (req, res) => {
+// 新增班级 (Apply middleware)
+app.post(`${apiPrefix}/class/add`, authenticateToken, async (req, res) => {
   try {
     const classData = req.body;
     console.log('收到新增班级请求, 数据:', classData);
@@ -753,8 +791,8 @@ app.post(`${apiPrefix}/class/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `新增 班级: 名称=${newClass?.class_name || '(未知)'}`,
-      operator: 'system' 
+      content: `班级: 名称=${newClass?.class_name || '(未知)'}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.status(201).json({
@@ -773,8 +811,8 @@ app.post(`${apiPrefix}/class/add`, async (req, res) => {
   }
 });
 
-// 删除班级
-app.delete(`${apiPrefix}/class/:id`, async (req, res) => {
+// 删除班级 (Apply middleware)
+app.delete(`${apiPrefix}/class/:id`, authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -790,8 +828,8 @@ app.delete(`${apiPrefix}/class/:id`, async (req, res) => {
       logService.addLog({
         type: 'database',
         operation: '删除',
-        content: `删除 班级: 名称=${deleteResult.class_name || '(ID: ' + id + ')'}`,
-        operator: 'system' 
+        content: `班级: 名称=${deleteResult.class_name || '(ID: ' + id + ')'}`,
+        operator: req.user?.username || 'system'
       });
       // --- End Logging ---
       res.json({ code: 200, message: '班级删除成功', data: null });
@@ -860,7 +898,7 @@ app.get(`${apiPrefix}/student/:id`, async (req, res) => {
   }
 });
 
-app.post(`${apiPrefix}/student/add`, async (req, res) => {
+app.post(`${apiPrefix}/student/add`, authenticateToken, async (req, res) => {
   try {
     console.log('收到添加学生请求, 数据:', req.body);
     const studentData = req.body;
@@ -869,8 +907,8 @@ app.post(`${apiPrefix}/student/add`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '新增',
-      content: `新增 学生: 学号=${newStudent?.student_id || '(未知)'}`, 
-      operator: 'system' 
+      content: `学生: 学号=${newStudent?.student_id || '(未知)'}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -888,7 +926,7 @@ app.post(`${apiPrefix}/student/add`, async (req, res) => {
   }
 });
 
-app.put(`${apiPrefix}/student/:id`, async (req, res) => {
+app.put(`${apiPrefix}/student/:id`, authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`收到更新学生请求, ID: ${id}, 数据:`, req.body);
@@ -898,8 +936,8 @@ app.put(`${apiPrefix}/student/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '更新',
-      content: `更新 学生: ID=${id}`,
-      operator: 'system' 
+      content: `学生: ID=${id}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -917,7 +955,7 @@ app.put(`${apiPrefix}/student/:id`, async (req, res) => {
   }
 });
 
-app.delete(`${apiPrefix}/student/:id`, async (req, res) => {
+app.delete(`${apiPrefix}/student/:id`, authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     console.log(`收到删除学生请求, ID: ${id}`);
@@ -934,8 +972,8 @@ app.delete(`${apiPrefix}/student/:id`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '删除',
-      content: `删除 学生: 学号=${deleteResult.student_id_str || '(ID: ' + id + ')'}`,
-      operator: 'system' 
+      content: `学生: 学号=${deleteResult.student_id_str || '(ID: ' + id + ')'}`,
+      operator: req.user?.username || 'system'
     });
     
     res.json({
@@ -953,7 +991,7 @@ app.delete(`${apiPrefix}/student/:id`, async (req, res) => {
   }
 });
 
-app.delete(`${apiPrefix}/student/batch`, async (req, res) => {
+app.delete(`${apiPrefix}/student/batch`, authenticateToken, async (req, res) => {
   try {
     console.log('收到批量删除学生请求, 数据:', req.body);
     const { ids } = req.body;
@@ -971,8 +1009,8 @@ app.delete(`${apiPrefix}/student/batch`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '批量删除',
-      content: `批量删除 学生: IDs=${ids.join(', ')}`,
-      operator: 'system' 
+      content: `学生: IDs=${ids.join(', ')}`,
+      operator: req.user?.username || 'system'
     });
     res.json({
       code: 200,
@@ -1158,8 +1196,8 @@ app.get(`${apiPrefix}/score/student/:id`, async (req, res) => {
   }
 });
 
-// 保存学生成绩 (Handles both create and update via UPSERT in service)
-app.post(`${apiPrefix}/score/save`, async (req, res) => {
+// 保存学生成绩 (Apply middleware)
+app.post(`${apiPrefix}/score/save`, authenticateToken, async (req, res) => {
   try {
     const requestData = req.body;
 
@@ -1192,8 +1230,8 @@ app.post(`${apiPrefix}/score/save`, async (req, res) => {
     logService.addLog({
       type: 'database',
       operation: '保存',
-      content: `保存 学生成绩: 学生ID=${backendData.student_id}, 考试ID=${backendData.exam_id}`,
-      operator: 'system' 
+      content: `学生成绩: 学生ID=${backendData.student_id}, 考试ID=${backendData.exam_id}`,
+      operator: req.user?.username || 'system'
     });
     // --- End Logging ---
 
@@ -1448,8 +1486,8 @@ app.get(`${apiPrefix}/log/list`, async (req, res) => {
   }
 });
 
-// 批量删除日志
-app.delete(`${apiPrefix}/log/batch`, async (req, res) => {
+// 批量删除日志 (Apply middleware)
+app.delete(`${apiPrefix}/log/batch`, authenticateToken, async (req, res) => {
   try {
     const { ids } = req.body;
     console.log('收到批量删除日志请求, IDs:', ids);
@@ -1462,10 +1500,10 @@ app.delete(`${apiPrefix}/log/batch`, async (req, res) => {
     const deletedCount = await logService.batchDeleteLog(ids);
     // --- Add Logging ---
     logService.addLog({
-        type: 'system', // Or 'database'
+        type: 'system',
         operation: '批量删除',
-        content: `批量删除 日志: 数量=${deletedCount}`,
-        operator: 'system' // Or admin user
+        content: `日志: 数量=${deletedCount}`,
+        operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -1483,17 +1521,17 @@ app.delete(`${apiPrefix}/log/batch`, async (req, res) => {
   }
 });
 
-// 清空日志
-app.delete(`${apiPrefix}/log/clear`, async (req, res) => {
+// 清空日志 (Apply middleware)
+app.delete(`${apiPrefix}/log/clear`, authenticateToken, async (req, res) => {
   try {
     console.log('收到清空日志请求');
     await logService.clearLogs();
     // --- Add Logging ---
     logService.addLog({
-        type: 'system', // Or 'database'
+        type: 'system',
         operation: '清空',
-        content: `清空 系统日志`,
-        operator: 'system' // Or admin user
+        content: `系统日志`,
+        operator: req.user?.username || 'system'
     });
     // --- End Logging ---
     res.json({
@@ -1559,4 +1597,63 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('未处理的Promise拒绝:', reason);
+});
+
+// --- Login Route --- 
+app.post(`${apiPrefix}/user/login`, async (req, res) => {
+  const { username, password } = req.body;
+  console.log(`[Login Route] Received login attempt for username: ${username}, Password provided: ${password ? 'Yes' : 'No'}`); // Log received data (don't log password value)
+
+  if (!username || !password) {
+    console.log('[Login Route] Username or password missing in request body.');
+    return res.status(400).json({ code: 400, message: '用户名和密码不能为空' });
+  }
+
+  try {
+    // 1. Find user by username
+    const user = await userService.findUserByUsername(username);
+    if (!user) {
+      console.log(`[Login Route] Authentication failed: User '${username}' not found.`);
+      return res.status(401).json({ code: 401, message: '用户名或密码错误' });
+    }
+
+    // 2. Compare password
+    console.log(`[Login Route] Comparing password for user: ${username}`);
+    const isPasswordValid = await userService.comparePassword(password, user.password);
+    if (!isPasswordValid) {
+      console.log(`[Login Route] Authentication failed: Password mismatch for user '${username}'.`);
+      return res.status(401).json({ code: 401, message: '用户名或密码错误' });
+    }
+    
+    console.log(`[Login Route] Authentication successful for user: ${username}`);
+
+    // 3. Generate JWT 
+    // Include essential, non-sensitive user info in the payload
+    const payload = {
+      id: user.id,
+      username: user.username,
+      // Add roles or other permissions if applicable
+    };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // Token expires in 1 hour
+    console.log(`[Login Route] JWT generated for user: ${username}`);
+
+    // 4. Send token and user info (excluding password)
+    res.json({
+      code: 200,
+      message: '登录成功',
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email
+          // Include other relevant user details here
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error(`[Login Route] Error during login process for user '${username}':`, error);
+    res.status(500).json({ code: 500, message: '登录失败，服务器内部错误' });
+  }
 }); 

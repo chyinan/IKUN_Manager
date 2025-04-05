@@ -5,7 +5,7 @@ import type {
   AxiosResponse,
   AxiosRequestConfig
 } from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
 // 创建axios实例
@@ -19,15 +19,30 @@ const service: AxiosInstance = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 添加token到请求头
-    const userStore = useUserStore()
-    if (userStore.token) {
-      config.headers['Authorization'] = `Bearer ${userStore.token}`
+    // Show loading indicator (optional)
+    // NProgress.start()
+
+    // Get token from localStorage
+    const token = localStorage.getItem('token') // Use the same key as in the user store
+
+    // Ensure headers object exists
+    config.headers = config.headers || {};
+
+    // Add Authorization header if token exists
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('[Request Interceptor] Token found, adding Authorization header.'); // Log for debugging
+    } else {
+        console.log('[Request Interceptor] No token found, request sent without Authorization header.'); // Log for debugging
     }
+
+    // Add other headers if needed
+    // config.headers['Content-Type'] = 'application/json';
+
     return config
   },
   (error) => {
-    console.error('请求错误:', error)
+    console.error('[Request Interceptor] Error:', error)
     return Promise.reject(error)
   }
 )
@@ -35,48 +50,105 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   (response: AxiosResponse) => {
-    // 如果是文件下载，直接返回
-    if (response.config.responseType === 'blob') {
-      return response
-    }
-    
-    // 处理响应数据
+    // Hide loading indicator (optional)
+    // NProgress.done()
+
     const res = response.data
     
-    // 如果是真实API响应，检查状态码
-    if (res && res.code !== undefined) {
-      // Check if the business code indicates success (e.g., 200 or 201)
-      if (res.code === 200 || res.code === 201) { 
-        // Business success, return the original Axios response
-        // The API function's .then block will receive this
-        return response 
-      } else {
-        // Business failure (but HTTP request succeeded)
-        ElMessage.error(res.message || '请求失败')
-        
-        // Handle specific error codes like 401
-        if (res.code === 401) {
-          // 未授权，清除用户信息并跳转到登录页
-          const userStore = useUserStore()
-          userStore.resetState()
-          window.location.href = '/login'
-        }
-        
-        // Reject the promise with the business error details
-        // The API function's .catch block will receive this
-        return Promise.reject(res) 
-      }
+    // Check if it's a blob response (e.g., file download)
+    if (response.request?.responseType === 'blob') {
+      return response; // Return the full response for blobs
+    }
+
+    // Check for standard success code (adjust if your backend uses different codes)
+    if (res.code === 200 || res.code === 201) {
+      // Directly return the response data if successful
+      // The store/component should handle the actual data structure
+      return response; // Return the full response object
     } else {
-      // Handle responses without a 'code' field or non-standard format
-      console.warn('响应数据格式不标准或无 code 字段:', response);
-      // Assuming these are still successful at the HTTP level
-      return response; 
+      // Handle specific error codes from backend
+      let errorMessage = res.message || '未知错误';
+      if (res.code === 401) {
+        // Unauthorized (e.g., invalid token, not logged in)
+        errorMessage = '认证失败或登录已过期，请重新登录';
+        // Optionally trigger logout action here
+        // const userStore = useUserStore(); // Be cautious using stores outside components
+        // userStore.logout();
+         ElMessageBox.confirm(
+           '您的登录已过期或无效，请重新登录。',
+           '认证失败',
+           {
+             confirmButtonText: '重新登录',
+             cancelButtonText: '取消',
+             type: 'warning',
+           }
+         ).then(() => {
+           // Clear local token and redirect to login
+           localStorage.removeItem('token'); 
+           window.location.href = '/login'; // Force reload to clear state
+         })
+        return Promise.reject(new Error(errorMessage)); 
+      } else if (res.code === 403) {
+        // Forbidden (e.g., insufficient permissions)
+        errorMessage = '您没有权限执行此操作';
+      } else if (res.code === 400) {
+        // Bad Request (e.g., validation error)
+        errorMessage = `请求错误: ${res.message}`;
+      } else if (res.code === 500) {
+        errorMessage = `服务器内部错误: ${res.message || '请稍后重试'}`;
+      }
+      
+      // Display error message
+      ElMessage({ message: errorMessage, type: 'error', duration: 5 * 1000 })
+      
+      // Reject the promise so .catch() can handle it in the component/API call
+      return Promise.reject(new Error(errorMessage))
     }
   },
   (error) => {
-    console.error('响应错误:', error)
-    const errorMsg = error.response?.data?.message || error.message || '请求失败';
-    ElMessage.error(errorMsg)
+    // Hide loading indicator (optional)
+    // NProgress.done()
+    
+    console.error('[Response Interceptor] Network or other error:', error)
+    let errorMessage = '网络错误或服务器无响应';
+    if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error Response Data:', error.response.data);
+        console.error('Error Response Status:', error.response.status);
+        console.error('Error Response Headers:', error.response.headers);
+        if (error.response.status === 401) {
+            errorMessage = '认证失败或登录已过期，请重新登录';
+             ElMessageBox.confirm(
+               '您的登录已过期或无效，请重新登录。',
+               '认证失败',
+               {
+                 confirmButtonText: '重新登录',
+                 cancelButtonText: '取消',
+                 type: 'warning',
+               }
+             ).then(() => {
+               localStorage.removeItem('token'); 
+               window.location.href = '/login';
+             })
+        } else if (error.response.status === 403) {
+            errorMessage = '您没有权限执行此操作';
+        } else if (error.response.data && error.response.data.message) {
+            errorMessage = `请求失败: ${error.response.data.message}`;
+        } else if (error.message) {
+            errorMessage = `请求失败: ${error.message}`;
+        }
+    } else if (error.request) {
+        // The request was made but no response was received
+        console.error('Error Request:', error.request);
+        errorMessage = '无法连接到服务器，请检查网络连接';
+    } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error Message:', error.message);
+        errorMessage = error.message || '请求发送失败';
+    }
+
+    ElMessage({ message: errorMessage, type: 'error', duration: 5 * 1000 })
     return Promise.reject(error)
   }
 )

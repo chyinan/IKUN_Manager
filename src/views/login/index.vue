@@ -52,11 +52,6 @@
             </el-button>
           </el-form-item>
         </el-form>
-        
-        <div class="login-tips">
-          <p>默认用户名: admin</p>
-          <p>默认密码: 123456</p>
-        </div>
       </div>
     </div>
   </template>

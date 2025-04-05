@@ -1657,3 +1657,81 @@ app.post(`${apiPrefix}/user/login`, async (req, res) => {
     res.status(500).json({ code: 500, message: '登录失败，服务器内部错误' });
   }
 }); 
+
+// 新增：修改密码路由 (Apply middleware for authentication)
+app.post(`${apiPrefix}/user/update-password`, authenticateToken, async (req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const userId = req.user?.id; // Get user ID from authenticated token
+
+  console.log(`[Update Password Route] Received request for user ID: ${userId}`);
+
+  // Basic validation
+  if (!userId) {
+    console.error('[Update Password Route] Error: User ID not found in token.');
+    return res.status(401).json({ code: 401, message: '用户未登录或认证无效' });
+  }
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    console.log('[Update Password Route] Validation failed: Missing fields.');
+    return res.status(400).json({ code: 400, message: '所有密码字段不能为空' });
+  }
+  if (newPassword !== confirmPassword) {
+    console.log('[Update Password Route] Validation failed: New passwords do not match.');
+    return res.status(400).json({ code: 400, message: '新密码和确认密码不一致' });
+  }
+  if (newPassword.length < 6) { // Basic length check
+      console.log('[Update Password Route] Validation failed: New password too short.');
+      return res.status(400).json({ code: 400, message: '新密码长度不能少于6位' });
+  }
+
+  try {
+    // 1. Find user by ID (more secure than using username from request body)
+    const user = await userService.findUserById(userId); // Assume userService has findUserById
+    if (!user) {
+      console.log(`[Update Password Route] Error: User with ID ${userId} not found.`);
+      return res.status(404).json({ code: 404, message: '用户不存在' });
+    }
+
+    // 2. Compare old password
+    console.log(`[Update Password Route] Comparing old password for user ID: ${userId}`);
+    const isOldPasswordValid = await userService.comparePassword(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      console.log(`[Update Password Route] Failed: Old password incorrect for user ID: ${userId}.`);
+      return res.status(400).json({ code: 400, message: '原密码错误' }); 
+      // --- Add diagnostic log --- 
+      console.log('!!! CRITICAL: Code continued after sending 400 response for incorrect old password! !!!'); 
+    }
+
+    // If the code reaches here, old password MUST be valid
+    console.log(`[Update Password Route] Old password verified for user ID: ${userId}. Hashing new password.`);
+    // 3. Hash new password
+    const newPasswordHash = await userService.hashPassword(newPassword); // Assume userService has hashPassword
+
+    // 4. Update password in database
+    console.log(`[Update Password Route] Updating password in DB for user ID: ${userId}`);
+    const updateSuccess = await userService.updateUserPassword(userId, newPasswordHash); // Assume userService has updateUserPassword
+
+    if (!updateSuccess) {
+        console.error(`[Update Password Route] Failed to update password in DB for user ID: ${userId}.`);
+        throw new Error('数据库更新密码失败');
+    }
+
+    console.log(`[Update Password Route] Password updated successfully for user ID: ${userId}.`);
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'security', // Or 'system'
+      operation: '修改密码',
+      content: `用户: ID=${userId}`, // Avoid logging username if possible
+      operator: user.username // Or use userId directly
+    });
+    // --- End Logging ---
+    
+    res.json({
+      code: 200,
+      message: '密码修改成功'
+    });
+
+  } catch (error) {
+    console.error(`[Update Password Route] Error during password update for user ID ${userId}:`, error);
+    res.status(500).json({ code: 500, message: `密码修改失败: ${error.message || '服务器内部错误'}` });
+  }
+}); 

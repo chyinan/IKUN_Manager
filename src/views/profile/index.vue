@@ -40,10 +40,6 @@
               <el-input v-model="userInfo.username" disabled />
             </el-form-item>
             
-            <el-form-item label="昵称" prop="nickname">
-              <el-input v-model="userInfo.nickname" placeholder="请输入您的昵称" />
-            </el-form-item>
-            
             <el-form-item label="邮箱" prop="email">
               <el-input v-model="userInfo.email" placeholder="请输入您的邮箱" />
             </el-form-item>
@@ -172,7 +168,6 @@ const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726
 // 用户信息表单
 const userInfo = reactive({
   username: userStore.username || localStorage.getItem('username') || '',
-  nickname: localStorage.getItem('nickname') || '',
   email: localStorage.getItem('email') || '',
   avatar: userStore.avatar || defaultAvatar
 })
@@ -186,9 +181,6 @@ const loading = reactive({
 
 // 表单验证规则
 const rules = {
-  nickname: [
-    { max: 20, message: '昵称长度不能超过20个字符', trigger: 'blur' }
-  ],
   email: [
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ]
@@ -235,7 +227,6 @@ onMounted(() => {
     userInfo.username = userStore.username
     userInfo.avatar = userStore.avatar || defaultAvatar
     // 从localStorage获取其他信息
-    userInfo.nickname = localStorage.getItem('nickname') || ''
     userInfo.email = localStorage.getItem('email') || ''
   }
 })
@@ -316,8 +307,7 @@ const handleUpdateInfo = async () => {
       
       // 开发环境模拟
       setTimeout(() => {
-        // 保存到localStorage，因为userStore中没有对应字段
-        localStorage.setItem('nickname', userInfo.nickname)
+        // 保存到localStorage
         localStorage.setItem('email', userInfo.email)
         
         ElMessage.success('个人信息更新成功')
@@ -355,7 +345,11 @@ const handleChangePassword = async () => {
       // 调用API更新密码
       const res = await updatePassword(passwordData)
       
-      if (res.code === 200) {
+      // --- Add diagnostic log ---
+      console.log('Response received by handleChangePassword:', res)
+      // --- End diagnostic log ---
+      
+      if (res.data?.code === 200) {
         ElMessage.success('密码修改成功，请重新登录')
         passwordDialogVisible.value = false
         

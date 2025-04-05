@@ -1,5 +1,6 @@
 const db = require('./db');
 const bcrypt = require('bcrypt');
+const saltRounds = 10; // Consistent salt rounds
 
 /**
  * 根据用户名查找用户
@@ -59,7 +60,86 @@ async function comparePassword(plainPassword, hashedPassword) {
   }
 }
 
+/**
+ * Find user by ID
+ * @param {number} id User ID
+ * @returns {Promise<Object|null>} User object or null if not found
+ */
+async function findUserById(id) {
+  const userId = parseInt(id, 10); // Ensure ID is an integer
+  console.log(`[UserService] Finding user by ID: ${userId} (type: ${typeof userId})`);
+  if (isNaN(userId)) {
+    console.error(`[UserService] Invalid ID passed: ${id}`);
+    return null;
+  }
+  try {
+    const query = 'SELECT id, username, password, email FROM user WHERE id = ?';
+    // Use destructuring, expecting a single user object if found
+    const [userObject] = await db.query(query, [userId]); 
+    console.log(`[UserService] Result from db.query for ID ${userId} (destructured): ${JSON.stringify(userObject)}`); 
+
+    // Check if the destructured object exists
+    if (userObject) { 
+      console.log(`[UserService] User found for ID: ${userId}`);
+      return userObject; // Return the user object found
+    } else {
+      console.log(`[UserService] User not found for ID: ${userId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`[UserService] Error finding user by ID ${userId}:`, error);
+    throw error; // Re-throw the error for the caller to handle
+  }
+}
+
+/**
+ * Hash a plain password
+ * @param {string} plainPassword
+ * @returns {Promise<string>} Hashed password
+ */
+async function hashPassword(plainPassword) {
+  console.log('[UserService] Hashing new password...');
+  try {
+    const hash = await bcrypt.hash(plainPassword, saltRounds);
+    console.log('[UserService] Password hashed successfully.');
+    return hash;
+  } catch (error) {
+    console.error('[UserService] Error hashing password:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user's password hash in the database
+ * @param {number} userId
+ * @param {string} newPasswordHash
+ * @returns {Promise<boolean>} True if update was successful, false otherwise
+ */
+async function updateUserPassword(userId, newPasswordHash) {
+  console.log(`[UserService] Updating password hash for user ID: ${userId}`);
+  try {
+    const query = 'UPDATE user SET password = ?, update_time = CURRENT_TIMESTAMP WHERE id = ?';
+    // Correctly handle the result object from UPDATE query (do not destructure as array)
+    const result = await db.query(query, [newPasswordHash, userId]); 
+    console.log(`[UserService] DB update result: ${JSON.stringify(result)}`); // Log the actual result object
+    // Check affectedRows directly from the result object
+    const success = result && result.affectedRows > 0; 
+    if (success) {
+      console.log(`[UserService] Password updated successfully for user ID: ${userId}`);
+    } else {
+      console.warn(`[UserService] Password update failed for user ID: ${userId}. User might not exist or password was the same.`);
+    }
+    return success;
+  } catch (error) {
+    console.error(`[UserService] Error updating password for user ID ${userId}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   findUserByUsername,
   comparePassword,
+  findUserById,
+  hashPassword,
+  updateUserPassword
 }; 

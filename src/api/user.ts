@@ -46,9 +46,12 @@ export function getUserInfo(): Promise<ApiResponse<UserInfo>> {
   return request.get<ApiResponse<UserInfo>>('/user/info')
 }
 
-// 修改密码
-export function updatePassword(data: PasswordForm): Promise<ApiResponse<void>> {
-  return request.post<ApiResponse<void>>('/user/change-password', data)
+// 更新密码
+export function updatePassword(data: any): Promise<ApiResponse<any>> {
+  console.log('调用 updatePassword API, 数据:', data); // Avoid logging passwords in production
+  // 移除 username，后端从 token 获取用户信息
+  const { username, ...passwordData } = data;
+  return request.post<ApiResponse<any>>('/user/update-password', passwordData)
 }
 
 // 更新用户信息

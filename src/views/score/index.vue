@@ -588,47 +588,55 @@ const calculateAverageScore = () => {
 
 // 保存成绩 (Using ref)
 const handleSave = async () => {
-  if (!selectedExamName.value || !selectedStudent.value) {
-    ElMessage.warning('请先选择学生和具体考试');
+  // Add explicit validation for IDs
+  if (typeof selectedStudent.value !== 'number' || selectedStudent.value <= 0) {
+    ElMessage.warning('无效的学生ID，请重新选择');
+    return;
+  }
+  if (typeof selectedExamName.value !== 'number' || selectedExamName.value <= 0) {
+    ElMessage.warning('无效的考试ID，请重新选择');
     return;
   }
 
   const scoresToSave: Record<string, number> = {};
-  let hasValidScore = false;
   subjects.forEach(subject => {
     const score = scoreForm.value[subject];
     if (typeof score === 'number' && !isNaN(score)) {
       scoresToSave[subject] = score;
-      hasValidScore = true;
     }
   });
 
-  // Removed the !hasValidScore check to allow saving even if all scores are deleted (set to null)
-  // if (!hasValidScore) {
-  //   ElMessage.warning('请输入至少一个有效成绩');
-  //   return;
-  // }
-
   const saveData: SaveScoreParams = {
-    studentId: selectedStudent.value,
-    examId: selectedExamName.value,
-    examType: selectedExamType.value,
+    studentId: selectedStudent.value, // Now validated as number
+    examId: selectedExamName.value,   // Now validated as number
+    examType: selectedExamType.value, // Ensure this has a value if needed by backend logic
     scores: scoresToSave
   };
+
+  // Log the data being sent
+  console.log('即将保存的成绩数据:', JSON.stringify(saveData)); 
 
   loading.value = true;
   try {
     const res = await scoreApi.saveStudentScore(saveData);
-    if (res.code === 200 || res.code === 201) {
+    // Check success based only on status codes 200/201
+    if (res && (res.code === 200 || res.code === 201)) {
       ElMessage.success('成绩保存成功');
-      originalScores.value = { ...scoreForm.value }; // Update original scores
+      originalScores.value = { ...scoreForm.value }; 
       isScoreChanged.value = false;
     } else {
-      ElMessage.error(res.message || '成绩保存失败');
+      // Use message from response if available
+      ElMessage.error(res?.message || '成绩保存失败');
     }
   } catch (error: any) {
     console.error('保存成绩失败 (catch):', error);
-    ElMessage.error(error.message || '保存成绩失败');
+    let errorMessage = '保存成绩失败';
+    if (error.response && error.response.data && error.response.data.message) {
+      errorMessage += `: ${error.response.data.message}`;
+    } else if (error.message) {
+      errorMessage += `: ${error.message}`;
+    }
+    ElMessage.error(errorMessage);
   } finally {
     loading.value = false;
   }

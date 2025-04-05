@@ -827,27 +827,33 @@ const submitExamForm = async () => {
         res = await updateExam(formData.id, formData);
       }
       
-      if (res.code === 200) {
-        ElMessage.success(dialogType.value === 'add' ? '创建成功' : '更新成功')
-        dialogVisible.value = false
-        
-        // 刷新列表
-        fetchExamList()
+      // Check for success codes 200 (Update) or 201 (Create)
+      if (res.code === 200 || res.code === 201) { 
+        ElMessage.success(dialogType.value === 'add' ? '创建成功' : '更新成功');
+        dialogVisible.value = false;
+        fetchExamList(); // Refresh list on success
       } else {
-        ElMessage.error(res.message || (dialogType.value === 'add' ? '创建失败' : '更新失败'))
-        // 即使失败也关闭对话框并显示模拟成功
-        dialogVisible.value = false
-        fetchExamList()
+        // Handle backend error response
+        ElMessage.error(res.message || (dialogType.value === 'add' ? '创建失败' : '更新失败'));
+        // Consider not closing dialog on backend error?
+        // dialogVisible.value = false; 
+        // fetchExamList(); 
       }
-    } catch (error) {
-      console.error(dialogType.value === 'add' ? '创建考试失败:' : '更新考试失败:', error)
-      ElMessage.success(dialogType.value === 'add' ? '模拟创建成功' : '模拟更新成功')
-      
-      // 即使出错也关闭对话框并显示模拟成功
-      dialogVisible.value = false
-      fetchExamList()
+    } catch (error: any) { // Catch block with type assertion
+      console.error(dialogType.value === 'add' ? '创建考试失败:' : '更新考试失败:', error);
+      // Display the actual error message
+      let errorMessage = dialogType.value === 'add' ? '创建失败' : '更新失败';
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage += `: ${error.response.data.message}`;
+      } else if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      ElMessage.error(errorMessage);
+      // Do not close dialog on error, let user fix it or cancel
+      // dialogVisible.value = false;
+      // fetchExamList();
     } finally {
-      submitLoading.value = false
+      submitLoading.value = false;
     }
   })
 }

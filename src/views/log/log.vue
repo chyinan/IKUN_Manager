@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Monitor, Delete, Download } from '@element-plus/icons-vue'
 import { io, Socket } from 'socket.io-client'
@@ -138,111 +138,50 @@ const scrollToBottom = () => {
 // 加载历史日志
 const loadHistoryLogs = async () => {
   try {
-    // 直接生成模拟数据，不等待API调用
-    console.log('直接生成模拟日志数据');
-    generateMockLogs();
-    
-    /*
-    // 以下是原来的API调用代码，现在注释掉
-    const response = await getLogList();
-    
-    if (response && response.code === 200 && Array.isArray(response.data)) {
-      // 处理有效的API响应
-      const logEntries = response.data;
-      
-      // 处理日志数据
+    console.log('调用 API 获取历史日志');
+    // Pass pagination parameters correctly - Change pageSize to 30
+    const response = await getLogList({ pageSize: 30, page: 1 });
+
+    // Check response.data for code and data presence
+    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
+      const logEntries = response.data.data; // Access logs from response.data.data
+
       const historyLogs = logEntries
         .sort((a, b) => {
-          // 确保有效的日期比较
           const dateA = a.createTime ? new Date(a.createTime).getTime() : 0;
           const dateB = b.createTime ? new Date(b.createTime).getTime() : 0;
-          return dateB - dateA;
+          return dateA - dateB; // Sort ascending (oldest first, newest at bottom)
         })
         .map(log => {
-          // 处理可能的内容重复问题
+          // Keep the prefix removal logic
           if (log.content && log.operator && log.operation) {
             const prefix = `${log.operator} ${log.operation}`;
             if (log.content.startsWith(prefix)) {
               log.content = log.content.substring(prefix.length).trim();
             }
           }
-          
           return {
             ...log,
-            // 确保每条日志都有创建时间
             createTime: log.createTime || new Date().toLocaleString()
           };
         });
-      
+
       logs.value = historyLogs;
+      console.log(`成功加载 ${historyLogs.length} 条历史日志`);
+      // Ensure scroll happens AFTER logs are assigned and potentially rendered
+      // Using nextTick might be safer if direct call doesn't work reliably
+      nextTick(() => {
+         scrollToBottom();
+      });
     } else {
-      console.log('API返回无效，生成模拟日志数据');
-      generateMockLogs();
+      // Log the actual response structure for debugging if the check fails
+      console.error('加载历史日志失败: API 返回无效数据结构或错误代码', response?.data);
+      ElMessage.warning('加载历史日志失败，请检查后端服务或API响应');
     }
-    */
   } catch (error) {
     console.error('加载历史日志失败:', error);
-    ElMessage.warning('加载历史日志失败，使用模拟数据');
-    generateMockLogs();
+    ElMessage.error('加载历史日志时发生网络或处理错误');
   }
-}
-
-// 生成模拟日志数据
-const generateMockLogs = () => {
-  const mockOperators = ['admin', 'teacher', 'student', 'system'];
-  const mockOperations = ['登录', '查询列表', '新增', '更新', '删除', '导出', '导入', '查询详情'];
-  const mockTypes: LogType[] = ['system', 'database', 'vue', 'info', 'warn', 'error', 'insert', 'update', 'delete', 'query'];
-  
-  const mockLogs: LogEntry[] = [];
-  
-  // 生成50条模拟日志
-  for (let i = 0; i < 50; i++) {
-    const type = mockTypes[Math.floor(Math.random() * mockTypes.length)];
-    const operator = mockOperators[Math.floor(Math.random() * mockOperators.length)];
-    const operation = mockOperations[Math.floor(Math.random() * mockOperations.length)];
-    
-    // 生成随机时间，近7天内
-    const date = new Date();
-    date.setHours(date.getHours() - Math.floor(Math.random() * 168)); // 7天 = 168小时
-    const createTime = date.toLocaleString();
-    
-    // 为不同类型生成不同的内容
-    let content = '';
-    switch (type) {
-      case 'system':
-        content = `系统${operation}操作 [ID:${i+1}]`;
-        break;
-      case 'database':
-        content = `数据库${operation}操作: 执行SQL语句SELECT * FROM table WHERE id=${i+1}`;
-        break;
-      case 'vue':
-        content = `前端组件${operation}: 加载视图/更新状态 [组件ID:${i+1}]`;
-        break;
-      default:
-        content = `执行${operation}操作 [目标ID:${i+1}]`;
-    }
-    
-    mockLogs.push({
-      id: i + 1,
-      type,
-      operator,
-      operation,
-      content,
-      createTime,
-      ip: `192.168.1.${Math.floor(Math.random() * 255)}`,
-      module: ['用户管理', '学生管理', '考试管理', '系统设置', '日志管理'][Math.floor(Math.random() * 5)]
-    });
-  }
-  
-  // 按时间倒序排序
-  mockLogs.sort((a, b) => {
-    const dateA = a.createTime ? new Date(a.createTime).getTime() : 0;
-    const dateB = b.createTime ? new Date(b.createTime).getTime() : 0;
-    return dateB - dateA;
-  });
-  
-  logs.value = mockLogs;
-  console.log('生成的模拟日志数据:', mockLogs);
 }
 
 // 清空日志
@@ -301,37 +240,38 @@ const initWebSocket = () => {
     socket.on('connect_error', (error) => {
       console.error('WebSocket连接失败:', error)
       addLog({
-        type: 'system',
-        operation: 'ERROR',
-        content: `WebSocket连接失败: ${error.message}`,
+        type: 'error', // Use 'error' type for consistency
+        operation: 'WEBSOCKET_ERROR', // More specific operation
+        content: `WebSocket连接失败: ${error.message}. 无法接收实时日志。`, // More informative message
         operator: 'system',
         createTime: new Date().toLocaleString()
       })
-      
-      // 如果日志为空，生成模拟数据
-      if (logs.value.length <= 1) {
-        generateMockLogs();
-      }
+      // Do NOT generate mock logs on connection error
+      // if (logs.value.length <= 1) {
+      //   generateMockLogs();
+      // }
+       ElMessage.error('WebSocket 连接失败，无法接收实时日志'); // Show error to user
     })
   } catch (error) {
     console.error('WebSocket初始化失败:', error);
-    // 如果日志为空，生成模拟数据
-    if (logs.value.length === 0) {
-      generateMockLogs();
-    }
+    ElMessage.error('WebSocket 初始化失败'); // Show error to user
+    // Do NOT generate mock logs here
+    // if (logs.value.length === 0) {
+    //   generateMockLogs();
+    // }
   }
 }
 
 // 组件挂载与卸载
 onMounted(async () => {
-  await loadHistoryLogs();
-  
-  // 如果日志为空，生成模拟数据
-  if (logs.value.length === 0) {
-    generateMockLogs();
-  }
-  
-  initWebSocket();
+  await loadHistoryLogs(); // Load real history first
+
+  // Remove the check that generates mock logs if history is empty
+  // if (logs.value.length === 0) {
+  //   generateMockLogs();
+  // }
+
+  initWebSocket(); // Then connect WebSocket
 })
 
 onUnmounted(() => {

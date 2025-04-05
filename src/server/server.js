@@ -1,5 +1,7 @@
 // 服务器入口文件
 const express = require('express');
+const http = require('http'); // Import http module
+const { Server } = require("socket.io"); // Import Socket.IO Server class
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const config = require('./config');
@@ -10,9 +12,30 @@ const deptService = require('./deptService');
 const classService = require('./classService');
 const studentService = require('./studentService');
 const scoreService = require('./scoreService');
+const logService = require('./logService');
 
 // 创建Express应用
 const app = express();
+const httpServer = http.createServer(app); // Create HTTP server
+
+// Configure Socket.IO
+const io = new Server(httpServer, {
+  cors: {
+    origin: config.cors.origin || "*", // Use origin from config or allow all
+    methods: ["GET", "POST"],
+    // credentials: true // Usually not needed unless using cookies/sessions with sockets
+  }
+});
+
+// Function to broadcast logs - DEFINED EARLIER
+global.broadcastLog = (logEntry) => {
+  if (io) { // Ensure io is initialized
+    io.emit('serverLog', logEntry); // Emit to all connected clients
+    console.log('Broadcasting log entry via Socket.IO:', logEntry);
+  } else {
+      console.error('Attempted to broadcast log but Socket.IO server (io) is not initialized.');
+  }
+};
 
 // 中间件
 app.use(cors(config.cors));
@@ -171,6 +194,38 @@ app.get('/api/exam/:id', async (req, res) => {
   }
 });
 
+// 新增考试 (Added)
+app.post(`${apiPrefix}/exam/add`, async (req, res) => {
+  try {
+    const examData = req.body;
+    console.log('收到新增考试请求, 数据:', examData);
+    // Assuming examService.addExam exists and handles data insertion
+    const newExam = await examService.addExam(examData);
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '新增',
+      content: `考试 名称: ${newExam?.exam_name || '(未知)'}`, 
+      operator: 'system'
+    });
+    // --- End Logging ---
+    res.status(201).json({
+      code: 201,
+      message: '考试新增成功',
+      data: newExam
+    });
+  } catch (error) {
+    console.error('新增考试失败:', error);
+    // Basic error handling, refine as needed
+    const statusCode = error.message.includes('不能为空') ? 400 : 500;
+    res.status(statusCode).json({
+      code: statusCode,
+      message: `新增考试失败: ${error.message}`,
+      data: null
+    });
+  }
+});
+
 // 新增：更新考试信息
 app.put(`${apiPrefix}/exam/:id`, async (req, res) => {
   try {
@@ -183,7 +238,14 @@ app.put(`${apiPrefix}/exam/:id`, async (req, res) => {
 
     // 调用 examService 中的更新函数 (假设存在 updateExam 函数)
     const updatedExam = await examService.updateExam(examId, examData);
-
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '更新',
+      content: `考试 ID: ${examId}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '考试信息更新成功',
@@ -214,6 +276,14 @@ app.delete(`${apiPrefix}/exam/:id`, async (req, res) => {
       });
     }
     
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '删除',
+      content: `考试 ID: ${examId}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '删除考试成功',
@@ -281,7 +351,14 @@ app.post('/api/employee/add', async (req, res) => {
   try {
     const employeeData = req.body;
     const newEmployee = await employeeService.addEmployee(employeeData);
-    
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '新增',
+      content: `员工 工号: ${newEmployee?.emp_id || '(未知)'}`, // Use newEmployee data if available
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '添加员工成功',
@@ -311,6 +388,14 @@ app.put('/api/employee/:id', async (req, res) => {
       });
     }
     
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '更新',
+      content: `员工 ID: ${id}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '更新员工成功',
@@ -339,6 +424,14 @@ app.delete('/api/employee/:id', async (req, res) => {
       });
     }
     
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '删除',
+      content: `员工 ID: ${id}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '删除员工成功',
@@ -368,6 +461,14 @@ app.delete('/api/employee/batch', async (req, res) => {
     
     const success = await employeeService.batchDeleteEmployee(ids);
     
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '批量删除',
+      content: `员工 IDs: ${ids.join(', ')}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '批量删除员工成功',
@@ -440,7 +541,14 @@ app.post(`${apiPrefix}/dept/add`, async (req, res) => {
 
     // 调用 deptService 中的 addDept 函数
     const newDept = await deptService.addDept(deptData);
-
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '新增',
+      content: `部门 名称: ${newDept?.dept_name || '(未知)'}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.status(201).json({
       code: 201, // 201 Created
       message: '部门新增成功',
@@ -471,7 +579,14 @@ app.put(`${apiPrefix}/dept/:id`, async (req, res) => {
 
     // 调用 deptService 中的 updateDept 函数
     const updatedDept = await deptService.updateDept(id, deptData);
-
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '更新',
+      content: `部门 ID: ${id}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '部门更新成功',
@@ -501,6 +616,14 @@ app.delete(`${apiPrefix}/dept/:id`, async (req, res) => {
     const success = await deptService.deleteDept(id);
 
     if (success) {
+      // --- Add Logging ---
+      logService.addLog({
+        type: 'database',
+        operation: '删除',
+        content: `部门 ID: ${id}`,
+        operator: 'system' 
+      });
+      // --- End Logging ---
       res.json({ code: 200, message: '部门删除成功', data: null });
     } else {
       // 如果 service 返回 false，说明部门未找到
@@ -605,7 +728,14 @@ app.post(`${apiPrefix}/class/add`, async (req, res) => {
 
     // 调用 classService 中的 addClass 函数
     const newClass = await classService.addClass(backendClassData);
-
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '新增',
+      content: `班级 名称: ${newClass?.class_name || '(未知)'}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.status(201).json({
       code: 201, // 201 Created
       message: '班级新增成功',
@@ -635,6 +765,14 @@ app.delete(`${apiPrefix}/class/:id`, async (req, res) => {
     const success = await classService.deleteClass(id);
 
     if (success) {
+      // --- Add Logging ---
+      logService.addLog({
+        type: 'database',
+        operation: '删除',
+        content: `班级 ID: ${id}`,
+        operator: 'system' 
+      });
+      // --- End Logging ---
       res.json({ code: 200, message: '班级删除成功', data: null });
     } else {
       // 如果 service 返回 false，说明班级未找到
@@ -706,7 +844,14 @@ app.post(`${apiPrefix}/student/add`, async (req, res) => {
     console.log('收到添加学生请求, 数据:', req.body);
     const studentData = req.body;
     const newStudent = await studentService.addStudent(studentData);
-    
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '新增',
+      content: `学生 学号: ${newStudent?.student_id || '(未知)'}`, 
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '添加学生成功',
@@ -728,7 +873,14 @@ app.put(`${apiPrefix}/student/:id`, async (req, res) => {
     console.log(`收到更新学生请求, ID: ${id}, 数据:`, req.body);
     const studentData = req.body;
     const updatedStudent = await studentService.updateStudent(id, studentData);
-    
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '更新',
+      content: `学生 ID: ${id}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '更新学生成功',
@@ -758,6 +910,14 @@ app.delete(`${apiPrefix}/student/:id`, async (req, res) => {
       });
     }
     
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '删除',
+      content: `学生 ID: ${id}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '删除学生成功',
@@ -788,6 +948,14 @@ app.delete(`${apiPrefix}/student/batch`, async (req, res) => {
     
     const success = await studentService.batchDeleteStudent(ids);
     
+    // --- Add Logging ---
+    logService.addLog({
+      type: 'database',
+      operation: '批量删除',
+      content: `学生 IDs: ${ids.join(', ')}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
     res.json({
       code: 200,
       message: '批量删除学生成功',
@@ -970,33 +1138,54 @@ app.get(`${apiPrefix}/score/student/:id`, async (req, res) => {
   }
 });
 
-// 保存学生成绩
+// 保存学生成绩 (Handles both create and update via UPSERT in service)
 app.post(`${apiPrefix}/score/save`, async (req, res) => {
   try {
-    const data = req.body;
-    
-    if (!data || !data.student_id || !data.exam_id) {
+    const requestData = req.body;
+
+    // --- Convert relevant keys from camelCase (frontend) to snake_case (backend/service) ---
+    const backendData = {
+      student_id: requestData.studentId, 
+      exam_id: requestData.examId,
+      exam_type: requestData.examType, // Keep examType if service uses it
+      ...requestData.scores // Spread the scores object directly
+    };
+
+    // --- Validate using the converted snake_case keys ---
+    if (!backendData || !backendData.student_id || !backendData.exam_id) {
       return res.status(400).json({ 
         code: 400,
         message: '学生ID和考试ID不能为空' 
       });
     }
+
+    console.log(`保存学生ID: ${backendData.student_id}, 考试ID: ${backendData.exam_id} 的成绩`);
     
-    console.log(`保存学生ID: ${data.student_id}, 考试ID: ${data.exam_id} 的成绩`);
-    const result = await scoreService.saveStudentScore(data);
+    // --- Call service with the converted snake_case data ---
+    const result = await scoreService.saveStudentScore(backendData); 
     
     if (!result) {
-      throw new Error('保存操作未成功完成'); 
+      throw new Error('保存操作未成功完成，请检查服务日志'); 
     }
-    
+
+    // --- Logging (uses snake_case keys from backendData) ---
+    logService.addLog({
+      type: 'database',
+      operation: '保存',
+      content: `学生成绩 学生ID: ${backendData.student_id}, 考试ID: ${backendData.exam_id}`,
+      operator: 'system' 
+    });
+    // --- End Logging ---
+
     res.json({ 
       code: 200, 
       message: '保存学生成绩成功',
-      success: true
+      success: true 
     });
+
   } catch (error) {
     console.error('保存学生成绩失败:', error);
-    const statusCode = error.message.includes('不能为空') ? 400 : 500; 
+    const statusCode = error.message.includes('不能为空') || error.message.includes('未找到') ? 400 : 500; 
     res.status(statusCode).json({ 
       code: statusCode,
       message: `保存学生成绩失败: ${error.message}`,
@@ -1217,21 +1406,107 @@ app.post(`${apiPrefix}/exam/create-if-not-exists`, async (req, res) => {
   }
 });
 
-// 启动服务器
+// --- Log Management API Routes ---
+
+// 获取日志列表
+app.get(`${apiPrefix}/log/list`, async (req, res) => {
+  try {
+    console.log('收到日志列表请求, 参数:', req.query);
+    const logs = await logService.getLogs(req.query);
+    res.json({
+      code: 200,
+      message: '获取日志列表成功',
+      data: logs
+    });
+  } catch (error) {
+    // Error already logged in service
+    res.status(500).json({
+      code: 500,
+      message: '获取日志列表失败: ' + error.message,
+      data: null
+    });
+  }
+});
+
+// 批量删除日志
+app.delete(`${apiPrefix}/log/batch`, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    console.log('收到批量删除日志请求, IDs:', ids);
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的日志ID列表'
+      });
+    }
+    const deletedCount = await logService.batchDeleteLog(ids);
+    res.json({
+      code: 200,
+      message: `批量删除日志成功, 删除了 ${deletedCount} 条记录`,
+      data: { deletedCount }
+    });
+  } catch (error) {
+    // Error already logged in service
+    res.status(500).json({
+      code: 500,
+      message: '批量删除日志失败: ' + error.message,
+      data: null
+    });
+  }
+});
+
+// 清空日志
+app.delete(`${apiPrefix}/log/clear`, async (req, res) => {
+  try {
+    console.log('收到清空日志请求');
+    await logService.clearLogs();
+    res.json({
+      code: 200,
+      message: '清空日志成功',
+      data: null
+    });
+  } catch (error) {
+    // Error already logged in service
+    res.status(500).json({
+      code: 500,
+      message: '清空日志失败: ' + error.message,
+      data: null
+    });
+  }
+});
+
+// --- Socket.IO Connection Handling ---
+io.on('connection', (socket) => {
+  console.log(`Socket.IO: 客户端已连接: ${socket.id}`);
+
+  // Example: Send a welcome message
+  // socket.emit('message', 'Welcome to the log stream!');
+
+  // Handle disconnection
+  socket.on('disconnect', (reason) => {
+    console.log(`Socket.IO: 客户端断开连接: ${socket.id}, 原因: ${reason}`);
+    // Optional: Log disconnection to database
+    // logService.addLog({ type: 'system', operation: 'DISCONNECT', content: `Client disconnected: ${socket.id}`, operator: 'system' });
+  });
+
+  // Handle potential errors on the socket
+  socket.on('error', (error) => {
+    console.error(`Socket.IO Error on socket ${socket.id}:`, error);
+  });
+});
+
+// 启动服务器 (Use httpServer.listen)
 async function startServer() {
   try {
-    // 测试数据库连接
     const dbConnected = await db.testConnection();
-    
     if (!dbConnected) {
       console.error('无法连接到数据库，服务器启动失败');
       process.exit(1);
     }
-    
-    // 启动服务器
+
     const { port, host } = config.server;
-    app.listen(port, host, () => {
-      console.log(`服务器已启动，监听 ${host}:${port}`);
+    httpServer.listen(port, host, () => { // Use httpServer.listen
+      console.log(`服务器已启动 (HTTP + WebSocket)，监听 ${host}:${port}`);
     });
   } catch (error) {
     console.error('服务器启动失败:', error);
@@ -1239,7 +1514,6 @@ async function startServer() {
   }
 }
 
-// 启动服务器
 startServer();
 
 // 处理未捕获的异常

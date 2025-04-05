@@ -362,6 +362,76 @@ async function getDistinctExamTypes() {
   }
 }
 
+/**
+ * 新增考试
+ * @param {Object} examData 考试数据 { exam_name, exam_type, exam_date, duration, subjects, status, remark }
+ * @returns {Promise<Object>} 新增的考试对象 (包含ID)
+ */
+async function addExam(examData) {
+  try {
+    // Basic validation (add more as needed)
+    if (!examData.exam_name || !examData.exam_type || !examData.exam_date || !examData.subjects) {
+      throw new Error('考试名称、类型、日期和科目不能为空');
+    }
+
+    const query = `
+      INSERT INTO exam (exam_name, exam_type, exam_date, duration, subjects, status, remark)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+      examData.exam_name,
+      examData.exam_type,
+      examData.exam_date, 
+      examData.duration || 120, // Default duration
+      examData.subjects,
+      examData.status !== undefined ? examData.status : 0, // Default status: 未开始
+      examData.remark || null
+    ];
+
+    const result = await db.query(query, values);
+    const insertId = result.insertId;
+
+    if (!insertId) {
+        throw new Error('数据库插入失败，未能获取新考试ID');
+    }
+
+    console.log(`考试新增成功, ID: ${insertId}`);
+    // Return the new exam object including the ID
+    return { id: insertId, ...examData }; 
+
+  } catch (error) {
+    console.error('新增考试数据库操作失败:', error);
+    throw error; // Re-throw the error to be handled by the route handler
+  }
+}
+
+/**
+ * 删除考试
+ * @param {number} id 考试ID
+ * @returns {Promise<boolean>} 是否删除成功
+ */
+async function deleteExam(id) {
+  try {
+    if (!id || isNaN(id)) {
+      throw new Error('无效的考试ID');
+    }
+    const query = 'DELETE FROM exam WHERE id = ?';
+    const result = await db.query(query, [id]);
+    // Check affectedRows directly on the result object
+    const success = result.affectedRows > 0;
+    if (success) {
+      console.log(`考试删除成功, ID: ${id}`);
+    } else {
+      console.log(`尝试删除考试失败或未找到记录, ID: ${id}`);
+    }
+    return success;
+  } catch (error) {
+    // Handle potential foreign key constraint errors etc. if needed
+    console.error(`删除考试数据库操作失败 (ID: ${id}):`, error);
+    throw error; // Re-throw to be handled by the route handler
+  }
+}
+
 module.exports = {
   getExamStats,
   getExamList,
@@ -369,5 +439,7 @@ module.exports = {
   getExamTypeOptions,
   getSubjectOptions,
   getDistinctExamTypes,
-  updateExam
+  updateExam,
+  addExam,
+  deleteExam
 }; 

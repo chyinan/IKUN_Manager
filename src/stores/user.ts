@@ -17,9 +17,20 @@ export const useUserStore = defineStore('user', () => {
   const token = ref<string>(localStorage.getItem('token') || '')
   const userInfo = ref<UserInfo | null>(null) // Store user object
   const username = ref<string>('')
-  const avatar = ref<string>('')
+  // Initialize avatar state from localStorage first
+  const initialAvatarFromStorage = localStorage.getItem('user_avatar_url') || ''
+  console.log('[userStore Init] Reading avatar from localStorage:', initialAvatarFromStorage);
+  const avatar = ref<string>(initialAvatarFromStorage) 
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
+
+  // Action to set avatar
+  const setAvatar = (newAvatarUrl: string) => {
+    avatar.value = newAvatarUrl;
+    // Also save to localStorage to keep it synchronized
+    localStorage.setItem('user_avatar_url', newAvatarUrl);
+    console.log('[userStore] Avatar state updated:', newAvatarUrl);
+  };
 
   // Login Action (Updated)
   const loginAction = async (credentials: { username: string; password: string }) => {
@@ -41,6 +52,8 @@ export const useUserStore = defineStore('user', () => {
         token.value = receivedToken;
         userInfo.value = receivedUser; 
         username.value = receivedUser.username; // Keep this for convenience if needed elsewhere
+        // Set avatar from login response if available, otherwise keep localStorage/empty
+        avatar.value = receivedUser.avatar || avatar.value || ''; 
         
         // Save token to localStorage
         localStorage.setItem('token', receivedToken);
@@ -71,7 +84,7 @@ export const useUserStore = defineStore('user', () => {
       if (import.meta.env.DEV) {
         userInfo.value = { id: 1, username: 'admin', email: 'admin@example.com'}; // Update mock user info
         username.value = 'admin'
-        avatar.value = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+        // avatar.value = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png' // DO NOT OVERWRITE in dev mode
         roles.value = ['admin']
         permissions.value = ['*']
         return true
@@ -83,7 +96,13 @@ export const useUserStore = defineStore('user', () => {
       if (res.code === 200 && res.data) {
         userInfo.value = res.data; // Assuming API returns the user object directly in data
         username.value = res.data.username
-        avatar.value = res.data.avatar || ''
+        // Only update avatar state if backend provides a new avatar URL
+        if (res.data.avatar) {
+          console.log('[userStore] Updating avatar from getUserInfo response:', res.data.avatar);
+          avatar.value = res.data.avatar;
+        } else {
+          console.log('[userStore] No avatar in getUserInfo response, keeping existing avatar state:', avatar.value);
+        }
         roles.value = res.data.roles || []
         permissions.value = res.data.permissions || []
         return true
@@ -125,6 +144,7 @@ export const useUserStore = defineStore('user', () => {
     roles.value = []
     permissions.value = []
     localStorage.removeItem('token')
+    localStorage.removeItem('user_avatar_url') // <-- Clear avatar URL on logout
   }
 
   // Attempt to load user info if token exists on initial store creation
@@ -150,6 +170,7 @@ export const useUserStore = defineStore('user', () => {
     getUserInfo: getUserInfoAction,
     logout: logoutAction,
     resetState,
+    setAvatar, // <-- Export the new action
     // Add a getter for easier checking of authentication status
     isAuthenticated: computed(() => !!token.value && !!userInfo.value)
   }

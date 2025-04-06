@@ -15,6 +15,9 @@ const scoreService = require('./scoreService');
 const logService = require('./logService');
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken
 const userService = require('./userService'); // Import userService
+const path = require('path'); // <-- Add path module
+const fs = require('fs'); // <-- Add fs module for directory check
+const multer = require('multer'); // <-- Add multer module
 
 // 创建Express应用
 const app = express();
@@ -43,6 +46,12 @@ global.broadcastLog = (logEntry) => {
 app.use(cors(config.cors));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// --- Static File Serving ---
+// Serve files from the /uploads directory relative to server.js
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); 
+console.log(`Serving static files from: ${path.join(__dirname, 'uploads')}`);
+// --- End Static File Serving ---
 
 // 请求日志中间件
 app.use((req, res, next) => {
@@ -1735,3 +1744,143 @@ app.post(`${apiPrefix}/user/update-password`, authenticateToken, async (req, res
     res.status(500).json({ code: 500, message: `密码修改失败: ${error.message || '服务器内部错误'}` });
   }
 }); 
+
+// --- New: Update User Info Route ---
+app.put(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
+  const userId = req.user?.id;
+  const { email } = req.body; // Expecting email in the body
+
+  console.log(`[Update Info Route] Received request for user ID: ${userId}, Email: ${email}`);
+
+  // Validation
+  if (!userId) {
+    return res.status(401).json({ code: 401, message: '用户未登录或认证无效' });
+  }
+  if (typeof email !== 'string' || email.trim() === '') {
+    return res.status(400).json({ code: 400, message: '邮箱不能为空' });
+  }
+  // Basic format check (more thorough check is in userService)
+  if (email.length > 100 || !email.includes('@')) { 
+    return res.status(400).json({ code: 400, message: '邮箱格式不正确' });
+  }
+
+  try {
+    // Call the service function to update the email
+    const success = await userService.updateUserEmail(userId, email.trim());
+
+    if (success) {
+      console.log(`[Update Info Route] Email updated successfully for user ID: ${userId}`);
+      // --- Add Logging ---
+      logService.addLog({
+        type: 'security', // or 'system'
+        operation: '更新信息',
+        content: `用户: ID=${userId} 更新邮箱`, 
+        operator: req.user?.username || `User ${userId}`
+      });
+      // --- End Logging ---
+      res.json({ 
+        code: 200, 
+        message: '用户信息更新成功',
+        // Optionally return updated user info if needed
+        data: { email: email.trim() } 
+      });
+    } else {
+      // This might happen if the user ID doesn't exist (unlikely if authenticated)
+      console.warn(`[Update Info Route] userService.updateUserEmail returned false for user ID: ${userId}`);
+      res.status(404).json({ code: 404, message: '更新失败，未找到用户' });
+    }
+
+  } catch (error) {
+    console.error(`[Update Info Route] Error updating info for user ID ${userId}:`, error);
+    // Handle specific errors like email already exists
+    if (error.message && error.message.includes('邮箱已被')) {
+        return res.status(400).json({ code: 400, message: error.message });
+    }
+    if (error.message && error.message.includes('无效的邮箱格式')) {
+        return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: `用户信息更新失败: ${error.message || '服务器内部错误'}` });
+  }
+});
+// --- End Update User Info Route ---
+
+// --- Multer Configuration for Avatar Uploads ---
+const avatarUploadPath = path.join(__dirname, 'uploads', 'avatars');
+
+// Ensure upload directory exists
+if (!fs.existsSync(avatarUploadPath)){
+    fs.mkdirSync(avatarUploadPath, { recursive: true });
+    console.log(`Created avatar upload directory: ${avatarUploadPath}`);
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, avatarUploadPath); // Save files to src/server/uploads/avatars/
+  },
+  filename: function (req, file, cb) {
+    // Generate a unique filename: user-<userId>-<timestamp>.<extension>
+    const userId = req.user?.id || 'unknown'; // Get userId from authenticated user
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `user-${userId}-${uniqueSuffix}${extension}`);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // Limit file size to 2MB
+  fileFilter: function (req, file, cb) {
+    // Accept only image files
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('只允许上传图片文件!'), false);
+    }
+    cb(null, true);
+  }
+});
+// --- End Multer Configuration ---
+
+// --- New Avatar Upload Route ---
+// Apply authenticateToken first to get user ID, then multer middleware
+app.post(`${apiPrefix}/user/avatar`, authenticateToken, upload.single('avatar'), (req, res) => {
+  console.log(`[Avatar Upload] Received request for user ID: ${req.user?.id}`);
+  if (req.file) {
+    console.log('[Avatar Upload] File uploaded successfully:', req.file);
+    // Construct the URL path relative to the server root
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    console.log(`[Avatar Upload] Generated URL: ${avatarUrl}`);
+
+    // TODO (Optional future enhancement): 
+    // - Save avatarUrl to the user table in the database
+    // - Delete old avatar file if it exists
+
+    res.json({
+      code: 200,
+      message: '头像上传成功',
+      data: {
+        avatarUrl: avatarUrl // Return the URL path
+      }
+    });
+  } else {
+    // This part might be reached if fileFilter rejected the file
+    console.error('[Avatar Upload] Upload failed or no file received.');
+    res.status(400).json({ code: 400, message: '头像上传失败，请确保文件是图片且小于2MB' });
+  }
+}, (error, req, res, next) => {
+  // --- Multer Error Handling ---
+  console.error('[Avatar Upload] Multer error:', error);
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ code: 400, message: '文件过大，请上传小于2MB的图片' });
+    }
+    // Handle other Multer errors if necessary
+  } else if (error) {
+    // Handle non-Multer errors (e.g., from fileFilter)
+    return res.status(400).json({ code: 400, message: error.message || '上传失败' });
+  }
+  // If no file was uploaded without an error being caught specifically
+  if (!req.file) { 
+      return res.status(400).json({ code: 400, message: '未选择文件或文件无效' });
+  }
+  res.status(500).json({ code: 500, message: '上传过程中发生未知错误' });
+});
+// --- End Avatar Upload Route --- 

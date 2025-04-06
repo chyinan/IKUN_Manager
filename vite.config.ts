@@ -19,7 +19,17 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5175,
     open: true,
-    cors: true
+    cors: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      }
+    }
   },
   assetsInclude: ['**/*.jpg']
 })

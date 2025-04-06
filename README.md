@@ -44,12 +44,12 @@ npm install
 ### 配置数据库
 1. 创建数据库
 ```sql
-CREATE DATABASE ikun_manager;
+CREATE DATABASE ikun_db;
 ```
 
 2. 导入数据库文件
 ```sh
-mysql -u root -p ikun_manager < database/ikun_manager.sql
+mysql -u root -p ikun_db < ikun_db.sql
 ```
 
 3. 配置数据库连接

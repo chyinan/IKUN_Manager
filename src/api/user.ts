@@ -54,7 +54,20 @@ export function updatePassword(data: any): Promise<ApiResponse<any>> {
   return request.post<ApiResponse<any>>('/user/update-password', passwordData)
 }
 
-// 更新用户信息
-export function updateUserInfo(data: Partial<UserInfo>): Promise<ApiResponse<void>> {
-  return request.put<ApiResponse<void>>('/user/update', data)
+// 更新用户信息 (Ensure this uses PUT and sends correct data)
+export function updateUserInfo(data: { email: string }): Promise<ApiResponse<any>> { // Specify expected data shape and return type
+  console.log('调用 updateUserInfo API, 数据:', data);
+  return request.put<ApiResponse<any>>('/user/info', data) // Use PUT method and /user/info endpoint
 }
+
+// --- 新增：上传用户头像 ---
+export function uploadUserAvatar(formData: FormData): Promise<ApiResponse<{ avatarUrl: string }>> {
+  console.log('调用 uploadUserAvatar API');
+  return request.post<ApiResponse<{ avatarUrl: string }>>('/user/avatar', formData, {
+    // No need to set Content-Type header manually for FormData,
+    // Axios handles it correctly.
+  })
+}
+// --- 结束新增 ---
+
+// 上传头像 (示例)

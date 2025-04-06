@@ -44,7 +44,7 @@
               <el-input v-model="userInfo.email" placeholder="请输入您的邮箱" />
             </el-form-item>
             
-            <el-form-item>
+            <el-form-item v-if="hasChanges"> 
               <el-button type="primary" @click="handleUpdateInfo" :loading="loading.updateInfo">
                 保存信息
               </el-button>
@@ -142,11 +142,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { updatePassword } from '@/api/user'
+import { updatePassword, uploadUserAvatar, updateUserInfo } from '@/api/user'
 import type { FormInstance } from 'element-plus'
 import { 
   Lock, SwitchButton, Delete, ArrowRight
@@ -168,9 +168,15 @@ const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726
 // 用户信息表单
 const userInfo = reactive({
   username: userStore.username || localStorage.getItem('username') || '',
-  email: localStorage.getItem('email') || '',
-  avatar: userStore.avatar || defaultAvatar
+  email: userStore.userInfo?.email || localStorage.getItem('email') || '', 
+  // Initialize avatar primarily from store (which reads localStorage initially)
+  avatar: userStore.avatar || defaultAvatar 
 })
+
+// --- Add state for initial values to track changes ---
+const initialEmail = ref('');
+const initialAvatar = ref('');
+// --- End initial values ---
 
 // 加载状态
 const loading = reactive({
@@ -220,15 +226,36 @@ const passwordRules = {
   ]
 }
 
+// --- Computed property to check for changes ---
+const hasChanges = computed(() => {
+  const emailChanged = userInfo.email !== initialEmail.value;
+  const avatarChanged = userInfo.avatar !== initialAvatar.value;
+  // console.log(`[Computed hasChanges] Email changed: ${emailChanged}, Avatar changed: ${avatarChanged}`);
+  return emailChanged || avatarChanged;
+});
+// --- End computed property ---
+
 // 初始化数据
 onMounted(() => {
-  // 如果有用户数据，填充表单
+  console.log('[Profile onMounted] Initializing...'); 
+  // If user data exists in store, populate form
   if (userStore.username) {
     userInfo.username = userStore.username
-    userInfo.avatar = userStore.avatar || defaultAvatar
-    // 从localStorage获取其他信息
-    userInfo.email = localStorage.getItem('email') || ''
+    userInfo.email = userStore.userInfo?.email || localStorage.getItem('email') || '' 
+    // Ensure avatar is synced with store or default
+    userInfo.avatar = userStore.avatar || defaultAvatar;
   }
+  // Ensure avatar is at least the default if sync fails
+  if (!userInfo.avatar) {
+    console.log('[Profile onMounted] Avatar still null/empty, setting to default.'); 
+    userInfo.avatar = defaultAvatar;
+  }
+
+  // Store initial values after potential population
+  initialEmail.value = userInfo.email;
+  initialAvatar.value = userInfo.avatar;
+  console.log('[Profile onMounted] Initial Email set to:', initialEmail.value);
+  console.log('[Profile onMounted] Initial Avatar set to:', initialAvatar.value);
 })
 
 // 头像上传错误处理
@@ -239,49 +266,61 @@ const avatarError = () => {
 
 // 上传头像
 const uploadAvatar = async (options: any) => {
+  const file = options.file
+  console.log('准备上传头像:', file.name);
+
+  // 检查文件类型和大小 (moved earlier)
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('请上传图片文件')
+    return
+  }
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过2MB')
+    return
+  }
+
+  // 创建 FormData
+  const formData = new FormData()
+  formData.append('avatar', file) // Key must match backend upload.single('avatar')
+
   try {
     loading.avatar = true
-    
-    // 获取文件
-    const file = options.file
-    
-    // 检查文件类型
-    const isImage = file.type.startsWith('image/')
-    if (!isImage) {
-      ElMessage.error('请上传图片文件')
-      return
-    }
-    
-    // 检查文件大小（限制为2MB）
-    const isLt2M = file.size / 1024 / 1024 < 2
-    if (!isLt2M) {
-      ElMessage.error('图片大小不能超过2MB')
-      return
-    }
-    
-    // 在生产环境中，这里应该调用API上传图片
-    // const formData = new FormData()
-    // formData.append('avatar', file)
-    // const res = await uploadUserAvatar(formData)
-    
-    // 开发环境模拟
-    // 使用FileReader将图片转为base64
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string
-      // 更新头像
-      userInfo.avatar = base64
+    console.log('调用 uploadUserAvatar API...');
+    // 调用新的后端 API 上传
+    const res = await uploadUserAvatar(formData)
+    console.log('上传 API 响应:', res);
+
+    // Explicitly check based on observed AxiosResponse structure
+    if (res?.status === 200 && res.data?.code === 200 && res.data?.data?.avatarUrl) {
+      // Success Case: Extract URL from nested data
+      const avatarUrl = res.data.data.avatarUrl;
+      console.log('头像上传成功, URL:', avatarUrl);
+      // 更新页面显示
+      userInfo.avatar = avatarUrl
       
-      // 更新store
-      // userStore.setAvatar(base64)
-      
-      ElMessage.success('头像上传成功')
-      loading.avatar = false
+      // --- Update userStore with the new avatar URL ---
+      userStore.setAvatar(avatarUrl); 
+      // --- End update userStore ---
+
+      ElMessage.success(res.data.message || '头像上传成功')
+      // --- Update initialAvatar after successful upload ---
+      initialAvatar.value = avatarUrl; 
+      // --- End update initialAvatar ---
+    } else {
+      // Failure Case: Log the received structure and show error message
+      console.error('头像上传失败，响应结构不符合预期:', res);
+      // Try to get a meaningful error message
+      const errMsg = res?.data?.message || res?.message || '头像上传失败，请稍后重试';
+      ElMessage.error(errMsg) 
     }
-  } catch (error) {
-    console.error('上传头像失败:', error)
-    ElMessage.error('上传失败，请稍后重试')
+  } catch (error: any) {
+    console.error('上传头像 API 调用失败:', error)
+    // Handle network errors or errors thrown by the interceptor
+    const message = error.response?.data?.message || error.message || '上传失败，请检查网络或联系管理员'
+    ElMessage.error(message)
+  } finally {
     loading.avatar = false
   }
 }
@@ -299,23 +338,47 @@ const handleUpdateInfo = async () => {
     try {
       loading.updateInfo = true
       
-      // 在生产环境中，这里应该调用API更新用户信息
-      // const res = await updateUserInfo({
-      //   nickname: userInfo.nickname,
-      //   email: userInfo.email
-      // })
-      
-      // 开发环境模拟
-      setTimeout(() => {
-        // 保存到localStorage
-        localStorage.setItem('email', userInfo.email)
+      // Call the backend API to update email
+      const res = await updateUserInfo({ email: userInfo.email });
+
+      // Check API response
+      // Handle potential full Axios response vs direct payload
+      const responseData = res.data || res; 
+
+      if (responseData?.code === 200) {
+        console.log('邮箱更新 API 成功:', responseData);
+        const updatedEmail = responseData.data?.email || userInfo.email; // Use email from response if available
+
+        // Update localStorage (still useful as a fallback, but store should be primary source)
+        localStorage.setItem('email', updatedEmail)
         
-        ElMessage.success('个人信息更新成功')
-        loading.updateInfo = false
-      }, 1000)
-    } catch (error) {
-      console.error('更新用户信息失败:', error)
-      ElMessage.error('更新失败，请稍后重试')
+        // --- Update userStore with the new email --- 
+        if (userStore.userInfo) {
+          userStore.userInfo.email = updatedEmail; 
+          console.log('userStore updated with new email:', updatedEmail);
+          // Optionally, trigger an action if direct modification isn't ideal
+          // userStore.setUserEmail(updatedEmail);
+        } else {
+          console.warn('userStore.userInfo is null, cannot update email in store.');
+        }
+        // --- End update userStore ---
+
+        // --- Update initialEmail after successful save ---
+        initialEmail.value = updatedEmail; 
+        // --- End update initialEmail ---
+        
+        ElMessage.success(responseData.message || '个人信息更新成功')
+      } else {
+        // Handle API error
+        console.error('邮箱更新 API 失败:', responseData);
+        ElMessage.error(responseData?.message || '邮箱更新失败')
+      }
+
+    } catch (error: any) {
+      console.error('更新用户信息失败 (catch block):', error)
+      const message = error.response?.data?.message || error.message || '更新失败，请稍后重试'
+      ElMessage.error(message)
+    } finally {
       loading.updateInfo = false
     }
   })

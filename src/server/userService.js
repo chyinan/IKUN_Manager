@@ -136,10 +136,50 @@ async function updateUserPassword(userId, newPasswordHash) {
   }
 }
 
+/**
+ * Update user's email in the database
+ * @param {number} userId
+ * @param {string} newEmail
+ * @returns {Promise<boolean>} True if update was successful, false otherwise
+ */
+async function updateUserEmail(userId, newEmail) {
+  console.log(`[UserService] Updating email for user ID: ${userId}`);
+  try {
+    // Optional: Add check for email format and uniqueness before updating
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email regex
+    if (!emailRegex.test(newEmail)) {
+        console.warn(`[UserService] Invalid email format: ${newEmail}`);
+        throw new Error('无效的邮箱格式');
+    }
+    // Optional: Check if email already exists for another user
+    // const checkQuery = 'SELECT id FROM user WHERE email = ? AND id != ?';
+    // const [existingUser] = await db.query(checkQuery, [newEmail, userId]);
+    // if (existingUser) {
+    //     console.warn(`[UserService] Email already exists: ${newEmail}`);
+    //     throw new Error('该邮箱已被其他用户注册');
+    // }
+
+    const query = 'UPDATE user SET email = ?, update_time = CURRENT_TIMESTAMP WHERE id = ?';
+    const result = await db.query(query, [newEmail, userId]);
+    console.log(`[UserService] DB update email result: ${JSON.stringify(result)}`);
+    const success = result && result.affectedRows > 0;
+    if (success) {
+      console.log(`[UserService] Email updated successfully for user ID: ${userId}`);
+    } else {
+      console.warn(`[UserService] Email update failed for user ID: ${userId}. User might not exist.`);
+    }
+    return success;
+  } catch (error) {
+    console.error(`[UserService] Error updating email for user ID ${userId}:`, error);
+    throw error; // Re-throw to be caught by route handler
+  }
+}
+
 module.exports = {
   findUserByUsername,
   comparePassword,
   findUserById,
   hashPassword,
-  updateUserPassword
+  updateUserPassword,
+  updateUserEmail
 }; 

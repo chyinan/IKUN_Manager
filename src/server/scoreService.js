@@ -135,7 +135,7 @@ async function getScoreDetail(id) {
  * 获取学生成绩（根据考试ID）
  * @param {number} studentId - 学生ID
  * @param {number} examId - 考试ID
- * @returns {Promise<object>} - 返回学生成绩信息
+ * @returns {Promise<object|null>} - 返回学生成绩信息及考试科目列表，或 null
  */
 async function getStudentScoreByExamId(studentId, examId) {
   try {
@@ -145,41 +145,46 @@ async function getStudentScoreByExamId(studentId, examId) {
     }
 
     console.log(`查询学生ID: ${studentId}, 考试ID: ${examId} 的成绩`);
-    
-    // 获取考试信息
-    const examQuery = 'SELECT * FROM exam WHERE id = ?';
+
+    // 获取考试信息，包括科目列表
+    const examQuery = 'SELECT id, exam_type, exam_date, exam_name, subjects FROM exam WHERE id = ?'; 
     const exams = await db.query(examQuery, [examId]);
-    
+
     if (!exams || exams.length === 0) {
       console.log(`找不到ID为 ${examId} 的考试记录`);
       return null;
     }
-    
+
     const exam = exams[0];
-    
+    const subjectListString = exam.subjects; 
+
     // 查询学生在该考试中的所有科目成绩
     const scoresQuery = `
       SELECT ss.subject, ss.score 
       FROM student_score ss
       WHERE ss.student_id = ? AND ss.exam_id = ?
     `;
-    
+
     const scores = await db.query(scoresQuery, [studentId, examId]) || [];
     console.log(`查询到 ${scores.length} 条成绩记录`);
-    
+
     // 构建返回结果
     const result = {
       exam_id: examId,
       exam_type: exam.exam_type,
       exam_time: exam.exam_date,
-      exam_name: exam.exam_name
+      exam_name: exam.exam_name,
+      subjects: subjectListString ? subjectListString.split(',').map(s => s.trim()).filter(s => s) : [], 
+      scores: {} 
     };
-    
-    // 遍历所有科目成绩，添加到结果中
+
+    // 遍历所有科目成绩，添加到结果的 scores 对象中
     for (const scoreItem of scores) {
-      result[scoreItem.subject] = scoreItem.score;
+      const score = parseFloat(scoreItem.score);
+      result.scores[scoreItem.subject] = isNaN(score) ? null : score;
     }
     
+    console.log('返回的学生成绩及科目信息:', result);
     return result;
   } catch (error) {
     console.error('获取学生成绩失败:', error);

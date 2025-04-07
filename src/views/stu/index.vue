@@ -154,8 +154,7 @@ interface StudentFormData {
 // 表单验证规则
 const rules = reactive<FormRules>({
   studentId: [
-    { required: true, message: '请输入学号', trigger: 'blur' },
-    { pattern: /^\d{7}$/, message: '学号必须为7位数字', trigger: 'blur' }  // 改为7位以匹配2024001格式
+    { required: true, message: '请输入学号', trigger: 'blur' }
   ],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' },

@@ -121,7 +121,7 @@
       >
         <div class="score-grid">
           <el-card 
-            v-for="subject in subjects" 
+            v-for="subject in activeSubjects" 
             :key="subject"
             class="subject-card"
             :class="{ 'high-score': (scoreForm[subject] ?? 0) >= 90, 'low-score': (scoreForm[subject] ?? 100) < 60 }"
@@ -249,23 +249,14 @@ const examNames = ref<Array<{id: number; exam_name: string; exam_date: string}>>
 const loading = ref(false)
 const formRef = ref<FormInstance | null>(null)
 
-// 科目列表
-const subjects: SubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物']
+// 科目列表 - REMOVED Hardcoded list
+// const subjects: SubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物']
+// Add reactive ref for active subjects
+const activeSubjects = ref<string[]>([])
 
-// Revert both scoreForm and originalScores to use ref
-const scoreForm = ref<Record<SubjectType, number | null>>(
-  subjects.reduce((acc, subject) => {
-    acc[subject] = null;
-    return acc;
-  }, {} as Record<SubjectType, number | null>)
-);
-
-const originalScores = ref<Record<SubjectType, number | null>>(
-  subjects.reduce((acc, subject) => {
-    acc[subject] = null;
-    return acc;
-  }, {} as Record<SubjectType, number | null>)
-);
+// scoreForm and originalScores are now initialized empty and populated dynamically
+const scoreForm = ref<Record<string, number | null>>({}); // Initialize as empty object
+const originalScores = ref<Record<string, number | null>>({}); // Initialize as empty object
 const isScoreChanged = ref(false);
 
 // 根据选择的班级筛选学生
@@ -395,11 +386,8 @@ const handleClassChange = async () => {
   selectedExamType.value = '';
   selectedExamName.value = null;
   // Reset scoreForm.value
-  scoreForm.value = subjects.reduce((acc, subject) => {
-    acc[subject] = null;
-    return acc;
-  }, {} as Record<SubjectType, number | null>);
-  originalScores.value = { ...scoreForm.value }; // Reset original as well
+  scoreForm.value = {};
+  originalScores.value = {};
   isScoreChanged.value = false;
 
   if (selectedClass.value) {
@@ -488,59 +476,64 @@ const handleExamTypeChange = async () => {
   }
 }
 
-// 处理考试名称变化
+// 处理考试名称变化 (Ensure resetScoreForm is called correctly)
 const handleExamNameChange = async () => {
     resetScoreForm(); // Reset first
     if (!selectedStudent.value || !selectedExamType.value || !selectedExamName.value) {
         examDate.value = '';
+        activeSubjects.value = []; // Clear active subjects
         return;
     }
 
     const selectedExam = examNames.value.find(e => e.id === selectedExamName.value);
-    examDate.value = selectedExam?.exam_date || ''; // Update raw exam date for formatter
+    examDate.value = selectedExam?.exam_date || ''; // Update raw exam date
 
     // Fetch scores using the existing fetchStudentScores function
     await fetchStudentScores(selectedStudent.value, selectedExamName.value);
 }
 
-// 获取学生成绩 (Refactored to use ref)
+// 获取学生成绩 (Refactored to use dynamic subjects)
 const fetchStudentScores = async (studentId: number, examId: number) => {
   if (!studentId || !examId) return;
   console.log(`开始获取学生 ${studentId} 在考试 ${examId} 的成绩...`);
   loading.value = true;
-  resetScoreForm(); // Resets scoreForm.value and originalScores.value
-  // examDate is set in handleExamNameChange
+  resetScoreForm(); // Resets scoreForm, originalScores, and activeSubjects
 
   try {
+    // Assuming getStudentScoreByExamId now returns { subjects: string[], scores: {...} }
     const res = await scoreApi.getStudentScoreByExamId(studentId, examId);
     console.log('获取学生成绩响应:', res);
 
-    if (res) {
-      // Populate scoreForm.value, converting string scores to numbers
-      subjects.forEach(subject => {
-        const scoreValue = res[subject];
+    if (res && Array.isArray(res.subjects) && typeof res.scores === 'object') {
+      // 1. Update active subjects
+      activeSubjects.value = res.subjects;
+      console.log('Active subjects set to:', activeSubjects.value);
+
+      // 2. Initialize scoreForm and originalScores based on active subjects
+      const newScoreForm: Record<string, number | null> = {};
+      activeSubjects.value.forEach(subject => {
+        const scoreValue = res.scores[subject];
         if (scoreValue !== undefined && scoreValue !== null) {
-            const numericScore = parseFloat(scoreValue); // Attempt to convert string to number
-            if (!isNaN(numericScore)) { // Check if the conversion resulted in a valid number
-                scoreForm.value[subject] = numericScore;
+            const numericScore = parseFloat(scoreValue);
+            if (!isNaN(numericScore)) {
+                newScoreForm[subject] = numericScore;
             } else {
-                scoreForm.value[subject] = null; // Assign null if conversion fails
+                newScoreForm[subject] = null; // Assign null if conversion fails
                 console.warn(`Received non-numeric score value for ${subject}:`, scoreValue);
             }
         } else {
-            scoreForm.value[subject] = null; // Assign null if subject is missing in response
+            newScoreForm[subject] = null; // Assign null if subject is missing in scores but present in exam subjects
         }
       });
-      // examDate.value is already set from selectedExam in handleExamNameChange
-      // examDate.value = res.exam_time || ''; // Keep this if backend 'exam_time' is more accurate
+      
+      scoreForm.value = newScoreForm;
+      originalScores.value = { ...scoreForm.value }; // Deep copy for comparison
 
-      // Update originalScores.value
-      originalScores.value = { ...scoreForm.value };
       console.log('学生成绩加载完成', scoreForm.value);
-      isScoreChanged.value = false; // Ensure changed flag is reset after load
+      isScoreChanged.value = false; // Reset changed flag after load
     } else {
-      console.warn('未找到学生成绩记录或API响应无效, 表单已重置.');
-       ElMessage.info(`未找到考试成绩记录，可编辑并保存新成绩`);
+      console.warn('未找到学生成绩记录、科目列表或API响应无效, 表单已重置.');
+      ElMessage.info(`未找到该考试的成绩记录，可编辑并保存新成绩`);
       // Form is already reset by resetScoreForm()
     }
   } catch (error) {
@@ -552,43 +545,50 @@ const fetchStudentScores = async (studentId: number, examId: number) => {
   }
 };
 
-// 重置成绩表单 (Using ref)
+// 重置成绩表单 (Clear activeSubjects and reset forms to empty objects)
 const resetScoreForm = () => {
-  scoreForm.value = subjects.reduce((acc, subject) => {
-    acc[subject] = null;
-    return acc;
-  }, {} as Record<SubjectType, number | null>);
-  originalScores.value = { ...scoreForm.value }; // Keep original in sync with reset
+  activeSubjects.value = []; // Clear the subjects list
+  scoreForm.value = {}; // Reset to empty object
+  originalScores.value = {}; // Reset to empty object
   isScoreChanged.value = false;
 };
 
-// 取消修改 (Using ref)
+// 取消修改 (Restore using originalScores, check if activeSubjects needs reset?)
 const handleCancel = () => {
-  // Restore from originalScores.value
+  // Restore from originalScores.value. No need to touch activeSubjects here.
   scoreForm.value = { ...originalScores.value };
   isScoreChanged.value = false;
   ElMessage.info('修改已取消');
 };
 
-// 计算总分 (Using ref)
+// 计算总分 (Iterate over activeSubjects)
 const calculateTotalScore = () => {
-  return subjects.reduce((sum, subject) => {
+  // Check if activeSubjects has items to avoid division by zero later
+  if (!activeSubjects.value || activeSubjects.value.length === 0) return '0.0';
+  
+  return activeSubjects.value.reduce((sum, subject) => {
     const score = scoreForm.value[subject];
     return sum + (typeof score === 'number' ? score : 0);
   }, 0).toFixed(1);
 };
 
-// 计算平均分 (Using ref)
+// 计算平均分 (Iterate over activeSubjects)
 const calculateAverageScore = () => {
-  const validScores = subjects.map(subject => scoreForm.value[subject]).filter(score => typeof score === 'number') as number[];
+  // Check if activeSubjects has items
+  if (!activeSubjects.value || activeSubjects.value.length === 0) return '0.0';
+
+  const validScores = activeSubjects.value
+    .map(subject => scoreForm.value[subject])
+    .filter(score => typeof score === 'number') as number[];
+    
   if (validScores.length === 0) return '0.0';
   const sum = validScores.reduce((acc, score) => acc + score, 0);
-  return (sum / validScores.length).toFixed(1);
+  return (sum / validScores.length).toFixed(1); // Average over subjects with valid scores
 };
 
-// 保存成绩 (Using ref)
+// 保存成绩 (Iterate over activeSubjects to build scoresToSave)
 const handleSave = async () => {
-  // Add explicit validation for IDs
+  // ... (Keep existing ID validations) ...
   if (typeof selectedStudent.value !== 'number' || selectedStudent.value <= 0) {
     ElMessage.warning('无效的学生ID，请重新选择');
     return;
@@ -599,33 +599,34 @@ const handleSave = async () => {
   }
 
   const scoresToSave: Record<string, number> = {};
-  subjects.forEach(subject => {
+  // Iterate over the currently active subjects
+  activeSubjects.value.forEach(subject => { 
     const score = scoreForm.value[subject];
     if (typeof score === 'number' && !isNaN(score)) {
       scoresToSave[subject] = score;
     }
+    // Optional: Decide if you want to save subjects with null score as 0 or omit them
+    // else if (score === null) { scoresToSave[subject] = 0; } // Example: save null as 0
   });
 
   const saveData: SaveScoreParams = {
-    studentId: selectedStudent.value, // Now validated as number
-    examId: selectedExamName.value,   // Now validated as number
-    examType: selectedExamType.value, // Ensure this has a value if needed by backend logic
-    scores: scoresToSave
+    studentId: selectedStudent.value,
+    examId: selectedExamName.value,
+    examType: selectedExamType.value, // Ensure this has a value if needed by backend
+    scores: scoresToSave // Send only scores for active subjects
   };
 
-  // Log the data being sent
+  // ... (Keep existing API call and error handling logic) ...
   console.log('即将保存的成绩数据:', JSON.stringify(saveData)); 
-
   loading.value = true;
   try {
+    // Use the imported saveStudentScore function
     const res = await scoreApi.saveStudentScore(saveData);
-    // Check success based only on status codes 200/201
     if (res && (res.code === 200 || res.code === 201)) {
       ElMessage.success('成绩保存成功');
       originalScores.value = { ...scoreForm.value }; 
       isScoreChanged.value = false;
     } else {
-      // Use message from response if available
       ElMessage.error(res?.message || '成绩保存失败');
     }
   } catch (error: any) {
@@ -642,7 +643,7 @@ const handleSave = async () => {
   }
 };
 
-// 处理成绩输入变化 (Using ref)
+// 处理成绩输入变化 (Comparison logic remains the same)
 const handleScoreChange = () => {
   isScoreChanged.value = JSON.stringify(scoreForm.value) !== JSON.stringify(originalScores.value);
 };

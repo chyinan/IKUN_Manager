@@ -177,10 +177,10 @@
         <el-table-column label="考试名称" min-width="180" show-overflow-tooltip>
           <template #default="{row}">
             <div class="exam-name">
-              <el-tag :type="getExamTypeTag(row.exam_type)" effect="plain" size="small">
-                {{ row.exam_type }}
+              <el-tag :type="getExamTypeTag(row.examType)" effect="plain" size="small">
+                {{ row.examType }}
               </el-tag>
-              <span>{{ row.exam_name }}</span>
+              <span>{{ row.examName }}</span>
             </div>
           </template>
         </el-table-column>
@@ -188,7 +188,7 @@
         <!-- 考试日期列 -->
         <el-table-column label="考试日期" width="120" align="center">
           <template #default="{row}">
-            {{ formatDate(row.exam_date) }}
+            {{ formatDate(row.startTime) }}
           </template>
         </el-table-column>
         
@@ -221,7 +221,7 @@
         <!-- 创建时间列 -->
         <el-table-column label="创建时间" width="180" align="center">
           <template #default="{row}">
-            {{ formatDateTime(row.create_time || '') }}
+            {{ formatDateTime(row.createTime) }}
           </template>
         </el-table-column>
         
@@ -276,12 +276,12 @@
         label-width="100px"
         label-position="right"
       >
-        <el-form-item label="考试名称" prop="exam_name">
-          <el-input v-model="examForm.exam_name" placeholder="请输入考试名称" />
+        <el-form-item label="考试名称" prop="examName">
+          <el-input v-model="examForm.examName" placeholder="请输入考试名称" />
         </el-form-item>
         
-        <el-form-item label="考试类型" prop="exam_type">
-          <el-select v-model="examForm.exam_type" placeholder="请选择考试类型" style="width: 100%">
+        <el-form-item label="考试类型" prop="examType">
+          <el-select v-model="examForm.examType" placeholder="请选择考试类型" style="width: 100%">
             <el-option
               v-for="item in dynamicExamTypeOptions"
               :key="item"
@@ -291,59 +291,38 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="考试日期" prop="exam_date">
+        <el-form-item label="开始时间" prop="startTime">
           <el-date-picker
-            v-model="examForm.exam_date"
-            type="date"
-            placeholder="选择日期"
-            format="YYYY/MM/DD"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
+            v-model="examForm.startTime"
+            type="datetime"
+            placeholder="选择开始日期时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
           />
         </el-form-item>
         
-        <el-form-item label="考试时长" prop="duration">
-          <el-input-number
-            v-model="examForm.duration"
-            :min="30"
-            :max="240"
-            :step="30"
-            style="width: 100%"
+        <el-form-item label="结束时间" prop="endTime">
+          <el-date-picker
+            v-model="examForm.endTime"
+            type="datetime"
+            placeholder="选择结束日期时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
           />
         </el-form-item>
         
-        <el-form-item label="考试科目" prop="subjects">
-          <el-select
-            v-model="examForm.subjects"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            placeholder="请选择考试科目"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="subject in subjectOptions"
-              :key="subject"
-              :label="subject"
-              :value="subject"
-            />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="考试状态" prop="status">
+        <el-form-item label="状态" prop="status">
           <el-radio-group v-model="examForm.status">
-            <el-radio :value="0">未开始</el-radio>
-            <el-radio :value="1">进行中</el-radio>
-            <el-radio :value="2">已结束</el-radio>
+            <el-radio :label="0">未开始</el-radio>
+            <el-radio :label="1">进行中</el-radio>
+            <el-radio :label="2">已结束</el-radio>
           </el-radio-group>
         </el-form-item>
         
-        <el-form-item label="备注" prop="remark">
+        <el-form-item label="描述" prop="description">
           <el-input
-            v-model="examForm.remark"
+            v-model="examForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入备注信息"
+            placeholder="请输入考试描述信息"
           />
         </el-form-item>
       </el-form>
@@ -377,9 +356,14 @@ import {
   updateExamStatus,
   publishExam,
   unpublishExam,
-  getExamTypeOptions
+  getExamTypeOptions,
+  getExamTypes,
+  getExamSubjects
 } from '@/api/exam'
 import type { ExamInfo, ExamQueryParams } from '@/types/exam'
+import type { ExamItem, ExamItemResponse, Subject, ApiResponse } from '@/types/common'
+import { exportToExcel } from '@/utils/export'
+import dayjs from 'dayjs'
 
 // 考试类型选项
 const dynamicExamTypeOptions = ref<string[]>([])
@@ -391,7 +375,7 @@ const subjectOptions = ['语文', '数学', '英语', '物理', '化学', '生�
 // 状态和数据
 const loading = ref(false)
 const submitLoading = ref(false)
-const examList = ref<ExamInfo[]>([])
+const examList = ref<ExamItem[]>([])
 const statusFilter = ref<number | null>(null)
 
 // 检查是否有激活的筛选条件
@@ -431,12 +415,12 @@ const filteredExamList = computed(() => {
     
     // 考试类型筛选
     if (filterExamType.value) {
-      matchType = exam.exam_type === filterExamType.value;
+      matchType = exam.examType === filterExamType.value;
     }
     
     // 日期范围筛选
     if (dateRange.value && dateRange.value.length === 2) {
-      const examDate = new Date(exam.exam_date);
+      const examDate = new Date(exam.startTime);
       const startDate = new Date(dateRange.value[0]);
       const endDate = new Date(dateRange.value[1]);
       
@@ -448,7 +432,7 @@ const filteredExamList = computed(() => {
     
     // 关键词筛选
     if (searchKeyword.value.trim()) {
-      matchKeyword = exam.exam_name.toLowerCase().includes(searchKeyword.value.toLowerCase());
+      matchKeyword = exam.examName.toLowerCase().includes(searchKeyword.value.toLowerCase());
     }
     
     // 状态筛选
@@ -481,99 +465,75 @@ const dialogType = ref<'add' | 'edit'>('add')
 const formRef = ref<FormInstance>()
 
 // 考试表单
-const examForm = reactive<ExamInfo>({
-  exam_name: '',
-  exam_type: '',
-  exam_date: '',
-  duration: 120,
-  subjects: '',
+const examForm = ref<ExamItem>({
+  id: 0,
+  examName: '',
+  examType: '',
+  startTime: '',
+  endTime: '',
   status: 0,
-  remark: ''
+  description: null,
+  createTime: ''
 })
 
 // 表单验证规则
 const formRules = {
-  exam_name: [
+  examName: [
     { required: true, message: '请输入考试名称', trigger: 'blur' },
     { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
   ],
-  exam_type: [
+  examType: [
     { required: true, message: '请选择考试类型', trigger: 'change' }
   ],
-  exam_date: [
-    { required: true, message: '请选择考试日期', trigger: 'change' }
+  startTime: [
+    { required: true, message: '请选择开始日期时间', trigger: 'change' }
   ],
-  duration: [
-    { required: true, message: '请设置考试时长', trigger: 'change' }
+  endTime: [
+    { required: true, message: '请选择结束日期时间', trigger: 'change' }
   ],
-  subjects: [
-    { required: true, message: '请选择至少一个考试科目', trigger: 'change' }
+  status: [
+    { required: true, message: '请选择考试状态', trigger: 'change' }
   ]
 }
 
 // 格式化日期
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '-'
-  try {
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) return '-'
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).replace(/\//g, '-')
-  } catch (e) {
-    return '-'
-  }
+const formatDate = (dateStr: string | null | Date) => {
+  if (!dateStr) return 'N/A';
+  return dayjs(dateStr).format('YYYY-MM-DD');
 }
 
 // 格式化日期时间
-const formatDateTime = (dateTimeStr: string) => {
-  if (!dateTimeStr) return '-'
-  try {
-    const date = new Date(dateTimeStr)
-    if (isNaN(date.getTime())) return '-'
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).replace(/\//g, '-')
-  } catch (e) {
-    return '-'
-  }
+const formatDateTime = (dateTimeStr: string | null | Date) => {
+  if (!dateTimeStr) return 'N/A';
+  return dayjs(dateTimeStr).format('YYYY-MM-DD HH:mm:ss');
 }
 
 // 获取考试类型标签样式
-const getExamTypeTag = (type: string) => {
-  switch (type) {
-    case '月考': return 'info'
-    case '期中': return 'success'
-    case '期末': return 'danger'
-    case '模拟': return 'warning'
-    default: return 'info'
-  }
+const getExamTypeTag = (type: string | null | undefined): '' | 'success' | 'info' | 'warning' | 'danger' => {
+  if (!type) return 'info';
+  if (type.includes('期末')) return 'danger';
+  if (type.includes('期中')) return 'warning';
+  if (type.includes('月考')) return 'success';
+  return 'info';
 }
 
 // 获取状态类型
-const getStatusType = (status: number) => {
+const getStatusType = (status: number | null | undefined): 'info' | 'primary' | 'success' | 'warning' | 'danger' => {
   switch (status) {
-    case 0: return 'info'
-    case 1: return 'success'
-    case 2: return 'danger'
-    default: return 'info'
+    case 0: return 'info';
+    case 1: return 'primary';
+    case 2: return 'success';
+    default: return 'info';
   }
 }
 
 // 获取状态文本
-const getStatusText = (status: number) => {
+const getStatusText = (status: number | null | undefined) => {
   switch (status) {
-    case 0: return '未开始'
-    case 1: return '进行中'
-    case 2: return '已结束'
-    default: return '未知'
+    case 0: return '未开始';
+    case 1: return '进行中';
+    case 2: return '已结束';
+    default: return '未知';
   }
 }
 
@@ -604,76 +564,47 @@ const handleSizeChange = (size: number) => {
 
 // 获取考试列表
 const fetchExamList = async () => {
-  loading.value = true
-  emptyText.value = '加载中...'
-  // 重置列表和总数，避免显示旧数据
-  examList.value = [];
-  total.value = 0;
-
+  loading.value = true;
   try {
-    const params: any = {
+    const params: ExamQueryParams = {
       page: currentPage.value,
       pageSize: pageSize.value,
-      // 只有当值不为空时才传递参数，减少不必要的查询条件
-      keyword: searchKeyword.value || undefined,
-      examType: filterExamType.value || undefined,
+      keyword: searchKeyword.value,
+      examType: filterExamType.value,
       startDate: dateRange.value ? dateRange.value[0] : undefined,
       endDate: dateRange.value ? dateRange.value[1] : undefined,
-      status: (statusFilter.value !== null && statusFilter.value !== undefined) ? statusFilter.value : undefined
+      status: statusFilter.value || undefined
     };
-
-    // 清理 undefined 参数
-    Object.keys(params).forEach(key => params[key] === undefined && delete params[key]);
-
-    console.log('调用getExamList API, 清理后参数:', params); // 确认最终参数
-    const res = await getExamList(params); // API 调用
-
-    // 这个检查现在类型上是正确的
-    if (res && res.code === 200 && res.data && typeof res.data === 'object' && Array.isArray(res.data.list) && typeof res.data.total === 'number') {
-      console.log('考试列表API响应成功 (Data):', res.data); // res.data is ExamListResponse { list, total }
-
-      const listItems: ExamInfo[] = res.data.list; // 类型匹配
-      const totalItems: number = res.data.total; // 类型匹配
-
-      // 规范化数据
-      examList.value = listItems.map(item => ({
-        ...item,
-        subjects: typeof item.subjects === 'string'
-          ? item.subjects.split(',').map(s => s.trim()).filter(Boolean) // 分割、去空格、去空项
-          : Array.isArray(item.subjects) ? item.subjects : []
+    
+    const res = await getExamList(params);
+    console.log('考试列表API响应:', res);
+    
+    if (res.code === 200 && res.data && Array.isArray(res.data.list)) {
+      examList.value = res.data.list.map(item => ({
+        id: item.id,
+        examName: item.exam_name,
+        examType: item.exam_type,
+        startTime: item.exam_date,
+        endTime: item.end_time || '',
+        status: item.status || 0,
+        description: item.description || null,
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '',
+        duration: item.duration || 0,
+        subjects: item.subjects ? (Array.isArray(item.subjects) ? item.subjects : item.subjects.split(',')) : []
       }));
-
-      total.value = totalItems; // 使用后端返回的总数
-
-      // 更新空状态文本
-      emptyText.value = totalItems === 0 ? '暂无符合条件的考试数据' : '';
-      console.log('考试列表数据处理完成:', examList.value.length, '总数:', total.value);
-
+      total.value = res.data.total || res.data.list.length;
     } else {
-      // 处理非 200 或数据结构错误的响应
-      console.warn('API响应异常或数据格式不正确:', res); // 打印整个 res 对象查看原因
-      ElMessage.warning(res?.message || '获取考试列表失败，响应格式或状态码错误');
-      emptyText.value = '加载数据失败';
-      // 清空列表和总数
+      ElMessage.warning(res.message || '获取考试列表失败');
       examList.value = [];
       total.value = 0;
     }
   } catch (error: any) {
-    console.error('获取考试列表失败 (catch):', error);
-    let errorMsg = '获取考试列表失败';
-    if (error.response && error.response.data && error.response.data.message) {
-      errorMsg = `获取考试列表失败: ${error.response.data.message}`;
-    } else if (error.message) {
-       errorMsg = `获取考试列表失败: ${error.message}`;
-    }
-    ElMessage.error(errorMsg); // 使用 Error 提示更醒目
-    emptyText.value = '加载数据失败';
-    // 这里可以选择是否加载模拟数据
-    // await mockExamList();
-    // total.value = examList.value.length;
+    console.error('获取考试列表失败:', error);
+    ElMessage.error(error.message || '获取考试列表失败');
+    examList.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
-    // 不再需要手动更新 total，它应该在 try 块中从后端获取
   }
 };
 
@@ -681,7 +612,7 @@ const fetchExamList = async () => {
 const fetchExamTypes = async () => {
   examTypeLoading.value = true;
   try {
-    const res = await getExamTypeOptions();
+    const res = await getExamTypes();
     if (res.code === 200 && Array.isArray(res.data)) {
       // 将从后端获取的类型列表赋值给 ref
       dynamicExamTypeOptions.value = res.data;
@@ -702,42 +633,39 @@ const fetchExamTypes = async () => {
 // 新增考试
 const handleAddExam = () => {
   dialogType.value = 'add'
-  resetExamForm()
+  resetForm()
   dialogVisible.value = true
 }
 
 // 编辑考试
-const handleEditExam = (row: ExamInfo) => {
+const handleEditExam = (row: ExamItem) => {
   dialogType.value = 'edit'
-  resetExamForm()
-  
-  // 填充表单数据
-  Object.keys(examForm).forEach(key => {
-    const k = key as keyof ExamInfo
-    if (k === 'subjects' && typeof row[k] === 'string') {
-      // 确保 rowData.subjects 是字符串再 split，否则给空数组
-      examForm[k] = typeof row[k] === 'string' && row[k] ? row[k].split(',') : []
-    } else if (k in row) {
-      // 使用类型断言确保类型安全
-      (examForm[k] as any) = row[k]
-    }
-  })
-  
-  // 保存ID用于更新
-  examForm.id = row.id
-  
   dialogVisible.value = true
+  
+  // 将 ExamItem 数据填充到 examForm
+  examForm.value = {
+    id: row.id,
+    examName: row.examName,
+    examType: row.examType,
+    startTime: row.startTime, // 使用 startTime
+    endTime: row.endTime, // 使用 endTime
+    status: row.status,
+    description: row.description, // 使用 description
+    createTime: row.createTime // 填充 createTime
+    // 移除 examDate, duration, subjects, remark
+  }
+  console.log('编辑考试, 表单数据:', examForm.value)
 }
 
 // 删除考试
-const handleDeleteExam = async (row: ExamInfo) => {
+const handleDeleteExam = async (row: ExamItem) => {
   if (!row.id) {
     ElMessage.warning('无效的考试ID')
     return
   }
   
   ElMessageBox.confirm(
-    `确定要删除考试 "${row.exam_name}" 吗？此操作不可恢复。`,
+    `确定要删除考试 "${row.examName}" 吗？此操作不可恢复。`,
     '警告',
     {
       confirmButtonText: '确定',
@@ -778,84 +706,69 @@ const handleDeleteExam = async (row: ExamInfo) => {
 }
 
 // 重置表单
-const resetExamForm = () => {
-  examForm.id = undefined
-  examForm.exam_name = ''
-  examForm.exam_type = ''
-  examForm.exam_date = ''
-  examForm.duration = 120
-  examForm.subjects = ''
-  examForm.status = 0
-  examForm.remark = ''
-  
-  if (formRef.value) {
-    formRef.value.resetFields()
+const resetForm = () => {
+  examForm.value = {
+    id: 0,
+    examName: '',
+    examType: '',
+    startTime: '',
+    endTime: '',
+    status: 0,
+    description: null,
+    createTime: ''
   }
 }
 
 // 提交表单
 const submitExamForm = async () => {
   if (!formRef.value) return
-  
-  await formRef.value.validate(async (valid) => {
-    if (!valid) {
-      ElMessage.warning('请完善表单信息')
-      return
-    }
-    
+
+  try {
+    await formRef.value.validate()
     submitLoading.value = true
-    
-    try {
-      // 处理科目数组转字符串
-      const formData = { ...examForm } as ExamInfo
-      if (Array.isArray(formData.subjects)) {
-        formData.subjects = formData.subjects.join(',')
-      }
-      
-      // 根据dialogType调用不同的API
-      let res;
-      if (dialogType.value === 'add') {
-        res = await addExam(formData);
-      } else {
-        // 如果是编辑，确保有id
-        if (!formData.id) {
-          ElMessage.error('缺少考试ID，无法更新');
-          submitLoading.value = false;
-          return;
-        }
-        // 修正updateExam调用，提取id作为单独参数
-        res = await updateExam(formData.id, formData);
-      }
-      
-      // Check for success codes 200 (Update) or 201 (Create)
-      if (res.code === 200 || res.code === 201) { 
-        ElMessage.success(dialogType.value === 'add' ? '创建成功' : '更新成功');
-        dialogVisible.value = false;
-        fetchExamList(); // Refresh list on success
-      } else {
-        // Handle backend error response
-        ElMessage.error(res.message || (dialogType.value === 'add' ? '创建失败' : '更新失败'));
-        // Consider not closing dialog on backend error?
-        // dialogVisible.value = false; 
-        // fetchExamList(); 
-      }
-    } catch (error: any) { // Catch block with type assertion
-      console.error(dialogType.value === 'add' ? '创建考试失败:' : '更新考试失败:', error);
-      // Display the actual error message
-      let errorMessage = dialogType.value === 'add' ? '创建失败' : '更新失败';
-      if (error.response && error.response.data && error.response.data.message) {
-        errorMessage += `: ${error.response.data.message}`;
-      } else if (error.message) {
-        errorMessage += `: ${error.message}`;
-      }
-      ElMessage.error(errorMessage);
-      // Do not close dialog on error, let user fix it or cancel
-      // dialogVisible.value = false;
-      // fetchExamList();
-    } finally {
-      submitLoading.value = false;
+
+    // 准备提交的数据 - 假设后端需要 snake_case
+    const backendData = {
+      id: examForm.value.id || undefined,
+      exam_name: examForm.value.examName,
+      exam_type: examForm.value.examType,
+      start_time: examForm.value.startTime,
+      end_time: examForm.value.endTime,
+      status: examForm.value.status,
+      description: examForm.value.description
+      // 不提交 createTime
     }
-  })
+
+    let res: ApiResponse<any>;
+    if (dialogType.value === 'add') {
+      // addExam 可能需要移除 id
+      const addData = { ...backendData };
+      delete addData.id;
+      res = await addExam(addData)
+    } else {
+      if (!backendData.id) {
+        ElMessage.error('缺少考试ID，无法更新')
+        submitLoading.value = false
+        return
+      }
+      // updateExam 第一个参数是 id, 第二个是数据
+      res = await updateExam(backendData.id, backendData)
+    }
+
+    if (res?.code === 200 || res?.code === 201) {
+      ElMessage.success(dialogType.value === 'add' ? '创建成功' : '更新成功')
+      dialogVisible.value = false
+      fetchExamList()
+    } else {
+      ElMessage.error(res?.message || (dialogType.value === 'add' ? '创建失败' : '更新失败'))
+    }
+  } catch (error: any) {
+    console.error(dialogType.value === 'add' ? '创建考试失败:' : '更新考试失败:', error)
+    const errorMsg = error.response?.data?.message || error.message || (dialogType.value === 'add' ? '创建失败' : '更新失败')
+    ElMessage.error(errorMsg)
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 // 发布/取消发布考试
@@ -878,6 +791,48 @@ const handlePublish = async (id: number, status: number) => {
   } catch (error) {
     console.error('发布/取消发布异常:', error);
     ElMessage.error(status === 1 ? '发布考试失败' : '取消发布考试失败');
+  }
+}
+
+// 修改考试状态
+const handleStatusChange = async (exam: ExamItem) => {
+  try {
+    const examDate = new Date(exam.startTime);
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    if (examDate < now) {
+      ElMessage.warning('考试已结束，无法修改状态');
+      return;
+    }
+
+    if (examDate <= threeDaysFromNow) {
+      await ElMessageBox.confirm(
+        '考试即将开始，确定要修改状态吗？',
+        '警告',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      );
+    }
+
+    const newStatus = exam.status === 0 ? 1 : 0;
+    const res = await updateExamStatus(exam.id, newStatus);
+    
+    if (res.code === 200) {
+      ElMessage.success('状态更新成功');
+      await fetchExamList();
+    } else {
+      ElMessage.error(res.message || '状态更新失败');
+    }
+  } catch (error: any) {
+    if (error?.toString().includes('cancel')) {
+      return;
+    }
+    console.error('状态更新失败:', error);
+    ElMessage.error('状态更新失败');
   }
 }
 

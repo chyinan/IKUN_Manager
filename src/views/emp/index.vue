@@ -189,6 +189,7 @@ import { exportToExcel } from '@/utils/export'
 import type { Pagination } from '@/types/pagination'
 import type { DeptResponseData, ApiDeptResponse } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
+import dayjs from 'dayjs'
 
 // 初始化部门数据
 const initDeptOptions = () => {
@@ -432,41 +433,59 @@ const handleExport = () => {
 // 获取部门列表
 const fetchDeptList = async () => {
   try {
-    console.log('开始获取部门列表...');
-    // 注意：getDeptList 返回的是 AxiosResponse<ApiResponse<DeptResponseData[]>>
-    const response = await getDeptList(); 
-    console.log('部门API返回数据:', response);
-    
-    // 正确检查 response.data.code 和 response.data.data
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      const deptData = response.data.data as DeptResponseData[]; // 明确类型
-      
-      if (deptData.length > 0) {
-        // 从 deptData 提取部门名称
-        const apiDepts = deptData.map(item => item.dept_name).filter(name => name); // 过滤掉空名称
-        
-        if (apiDepts.length > 0) {
-          deptOptions.value = apiDepts;
-          console.log('从API获取的部门列表:', deptOptions.value);
-          return true; // 表示成功从 API 获取
-        }
-      }
+    const response = await getDeptList()
+    if (response?.code === 200 && Array.isArray(response.data)) {
+      deptOptions.value = response.data.map(item => item.dept_name).filter(name => name)
+    } else {
+      ElMessage.warning(response?.message || '获取部门列表失败')
     }
-    // 如果以上条件不满足，则记录日志并准备使用默认值
-    console.log('API返回的部门数据无效或为空，将使用默认部门', response?.data);
+  } catch (error: any) {
+    console.error('获取部门列表失败:', error)
+    ElMessage.error(error.response?.data?.message || error.message || '获取部门列表失败')
+  }
+}
 
+// 获取员工列表
+const fetchData = async () => {
+  try {
+    loading.value = true
+    console.log('开始获取员工列表...')
+    const res = await getEmployeeList()
+    console.log('员工列表API响应:', res)
+    
+    if (res && res.code === 200 && Array.isArray(res.data)) {
+      tableData.value = res.data.map((item: EmployeeItemResponse): EmployeeItem => ({
+        id: item.id,
+        empId: item.emp_id,
+        name: item.name,
+        gender: item.gender,
+        age: item.age,
+        position: item.position,
+        deptName: item.dept_name,
+        salary: item.salary,
+        status: item.status,
+        phone: item.phone || '',
+        email: item.email || '',
+        joinDate: item.join_date ? dayjs(item.join_date).format('YYYY-MM-DD') : '-',
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-'
+      }))
+      
+      pagination.total = res.data.length
+      console.log('成功获取员工数据:', tableData.value)
+    } else {
+      console.warn('员工列表API响应格式不正确或 code !== 200:', res)
+      ElMessage.warning(res?.message || '获取员工数据失败')
+      tableData.value = []
+      pagination.total = 0
+    }
   } catch (error) {
-    console.error('获取部门列表失败:', error);
-    ElMessage.warning('获取部门列表失败，使用默认部门');
+    console.error('获取员工列表失败:', error)
+    ElMessage.error('获取员工数据失败')
+    tableData.value = []
+    pagination.total = 0
+  } finally {
+    loading.value = false
   }
-  
-  // 如果API获取失败或数据无效，确保使用默认部门
-  if (!deptOptions.value || deptOptions.value.length === 0) {
-    deptOptions.value = initDeptOptions();
-    console.log('已使用默认部门列表:', deptOptions.value);
-  }
-  
-  return false; // 表示未使用 API 数据
 }
 
 // 筛选数据
@@ -586,75 +605,6 @@ const autoFixUndefinedDepts = () => {
     );
   }
 }
-
-// 获取数据
-const fetchData = async () => {
-  loading.value = true
-  
-  try {
-    if (!deptOptions.value || deptOptions.value.length === 0) {
-      console.log('fetchData: 部门选项为空，尝试重新获取');
-      await fetchDeptList();
-    }
-    
-    // getEmployeeList 返回的是 AxiosResponse<ApiResponse<EmployeeItemResponse[]>>
-    const response = await getEmployeeList(); 
-    console.log('员工列表原始API响应:', response); 
-
-    // 还原正确的条件检查：检查 response.data.code 和 response.data.data 是否为数组
-    // 忽略潜在的 Linter 误报
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      const employeeData = response.data.data as EmployeeItemResponse[];
-      console.log('API返回了有效的员工数据数组', employeeData);
-      
-      if (employeeData.length > 0) {
-        // 直接使用 employeeData 进行映射
-        const processedData = employeeData.map((item, index) => {
-          const apiDeptName = item.dept_name;
-          let finalDeptName: string;
-          if (apiDeptName && typeof apiDeptName === 'string' && apiDeptName.trim() !== '' && apiDeptName !== 'undefined') {
-            finalDeptName = apiDeptName;
-          } else {
-            finalDeptName = deptOptions.value[index % deptOptions.value.length] || initDeptOptions()[0];
-          }
-          return {
-            id: item.id,
-            empId: item.emp_id,
-            name: item.name,
-            deptName: finalDeptName,
-            gender: item.gender,
-            age: item.age,
-            position: item.position,
-            salary: Number(item.salary),
-            status: item.status,
-            phone: item.phone || undefined,
-            email: item.email || undefined,
-            joinDate: item.join_date ? new Date(item.join_date).toLocaleDateString('zh-CN') : 'N/A',
-            createTime: item.create_time ? new Date(item.create_time).toLocaleString('zh-CN') : 'N/A'
-          } as EmployeeItem;
-        });
-        
-        tableData.value = processedData;
-        pagination.total = processedData.length; 
-        console.log(`成功处理并显示 ${processedData.length} 条员工数据`);
-      } else {
-         console.log('API 返回员工数据为空数组');
-         tableData.value = [];
-         pagination.total = 0;
-      }
-    } else {
-      // 如果 getEmployeeList 返回的响应格式不符合预期
-      console.warn('员工列表API响应格式不正确或 code !== 200，使用模拟数据。实际响应:', response?.data);
-      generateMockData();
-    }
-  } catch (error) {
-    console.error('获取员工数据时发生错误:', error);
-    ElMessage.warning('获取员工数据失败，使用模拟数据');
-    generateMockData();
-  } finally {
-    loading.value = false;
-  }
-};
 
 // 强制为所有记录分配部门
 const fixAllDepts = () => {

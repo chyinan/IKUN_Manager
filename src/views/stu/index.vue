@@ -132,7 +132,7 @@ import { Delete, Edit, Plus, Search, Download, Male, Female } from '@element-plu
 import type { FormInstance, FormRules } from 'element-plus'
 import { exportToExcel } from '@/utils/export'
 import { getClassList } from '@/api/class'
-import type { StudentItem, StudentItemResponse, StudentSubmitData } from '@/types/common'
+import type { StudentItem, StudentItemResponse, StudentSubmitData, ClassItemResponse } from '@/types/common'
 import type { Pagination } from '@/types/response'
 import dayjs from 'dayjs'
 
@@ -204,10 +204,10 @@ const fetchData = async () => {
     const res = await getStudentList()
     console.log('学生列表API响应:', res)
     
-    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-      // 处理API返回的数据
-      tableData.value = res.data.data.map((item: StudentItemResponse): StudentItem => {
-        // 处理入学时间格式
+    if (res && res.code === 200 && Array.isArray(res.data)) {
+      // Handle API response data (res.data is the array)
+      tableData.value = res.data.map((item: StudentItemResponse): StudentItem => {
+        // Process join date format
         let joinDateDisplay = item.join_date;
         try {
           if (item.join_date) {
@@ -228,15 +228,21 @@ const fetchData = async () => {
           phone: item.phone || '',
           email: item.email || '',
           joinDate: joinDateDisplay,
+          createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '未知'
         }
       })
       
-      // 更新分页数据
-      pagination.total = tableData.value.length
+      // Update pagination total based on the actual data length
+      pagination.total = res.data.length // Use res.data.length
       console.log('成功获取学生数据:', tableData.value)
     } else {
-      console.warn('学生列表API响应格式不正确或 code !== 200，使用模拟数据')
-      generateMockData()
+      // Log the actual response if the structure is unexpected
+      console.warn('学生列表API响应格式不正确或 code !== 200:', res)
+      // Removed generateMockData() call to avoid confusion
+      // generateMockData()
+      ElMessage.warning(res?.message || '获取学生数据失败'); // Show API message or default
+      tableData.value = []; // Clear table data on error
+      pagination.total = 0;
     }
   } catch (error) {
     console.error('获取学生列表失败:', error)
@@ -414,15 +420,23 @@ const handleExport = () => {
 // 获取班级列表
 const fetchClassList = async () => {
   try {
-    const classes = await getClassList()
-    if (Array.isArray(classes)) {
-      classList.value = classes.map(item => item.className)
+    const res = await getClassList(); // 假设返回 ApiResponse<ClassItemResponse[]>
+    console.log('Fetch class list response:', res);
+    // 直接检查 res.code 和 res.data
+    if (res && res.code === 200 && Array.isArray(res.data)) {
+       // 确保使用 common.ts 的类型
+      classList.value = res.data.map((item: ClassItemResponse) => item.class_name).filter(Boolean);
+       console.log('Class list loaded:', classList.value);
+    } else {
+       // 直接访问 res.message
+      ElMessage.warning(res?.message || '获取班级选项失败');
+       classList.value = [];
     }
   } catch (error) {
-    console.error('获取班级列表失败:', error)
-    ElMessage.error('获取班级列表失败')
+    console.error('获取班级选项失败:', error);
+    classList.value = [];
   }
-}
+};
 
 // 分页数据
 const pagination = reactive<Pagination>({
@@ -431,59 +445,69 @@ const pagination = reactive<Pagination>({
   total: 0
 })
 
-// 添加模拟学生数据生成函数
-const generateMockData = () => {
-  // 使用班级列表，如果为空则创建默认班级
-  const classNames = classList.value.length > 0 ? 
-    classList.value : 
-    ['计算机科学2401班', '软件工程2402班', '人工智能2403班', '大数据分析2404班', '网络安全2405班']
-  
-  // 创建模拟学生数据
-  const mockStudents = [];
-  for (let i = 0; i < 30; i++) {
-    const gender = Math.random() > 0.5 ? '男' : '女'
-    const className = classNames[Math.floor(Math.random() * classNames.length)]
-    
-    mockStudents.push({
-      id: i + 1,
-      studentId: `2024${String(i + 1).padStart(3, '0')}`,
-      name: `${gender === '男' ? '张' : '李'}同学${i + 1}`,
-      className: className,
-      gender: gender,
-      phone: `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
-      email: `student${i + 1}@example.com`,
-      joinDate: new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('zh-CN')
-    })
+// 数据转换函数
+const convertToStudentItem = (item: StudentItemResponse): StudentItem => {
+  const joinDateDisplay = item.join_date ? dayjs(item.join_date).format('YYYY-MM-DD') : '-';
+  return {
+    id: item.id,
+    studentId: item.student_id,
+    name: item.name,
+    gender: item.gender,
+    className: item.class_name,
+    phone: item.phone || '',
+    email: item.email || '',
+    joinDate: joinDateDisplay,
+    createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-'
   }
-  
-  tableData.value = mockStudents
-  pagination.total = mockStudents.length
-  console.log('生成的模拟学生数据:', tableData.value)
 }
+
+// 生成模拟数据
+const generateMockData = () => {
+  const mockStudents: StudentItem[] = [];
+  const genders = ['男', '女'];
+  const classOptions = classList.value.length > 0 ? classList.value : ['计算机科学2401班', '软件工程2402班']; // Fallback classes
+
+  for (let i = 0; i < 20; i++) {
+    const gender = genders[i % 2];
+    const className = classOptions[i % classOptions.length];
+    const joinDate = dayjs().subtract(Math.floor(Math.random() * 365), 'day').format('YYYY-MM-DD');
+    const createTime = dayjs().subtract(Math.floor(Math.random() * 10), 'day').format('YYYY-MM-DD HH:mm:ss');
+
+    mockStudents.push({
+      id: 1000 + i,
+      studentId: `S${2024000 + i}`,
+      name: `学生${i + 1}`,
+      gender: gender,
+      className: className,
+      phone: `13${Math.floor(Math.random() * 1000000000)}`,
+      email: `student${i}@example.com`,
+      joinDate: joinDate,
+      createTime: createTime // Add createTime field
+    });
+  }
+  tableData.value = mockStudents;
+  pagination.total = mockStudents.length;
+};
 
 // 新增：获取班级选项列表
 const fetchClassOptions = async () => {
   try {
-    console.log('开始获取班级选项...');
-    // 使用从 @/api/class 导入的 getClassList
-    const res = await getClassList(); 
-    console.log('班级选项API响应:', res);
-
-    // 检查响应和数据结构
-    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-      // 提取班级名称列表
-      // 后端返回的是 ClassItemResponse[], 需要取 class_name
-      classList.value = res.data.data.map((item: any) => item.class_name).filter(Boolean);
-      console.log('成功获取班级选项:', classList.value);
+    const res = await getClassList(); // 假设返回 ApiResponse<ClassItemResponse[]>
+    console.log('Class options response:', res);
+    // 直接检查 res.code 和 res.data
+    if (res && res.code === 200 && Array.isArray(res.data)) {
+      // 确保使用 common.ts 的类型
+      classList.value = res.data.map((item: ClassItemResponse) => item.class_name).filter(Boolean as any);
+      console.log('Class options loaded:', classList.value);
     } else {
-      console.warn('获取班级选项失败或响应格式不正确:', res);
-      ElMessage.warning(res?.data?.message || '获取班级选项失败');
-      classList.value = []; // 清空列表
+      // 直接访问 res.message
+      ElMessage.warning(res?.message || '获取班级选项失败');
+      classList.value = [];
     }
-  } catch (error) {
-    console.error('获取班级选项失败 (catch):', error);
-    ElMessage.error('获取班级选项时出错');
-    classList.value = []; // 清空列表
+  } catch (error: any) {
+    console.error('获取班级选项失败:', error);
+    ElMessage.error(error.message || '获取班级选项失败');
+    classList.value = [];
   }
 };
 

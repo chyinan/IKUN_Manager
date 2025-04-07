@@ -20,6 +20,7 @@ export interface ExamQueryParams {
   examType?: string;
   startDate?: string;
   endDate?: string;
+  status?: number;
 }
 
 // 考试列表响应 (定义 data 字段的结构)

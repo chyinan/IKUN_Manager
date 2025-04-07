@@ -34,8 +34,8 @@
       matched.unshift({
         path: '/dashboard',
         meta: { title: '首页' },
-        redirect: undefined
-      })
+        // redirect: undefined // 移除或注释掉,因为 any 类型不需要显式指定
+      } as any) // 使用 as any 断言
     }
     
     breadcrumbs.value = matched

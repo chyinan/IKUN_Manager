@@ -306,46 +306,32 @@ const fetchExamTypes = async () => {
 // 获取班级列表
 const fetchClassList = async () => {
   try {
-    console.log('开始获取班级列表...')
     const response = await getClassList()
-    console.log('班级列表API响应:', response)
-    
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      classList.value = response.data.data.map(item => item.class_name || '')
-      console.log('成功获取班级列表:', classList.value)
+    if (response?.code === 200 && Array.isArray(response.data)) {
+      classList.value = response.data.map(item => item.class_name || '')
     } else {
-      console.warn('班级列表API响应格式不正确或 code !== 200，使用默认值')
-      generateMockClassData()
+      ElMessage.warning(response?.message || '获取班级列表失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取班级列表失败:', error)
-    ElMessage.error('获取班级列表失败')
-    generateMockClassData()
+    ElMessage.error(error.response?.data?.message || error.message || '获取班级列表失败')
   }
 }
 
 // 获取学生列表
-const fetchStudentList = async (className: string) => {
+const fetchStudentList = async () => {
   try {
-    console.log('开始获取学生列表, 班级:', className)
-    const response = await getStudentList() // response is AxiosResponse
-    console.log('学生列表API响应:', response)
-    
-    // Check the actual API data within response.data
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      // Filter the actual student array from response.data.data
-      studentList.value = response.data.data.filter((student: StudentItemResponse) => 
-        student.class_name && student.class_name === className
-      )
-      console.log('筛选后的学生列表:', studentList.value)
+    const response = await getStudentList()
+    if (response?.code === 200 && Array.isArray(response.data)) {
+      studentList.value = response.data.filter((student: StudentItemResponse) => {
+        return !selectedClass.value || student.class_name === selectedClass.value
+      })
     } else {
-      // Log the actual response data for debugging if the format is wrong
-      console.warn('学生列表API响应格式不正确或 code !== 200, 响应数据:', response.data)
-      studentList.value = []
+      ElMessage.warning(response?.message || '获取学生列表失败')
     }
-  } catch (error) {
-    console.error('获取学生列表异常:', error)
-    studentList.value = []
+  } catch (error: any) {
+    console.error('获取学生列表失败:', error)
+    ElMessage.error(error.response?.data?.message || error.message || '获取学生列表失败')
   }
 }
 
@@ -402,17 +388,22 @@ const handleClassChange = async () => {
 // Fetch all students for a class (helper needed after revert)
 const fetchStudentListForClass = async (className: string) => {
   try {
-    const response = await getStudentList(); // Fetch all students
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-        // Filter locally
-        studentList.value = response.data.data.filter((student: StudentItemResponse) =>
+    // Assuming getStudentList returns Promise<ApiResponse<StudentItemResponse[]>>
+    const response = await getStudentList(); 
+    // Check response.code and response.data directly
+    if (response && response.code === 200 && Array.isArray(response.data)) {
+        // Filter locally based on className
+        studentList.value = response.data.filter((student: StudentItemResponse) =>
             student.class_name && student.class_name === className
         );
     } else {
+        // Handle error or empty data from API
+        ElMessage.warning(response?.message || '获取学生列表失败或无数据');
         studentList.value = [];
     }
-  } catch (error) {
-      console.error('获取学生列表失败:', error);
+  } catch (error: any) {
+      console.error('获取学生列表失败 (catch):', error);
+      ElMessage.error(error.response?.data?.message || error.message || '获取学生列表失败');
       studentList.value = [];
   }
 };

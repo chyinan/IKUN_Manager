@@ -128,12 +128,13 @@ import type { ScoreReportData, ScoreAnalysis, ChartData } from '@/types/scoreRep
 import type { 
   StudentItemResponse,
   StudentItem 
-} from '@/types/student'
+} from '@/types/common'
 import type { 
   ClassItemResponse,
   ClassItem 
-} from '@/types/class'
+} from '@/types/common'
 import type { ScoreStatistics } from '@/types/score'
+import dayjs from 'dayjs'
 
 // 定义科目类型
 const subjects: ImportedSubjectType[] = ['语文', '数学', '英语', '物理', '化学', '生物']
@@ -209,52 +210,94 @@ const subjectTotals = ref<Record<ImportedSubjectType, { sum: number; count: numb
   生物: { sum: 0, count: 0 }
 })
 
-// 数据转换函数
-const convertStudentResponse = (item: StudentItemResponse): StudentItem => ({
-  id: item.id,
-  studentId: item.student_id,
-  name: item.name,
-  gender: item.gender,  // 添加性别字段
-  className: item.class_name,
-  phone: item.phone || '',
-  email: item.email || '',
-  joinDate: new Date(item.join_date).toLocaleDateString('zh-CN'),
-  createTime: new Date(item.create_time).toLocaleString('zh-CN')  // 添加创建时间字段
-})
+// 数据转换函数 - 确保参数类型匹配 common.ts
+const convertStudentResponse = (item: StudentItemResponse): StudentItem => {
+  return {
+    id: item.id,
+    studentId: item.student_id,
+    name: item.name,
+    gender: item.gender,
+    classId: item.class_id,
+    className: item.class_name,
+    phone: item.phone || '',
+    email: item.email || '',
+    joinDate: item.join_date ? dayjs(item.join_date).format('YYYY-MM-DD') : '-',
+    createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-'
+  }
+}
 
-const convertClassResponse = (item: ClassItemResponse): ClassItem => ({
-  id: item.id,
-  className: item.class_name,
-  studentCount: item.student_count,
-  teacher: item.teacher,
-  createTime: item.create_time,
-  description: item.description
-})
+interface ClassItem {
+  id: number;
+  className: string;
+  teacher: string;
+  studentCount: number;
+  createTime: string;
+  description: string;
+}
+
+const convertClassResponse = (item: any): ClassItem => {
+  return {
+    id: item.id,
+    className: item.class_name,
+    teacher: item.teacher || '-',
+    studentCount: item.student_count || 0,
+    createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-',
+    description: item.description || '-'
+  };
+};
 
 // 获取统计数据
 const fetchStatistics = async () => {
+  loading.value = true
   try {
+    // 并行获取学生和班级列表
     const [studentRes, classRes] = await Promise.all([
-      getStudentList(),
-      getClassList()
+      getStudentList(), // 假设返回 Promise<ApiResponse<StudentItemResponse[]>>
+      getClassList()    // 假设返回 Promise<ApiResponse<ClassItemResponse[]>>
     ])
 
-    // 为 students 和 classes 添加类型断言
-    if (studentRes.code === 200 && Array.isArray(studentRes.data)) {
-      students.value = studentRes.data.map(convertStudentResponse)
-      // 提取班级名称列表
-      classList.value = classRes.data?.map(item => item.class_name) || []
+    console.log('Student API Response:', studentRes)
+    console.log('Class API Response:', classRes)
 
-      // 更新基础统计数据
-      summaryData.value[0].value = students.value.length.toString()
-      summaryData.value[1].value = classList.value.length.toString()
-      
-      // 初始计算优秀率
-      await calculateExcellentRate()
+    // 处理学生数据
+    if (studentRes && studentRes.code === 200 && Array.isArray(studentRes.data)) {
+      // 确保使用 common.ts 的类型进行映射
+      students.value = studentRes.data
+        .filter(item => item && item.id && item.student_id && item.name && item.class_id)
+        .map(convertStudentResponse); // 直接传递转换函数
+      console.log('Processed Students:', students.value)
+    } else {
+      ElMessage.warning(studentRes?.message || '获取学生数据失败')
+      students.value = []
     }
-  } catch (error) {
-    console.error('初始化数据失败:', error)
-    ElMessage.error('初始化数据失败')
+
+    // 处理班级数据
+    if (classRes && classRes.code === 200 && Array.isArray(classRes.data)) {
+      // 确保使用 common.ts 的类型进行映射
+      classes.value = classRes.data.map((item: ClassItemResponse): ClassItem => ({
+        id: item.id,
+        className: item.class_name,
+        teacher: item.teacher,
+        studentCount: item.student_count,
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-',
+        description: item.description || '' // 处理 null/undefined
+      }));
+      console.log('Processed Classes:', classes.value)
+    } else {
+      ElMessage.warning(classRes?.message || '获取班级数据失败')
+      classes.value = []
+    }
+
+    // 数据加载完成后计算报表数据
+    // calculateReportData(); // 移除或注释掉不存在的函数调用
+
+  } catch (error: any) {
+    console.error('获取统计数据失败:', error)
+    ElMessage.error(error.message || '获取统计数据失败')
+    students.value = []
+    classes.value = []
+  } finally {
+    loading.value = false
   }
 }
 
@@ -611,51 +654,74 @@ const radarChartOption = computed(() => ({
 
 // 获取报表数据
 const fetchReportData = async () => {
-  if (!selectedClass.value || !selectedExamType.value) return
+  if (!selectedClass.value || !selectedExamType.value) return;
   
+  // Find the class ID based on the selected class name
+  const selectedClassData = classes.value.find(c => c.className === selectedClass.value);
+  if (!selectedClassData) {
+    ElMessage.warning('未找到选定班级的数据');
+    return;
+  }
+  const classId = selectedClassData.id;
+
   try {
-    loading.value = true
-    const res = await getClassScores({
-      className: selectedClass.value,
-      examType: selectedExamType.value
-    })
+    loading.value = true;
+    // Call getClassScores with classId and examType as separate arguments
+    const res = await getClassScores(classId, selectedExamType.value);
     
     if (res.code === 200 && res.data) {
-      // 处理成绩数据，计算统计信息
-      // ...
+      // Process score data and calculate statistics
+      // The existing logic for processing seems to be commented out or incomplete.
+      // Replace this comment with the actual processing logic.
+      console.log('Received class scores:', res.data); 
+      // Example: reportData.value = processClassScoreData(res.data);
+    } else {
+      ElMessage.warning(res?.message || '获取班级成绩数据失败');
     }
-  } catch (error) {
-    console.error('获取成绩数据失败:', error)
-    ElMessage.error('获取成绩数据失败')
+  } catch (error: any) {
+    console.error('获取成绩数据失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '获取成绩数据失败');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
-// 初始化数据
+// Initialize data
 onMounted(async () => {
   try {
-    const classRes = await getClassList()
-    if (classRes.code === 200 && classRes.data) {
-      classes.value = classRes.data.map(item => ({
-        id: item.id,
+    const classRes = await getClassList();
+    // Ensure the response structure is checked correctly
+    if (classRes?.code === 200 && Array.isArray(classRes.data)) {
+      // Map response data to ClassItem, storing the ID
+      classes.value = classRes.data.map((item: ClassItemResponse): ClassItem => ({
+        id: item.id, // Store the id
         className: item.class_name,
-        studentCount: item.student_count,
-        teacher: item.teacher,
-        createTime: item.create_time,
-        description: item.description
-      }))
+        studentCount: item.student_count || 0,
+        teacher: item.teacher || 'N/A',
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : 'N/A',
+        description: item.description || '',
+      }));
       
+      // Populate classList for the dropdown (only names)
+      classList.value = classes.value.map(c => c.className);
+
       if (classes.value.length > 0) {
-        selectedClass.value = classes.value[0].className
-        await fetchReportData()
+        // Select the first class name by default
+        selectedClass.value = classes.value[0].className;
+        // Fetch report data for the initially selected class
+        await fetchReportData(); 
       }
+    } else {
+      ElMessage.warning(classRes?.message || '获取班级列表失败');
     }
-  } catch (error) {
-    console.error('初始化数据失败:', error)
-    ElMessage.error('初始化数据失败')
+  } catch (error: any) {
+    console.error('初始化数据失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '初始化数据失败');
+  } finally {
+    // Make sure fetchStatistics is called to get student data if needed elsewhere
+    await fetchStatistics(); 
   }
-})
+});
 
 // 监听选择变化
 watch([selectedClass, selectedExamType], () => {

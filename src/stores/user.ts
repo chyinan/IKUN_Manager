@@ -8,19 +8,18 @@ import { ElMessage } from 'element-plus'
 interface UserInfo {
   id: number;
   username: string;
-  email: string;
-  // Add other relevant fields if returned by the API
+  email?: string;
+  avatar?: string | null | undefined;
+  roles?: string[];
+  permissions?: string[];
 }
 
 export const useUserStore = defineStore('user', () => {
   // State
   const token = ref<string>(localStorage.getItem('token') || '')
-  const userInfo = ref<UserInfo | null>(null) // Store user object
+  const userInfo = ref<UserInfo | null>(null)
   const username = ref<string>('')
-  // Initialize avatar state from localStorage first
-  const initialAvatarFromStorage = localStorage.getItem('user_avatar_url') || ''
-  console.log('[userStore Init] Reading avatar from localStorage:', initialAvatarFromStorage);
-  const avatar = ref<string>(initialAvatarFromStorage) 
+  const avatar = ref<string>(localStorage.getItem('user_avatar_url') || '')
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
 
@@ -50,10 +49,16 @@ export const useUserStore = defineStore('user', () => {
         
         // Update store state
         token.value = receivedToken;
-        userInfo.value = receivedUser; 
-        username.value = receivedUser.username; // Keep this for convenience if needed elsewhere
-        // Set avatar from login response if available, otherwise keep localStorage/empty
-        avatar.value = receivedUser.avatar || avatar.value || ''; 
+        userInfo.value = {
+          id: receivedUser.id,
+          username: receivedUser.username,
+          email: receivedUser.email || undefined,
+          avatar: receivedUser.avatar,
+          roles: receivedUser.roles,
+          permissions: receivedUser.permissions
+        };
+        username.value = receivedUser.username;
+        avatar.value = receivedUser.avatar || avatar.value || '';
         
         // Save token to localStorage
         localStorage.setItem('token', receivedToken);
@@ -94,11 +99,16 @@ export const useUserStore = defineStore('user', () => {
       // This API call might need adjustment depending on your backend /api/user/info route
       const res = await getUserInfo()
       if (res.code === 200 && res.data) {
-        userInfo.value = res.data; // Assuming API returns the user object directly in data
+        userInfo.value = {
+          id: res.data.id,
+          username: res.data.username,
+          email: res.data.email || undefined,
+          avatar: res.data.avatar,
+          roles: res.data.roles,
+          permissions: res.data.permissions
+        };
         username.value = res.data.username
-        // Only update avatar state if backend provides a new avatar URL
         if (res.data.avatar) {
-          console.log('[userStore] Updating avatar from getUserInfo response:', res.data.avatar);
           avatar.value = res.data.avatar;
         } else {
           console.log('[userStore] No avatar in getUserInfo response, keeping existing avatar state:', avatar.value);
@@ -157,6 +167,70 @@ export const useUserStore = defineStore('user', () => {
               resetState(); // Clear invalid token/state
           }
       });
+  }
+
+  // 设置用户信息
+  const setUserInfo = (receivedUser: UserInfo) => {
+    console.log('更新用户信息:', receivedUser);
+    userInfo.value = {
+      id: receivedUser.id,
+      username: receivedUser.username,
+      email: receivedUser.email,
+      avatar: receivedUser.avatar,
+      roles: receivedUser.roles,
+      permissions: receivedUser.permissions
+    };
+    localStorage.setItem('user-info', JSON.stringify(userInfo.value));
+  }
+
+  // 从本地存储加载用户信息
+  const loadUserInfo = () => {
+    const storedInfo = localStorage.getItem('user-info');
+    if (storedInfo) {
+      try {
+        const parsedInfo = JSON.parse(storedInfo);
+        if (parsedInfo && typeof parsedInfo === 'object' && parsedInfo.id && parsedInfo.username) {
+          userInfo.value = {
+            id: parsedInfo.id,
+            username: parsedInfo.username,
+            email: parsedInfo.email,
+            avatar: parsedInfo.avatar,
+            roles: parsedInfo.roles,
+            permissions: parsedInfo.permissions
+          };
+          console.log('从本地存储加载用户信息:', userInfo.value);
+        } else {
+          console.warn('本地存储的用户信息格式不正确:', parsedInfo);
+          resetState();
+        }
+      } catch (error) {
+        console.error('解析本地存储的用户信息失败:', error);
+        resetState();
+      }
+    }
+  }
+
+  // 获取并设置用户信息
+  async function fetchAndSetUserInfo() {
+    if (!token.value) {
+      console.warn('没有token, 无法获取用户信息');
+      return;
+    }
+    try {
+      console.log('开始获取用户信息...');
+      const res = await getUserInfo();
+      console.log('获取用户信息响应:', res);
+      if (res.code === 200 && res.data) {
+        setUserInfo(res.data as UserInfo);
+        console.log('用户信息获取并设置成功');
+      } else {
+        console.error('获取用户信息失败:', res.message);
+        ElMessage.error(res.message || '获取用户信息失败');
+      }
+    } catch (error: any) {
+      console.error('获取用户信息时出错:', error);
+      ElMessage.error(error.message || '获取用户信息时出错');
+    }
   }
 
   return {

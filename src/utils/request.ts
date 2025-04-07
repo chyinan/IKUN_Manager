@@ -431,14 +431,13 @@ service.get = function <T = any, R = AxiosResponse<T>, D = any>(url: string, con
     return new Promise((resolve) => {
       setTimeout(() => {
         if (mockData[path]) {
-          // 模拟 AxiosResponse 结构
           const mockResponse = {
             data: { code: 200, message: '获取成功', data: mockData[path] || null },
             status: 200,
             statusText: 'OK',
             headers: {},
-            config: config as InternalAxiosRequestConfig, // 类型断言
-          } as R // 使用 R 作为类型断言
+            config: config as InternalAxiosRequestConfig,
+          } as unknown as R
           resolve(mockResponse)
         } else {
           const mockResponse = {
@@ -447,46 +446,59 @@ service.get = function <T = any, R = AxiosResponse<T>, D = any>(url: string, con
             statusText: 'Not Found',
             headers: {},
             config: config as InternalAxiosRequestConfig,
-          } as R
-          resolve(mockResponse) // Mock 也应该 resolve 而不是 reject 404，让拦截器或调用者处理
+          } as unknown as R
+          resolve(mockResponse)
         }
       }, 300)
-    }) as Promise<R> // 确保返回 Promise<R>
+    }) as Promise<R>
   }
   // 否则使用真实API
-  return originalGet.call(this, url, config) as Promise<R> // 添加类型断言
+  return originalGet.call(this, url, config) as Promise<R>
+}
+
+interface MockResponse<T> {
+  data: T;
+  status: number;
+  statusText: string;
+  headers: any;
+  config: any;
 }
 
 // 重写 post 方法以支持模拟数据
 const originalPost = service.post
 service.post = function <T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<R> {
-   const useMock = !service.defaults.baseURL
-   if (useMock) {
+  const useMock = !service.defaults.baseURL
+  if (useMock) {
     const path = url.replace(/^\//, '')
     console.log(`[Mock] POST ${url} -> ${path}`, data)
     return new Promise((resolve) => {
       setTimeout(() => {
-        // 简单的模拟：假设总是成功，并返回包含 id 的数据
-        const id = Date.now() // 模拟生成ID
-        let responseData: any;
+        const id = Date.now()
+        let responseDataPayload: any;
         if (path === 'exam/add' || path === 'employee/add' || path === 'dept/add' || path === 'class/add' || path === 'student/add') {
-           responseData = { code: 200, message: '添加成功', data: { ...(data as object || {}), id } }
+          const dataObj = data ? (data as unknown as object) : {};
+          responseDataPayload = { ...dataObj, id };
         } else {
-           responseData = { code: 200, message: '操作成功', data: data } // 其他 POST 操作可能只返回消息
+          responseDataPayload = data;
         }
-         const mockResponse = {
-            data: responseData,
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: config as InternalAxiosRequestConfig,
-          } as R
-        resolve(mockResponse)
+        const mockResponseData = {
+          code: 200,
+          message: '操作成功',
+          data: responseDataPayload
+        };
+        const mockResponse: AxiosResponse<any, any> = {
+          data: mockResponseData,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: config as InternalAxiosRequestConfig<D>,
+          request: undefined
+        };
+        resolve(mockResponse as unknown as R);
       }, 300)
-    }) as Promise<R>
+    })
   }
-  // 否则使用真实API
-  return originalPost.call(this, url, data, config) as Promise<R> // 添加类型断言
+  return originalPost.call(this, url, data, config) as Promise<R>
 }
 
 // 重写 put 方法以支持模拟数据
@@ -498,20 +510,24 @@ service.put = function <T = any, R = AxiosResponse<T>, D = any>(url: string, dat
     console.log(`[Mock] PUT ${url} -> ${path}`, data)
     return new Promise((resolve) => {
       setTimeout(() => {
-        // 简单的模拟：假设总是成功
-         const mockResponse = {
-            data: { code: 200, message: '更新成功', data: data }, // PUT 通常返回更新后的数据或null/void
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config: config as InternalAxiosRequestConfig,
-          } as R
-        resolve(mockResponse)
+        const mockResponseData = {
+          code: 200,
+          message: '更新成功',
+          data: data
+        };
+        const mockResponse: AxiosResponse<any, any> = {
+          data: mockResponseData,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: config as InternalAxiosRequestConfig<D>,
+          request: undefined
+        };
+        resolve(mockResponse as unknown as R);
       }, 300)
-    }) as Promise<R>
+    })
   }
-  // 否则使用真实API
-  return originalPut.call(this, url, data, config) as Promise<R> // 添加类型断言
+  return originalPut.call(this, url, data, config) as Promise<R>
 }
 
 // 重写 delete 方法以支持模拟数据
@@ -523,20 +539,24 @@ service.delete = function <T = any, R = AxiosResponse<T>, D = any>(url: string, 
     console.log(`[Mock] DELETE ${url} -> ${path}`)
     return new Promise((resolve) => {
       setTimeout(() => {
-        // 简单的模拟：假设总是成功
-         const mockResponse = {
-            data: { code: 200, message: '删除成功', data: null }, // DELETE 通常返回 null 或 void
-            status: 200, // 或者 204 No Content
-            statusText: 'OK',
-            headers: {},
-            config: config as InternalAxiosRequestConfig,
-          } as R
-        resolve(mockResponse)
+        const mockResponseData = {
+          code: 200,
+          message: '删除成功',
+          data: null
+        };
+        const mockResponse: AxiosResponse<any, any> = {
+          data: mockResponseData,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: config as InternalAxiosRequestConfig<D>,
+          request: undefined
+        };
+        resolve(mockResponse as unknown as R);
       }, 300)
-    }) as Promise<R>
+    })
   }
-  // 否则使用真实API
-  return originalDelete.call(this, url, config) as Promise<R> // 添加类型断言
+  return originalDelete.call(this, url, config) as Promise<R>
 }
 
 export default service

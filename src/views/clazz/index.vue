@@ -4,7 +4,7 @@
     <div class="operation-header">
       <el-input
         v-model="searchKey"
-        placeholder="搜索班级..."
+        placeholder="搜索班级名称..."
         class="search-input"
         clearable>
         <template #prefix>
@@ -33,24 +33,22 @@
       <el-table-column type="index" label="#" width="60" align="center" />
       <el-table-column prop="className" label="班级名称" min-width="150">
         <template #default="{ row }">
-          <span class="class-name">{{ row.className }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="studentCount" label="班级人数" width="120" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.studentCount > 30 ? 'danger' : 'success'">
-            {{ row.studentCount }}人
-          </el-tag>
+          <el-tag>{{ row.className }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="teacher" label="班主任" min-width="120" />
+      <el-table-column prop="studentCount" label="学生人数" width="100" align="center">
+        <template #default="{ row }">
+          <el-badge :value="row.studentCount" :type="row.studentCount > 30 ? 'danger' : 'success'" />
+        </template>
+      </el-table-column>
       <el-table-column prop="createTime" label="创建时间" min-width="180" />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column prop="description" label="班级描述" min-width="200" show-overflow-tooltip />
+      <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button-group>
             <el-button type="primary" @click="handleEdit(row)" :icon="Edit" circle />
             <el-button type="danger" @click="handleDelete(row)" :icon="Delete" circle />
-            <el-button type="success" @click="handleDetail(row)" :icon="View" circle />
           </el-button-group>
         </template>
       </el-table-column>
@@ -58,9 +56,9 @@
 
     <!-- 分页器 -->
     <el-pagination
-      v-model:current-page="pagination.currentPage"
-      v-model:page-size="pagination.pageSize"
-      :total="pagination.total"
+      v-model:current-page="currentPage"
+      v-model:page-size="pageSize"
+      :total="total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
       class="pagination" />
@@ -80,6 +78,12 @@
         </el-form-item>
         <el-form-item label="班主任" prop="teacher">
           <el-input v-model="formData.teacher" />
+        </el-form-item>
+        <el-form-item label="班级描述" prop="description">
+          <el-input
+            v-model="formData.description"
+            type="textarea"
+            :rows="3" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -191,24 +195,24 @@ import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
 import type { ClassItem, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
 import type { Pagination } from '@/types/common'
+import dayjs from 'dayjs'
 
 // 表单数据类型
 interface ClassFormData {
   id?: number
   className: string
   teacher: string
-  studentCount: number
-  description?: string
+  description?: string | null
 }
 
 // 后端返回的班级数据类型
 interface ClassItemResponse {
   id: number
-  class_name: string
+  className: string
   teacher: string
-  student_count: number
+  studentCount: number
   description: string | null
-  create_time: string
+  createTime: string
 }
 
 // 基础数据状态
@@ -220,85 +224,76 @@ const formRef = ref<FormInstance>()
 const tableData = ref<ClassItem[]>([])
 
 // 分页数据
-const pagination = reactive<Pagination>({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-})
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 // 表单数据
 const formData = reactive<ClassFormData>({
   className: '',
   teacher: '',
-  studentCount: 0,
-  description: ''
+  description: null
 })
 
 // 表单验证规则
 const rules = reactive<FormRules>({
   className: [
     { required: true, message: '请输入班级名称', trigger: 'blur' },
-    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
   ],
   teacher: [
-    { required: true, message: '请输入班主任姓名', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+    { required: true, message: '请输入班主任', trigger: 'blur' }
   ]
 })
 
 // 数据转换方法
-const convertResponse = (item: ClassItemResponse): ClassItem => ({
+const mapResponseToClassItem = (item: ClassItemResponse): ClassItem => ({
   id: item.id,
-  className: item.class_name,
-  studentCount: item.student_count,
-  teacher: item.teacher,
-  createTime: new Date(item.create_time).toLocaleString('zh-CN'),
-  description: item.description || undefined
+  className: item.className || '',
+  teacher: item.teacher || '',
+  studentCount: item.studentCount || 0,
+  description: item.description || '',
+  createTime: item.createTime ? dayjs(item.createTime).format('YYYY-MM-DD HH:mm:ss') : 'N/A'
 })
 
 // 获取班级列表
 const fetchData = async () => {
+  loading.value = true;
   try {
-    loading.value = true
-    const res = await getClassList()
-    console.log('班级列表API响应:', res)
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      className: searchKey.value,
+      teacher: '',
+    };
+    const res = await getClassList(params);
+    console.log('获取到的班级数据:', res); // 添加日志
     
-    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-      // 处理API返回的数据
-      const responseData = res.data.data as ClassItemResponse[];
-      tableData.value = responseData.map((item: ClassItemResponse): ClassItem => {
-        // 安全处理日期转换
-        let createTimeDisplay;
-        try {
-          createTimeDisplay = item.create_time 
-            ? new Date(item.create_time).toLocaleString('zh-CN')
-            : new Date().toLocaleString('zh-CN');
-        } catch (e) {
-          createTimeDisplay = new Date().toLocaleString('zh-CN');
-          console.error('日期转换错误:', e);
-        }
-        
+    if (res && res.code === 200 && Array.isArray(res.data)) {
+      tableData.value = res.data.map((item: any): ClassItem => {
+        // 确保所有字段都有默认值
         return {
-          id: item.id,
-          className: item.class_name || '',
-          studentCount: item.student_count || 0,
+          id: item.id || 0,
+          className: item.class_name || item.className || '',
+          studentCount: item.student_count || item.studentCount || 0,
           teacher: item.teacher || '',
-          createTime: createTimeDisplay,
+          createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : 
+                    item.createTime ? dayjs(item.createTime).format('YYYY-MM-DD HH:mm:ss') : 
+                    'N/A',
           description: item.description || ''
         };
       });
-      
-      // 更新分页数据
-      pagination.total = tableData.value.length;
-      console.log('成功获取班级数据:', tableData.value);
+      total.value = res.data.length;
     } else {
-      console.warn('班级列表API响应格式不正确或 code !== 200，使用模拟数据');
-      generateMockData();
+      ElMessage.warning(res?.message || '获取班级列表失败');
+      tableData.value = [];
+      total.value = 0;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取班级列表失败:', error);
-    ElMessage.warning('获取班级数据失败，使用模拟数据');
-    generateMockData();
+    ElMessage.error(error.response?.data?.message || error.message || '获取班级列表失败');
+    tableData.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
@@ -327,7 +322,7 @@ const generateMockData = () => {
   }
   
   tableData.value = mockData;
-  pagination.total = mockData.length;
+  total.value = mockData.length;
   console.log('生成的模拟数据:', mockData);
 };
 
@@ -353,42 +348,45 @@ const filteredTableData = computed(() => {
 
 // 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  
+  if (!formRef.value) return;
   await formRef.value.validate(async (valid) => {
     if (valid) {
+      loading.value = true;
+      // Define backend data structure inline
+      const backendData: {
+        class_name: string;
+        teacher?: string;
+        description?: string;
+      } = {
+        class_name: formData.className,
+        teacher: formData.teacher || undefined,
+        description: formData.description || undefined,
+      };
+
       try {
-        loading.value = true
-        
-        // 创建一个符合后端 API 格式的数据对象
-        const backendData: ClassItem = {
-          id: formData.id || 0,
-          className: formData.className,
-          teacher: formData.teacher,
-          studentCount: formData.studentCount || 0,
-          description: formData.description || '',
-          createTime: new Date().toLocaleString('zh-CN')
+        let res: ApiResponse<any>; // Define res type
+        if (dialogType.value === 'add') {
+          res = await addClass(backendData as any); // Use 'as any' if addClass expects ClassItem and conversion is complex
+        } else {
+          res = await updateClass(formData.id!, backendData as any); // Use 'as any' similarly
         }
 
-        if (dialogType.value === 'add') {
-          await addClass(backendData)
-          ElMessage.success('新增成功')
-        } else if (formData.id) {
-          await updateClass(formData.id, backendData)
-          ElMessage.success('修改成功')
+        if (res && res.code === 200) {
+          ElMessage.success(dialogType.value === 'add' ? '添加成功' : '修改成功');
+          dialogVisible.value = false;
+          await fetchData(); // Refresh data
+        } else {
+          ElMessage.error(res?.message || '操作失败');
         }
-        
-        dialogVisible.value = false
-        await fetchData()
       } catch (error: any) {
-        console.error('操作失败:', error)
-        ElMessage.error(error.response?.data?.message || '操作失败')
+        console.error('操作失败:', error);
+        ElMessage.error(error.response?.data?.message || error.message || '操作失败');
       } finally {
-        loading.value = false
+        loading.value = false;
       }
     }
-  })
-}
+  });
+};
 
 // 处理新增
 const handleAdd = () => {
@@ -400,8 +398,7 @@ const handleAdd = () => {
   // 重置表单数据
   formData.className = ''
   formData.teacher = ''
-  formData.studentCount = 0
-  formData.description = ''
+  formData.description = null
 }
 
 // 处理编辑
@@ -427,25 +424,32 @@ const handleDelete = async (row: ClassItem) => {
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning'
+        type: 'warning',
       }
-    )
-
-    loading.value = true
-    const res = await deleteClass(row.id)
-    if (res.data?.code === 200) {
-      ElMessage.success('删除成功')
-      await fetchData()
+    );
+    loading.value = true;
+    // deleteClass returns Promise<ApiResponse<void>>
+    const res = await deleteClass(row.id);
+    // Check res.code directly (assuming structure { code: number, message?: string })
+    if (res?.code === 200) {
+      ElMessage.success('删除成功');
+      await fetchData(); // Refresh data
+    } else {
+      ElMessage.error(res?.message || '删除失败');
     }
   } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+    // Handle cancellation separately
+    if (typeof error === 'string' && error.includes('cancel')) {
+      ElMessage.info('已取消删除');
+    } else {
+      console.error('删除失败:', error);
+      // Use error message from response if available
+      ElMessage.error(error.response?.data?.message || error.message || '删除失败');
     }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 导出数据
 const handleExport = () => {

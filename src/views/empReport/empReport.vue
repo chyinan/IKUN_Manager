@@ -71,6 +71,7 @@ import type {
   ApiDeptResponse 
 } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
+import dayjs from 'dayjs'
 
 // 扩展员工类型定义，添加deptId字段
 interface ExtendedEmployeeItem extends EmployeeItem {
@@ -95,6 +96,8 @@ use([
 // 数据状态
 const employeeData = ref<ExtendedEmployeeItem[]>([])
 const deptData = ref<ExtendedDeptItem[]>([])
+const deptOptions = ref<string[]>([])
+const loading = ref(false)
 
 // 修复 summaryData 未定义的错误
 const summaryData = computed(() => [
@@ -400,161 +403,73 @@ const convertDeptResponse = (item: DeptResponseData): ExtendedDeptItem => {
   }
 }
 
-// 修改获取数据函数，添加更多错误处理
-const fetchData = async () => {
+// 获取初始数据
+const fetchInitialData = async () => {
+  loading.value = true;
   try {
-    const [empRes, deptRes] = await Promise.all([
-      getEmployeeList(),
-      getDeptList()
-    ])
+    const [deptRes, empRes] = await Promise.all([
+      getDeptList(), // Returns Promise<ApiResponse<DeptResponseData[]>>
+      getEmployeeList() // Returns Promise<ApiResponse<EmployeeItemResponse[]>>
+    ]);
 
-    console.log('员工数据响应:', empRes)
-    console.log('部门数据响应:', deptRes)
+    console.log('Dept API Response:', deptRes);
+    console.log('Emp API Response:', empRes);
 
-    // 首先生成部门数据，这样员工数据可以使用它
-    if (deptRes && deptRes.data && deptRes.data.code === 200 && Array.isArray(deptRes.data.data)) {
-      deptData.value = deptRes.data.data
-        .filter((item: DeptResponseData) => item)
-        .map((item: DeptResponseData) => convertDeptResponse(item))
+    // Check deptRes.code and deptRes.data directly
+    if (deptRes && deptRes.code === 200 && Array.isArray(deptRes.data)) {
+      deptData.value = deptRes.data.map(item => ({
+        id: item.id,
+        deptName: item.dept_name,
+        manager: item.manager,
+        memberCount: item.member_count || 0,
+        description: item.description || '',
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : 'N/A'
+      }));
+      // Populate department options for filter
+      deptOptions.value = deptRes.data.map(d => d.dept_name);
     } else {
-      // 生成模拟部门数据
-      generateMockDeptData()
+      ElMessage.warning(deptRes?.message || '获取部门数据失败');
+      deptData.value = [];
+      deptOptions.value = [];
     }
 
-    // 然后生成员工数据
-    if (empRes && empRes.data && empRes.data.code === 200 && Array.isArray(empRes.data.data)) {
-      employeeData.value = empRes.data.data
-        .filter((item: EmployeeItemResponse) => item)
-        .map((item: EmployeeItemResponse) => convertEmployeeResponse(item))
+    // Check empRes.code and empRes.data directly
+    if (empRes && empRes.code === 200 && Array.isArray(empRes.data)) {
+      employeeData.value = empRes.data.map(item => ({
+        id: item.id,
+        empId: item.emp_id,
+        name: item.name,
+        gender: item.gender,
+        age: item.age,
+        deptName: item.dept_name,
+        position: item.position,
+        salary: item.salary,
+        status: item.status,
+        phone: item.phone || '',
+        email: item.email || '',
+        joinDate: item.join_date ? dayjs(item.join_date).format('YYYY-MM-DD') : 'N/A',
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : 'N/A'
+      }));
     } else {
-      // 生成模拟员工数据
-      generateMockEmployeeData()
+      ElMessage.warning(empRes?.message || '获取员工数据失败');
+      employeeData.value = [];
     }
 
-  } catch (error) {
-    console.error('获取数据失败:', error)
-    ElMessage.error('获取数据失败')
-    // 出错时生成模拟数据 - 先生成部门，再生成员工
-    generateMockDeptData()
-    generateMockEmployeeData()
+  } catch (error: any) {
+    console.error('获取初始数据失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '获取初始数据失败');
+    deptData.value = [];
+    employeeData.value = [];
+    deptOptions.value = [];
   } finally {
-    // 添加延迟确保数据完全加载并更新到图表
-    setTimeout(() => {
-      if (deptData.value.length === 0) {
-        generateMockDeptData();
-      }
-      if (employeeData.value.length === 0) {
-        generateMockEmployeeData();
-      }
-      
-      // 最终检查：确保没有未命名部门
-      deptData.value.forEach((dept, index) => {
-        if (!dept.deptName || dept.deptName === '未命名部门') {
-          dept.deptName = `部门${index + 1}`;
-          console.log(`已修复未命名部门: ${dept.deptName}`);
-        }
-      });
-    }, 100);
+    loading.value = false;
+    // Initial calculation after data is loaded
+    // calculateReportData(); // 移除或注释掉不存在的函数调用
   }
-}
-
-// 确保生成的模拟部门数据有实际人数
-const generateMockDeptData = () => {
-  // 更真实的部门和人数分布 - 使用更具体的部门名称
-  const mockDepts = [
-    { name: '教学部', manager: '张国立', count: 42 },
-    { name: '行政部', manager: '李雪琴', count: 28 },
-    { name: '研发部', manager: '王思聪', count: 65 },
-    { name: '人事部', manager: '赵丽颖', count: 32 },
-    { name: '财务部', manager: '钱多多', count: 25 },
-    { name: '市场部', manager: '孙俪', count: 38 },
-    { name: '运营部', manager: '周杰伦', count: 45 },
-    { name: '技术部', manager: '马化腾', count: 53 },
-    { name: '销售部', manager: '马云', count: 48 },
-    { name: '客服部', manager: '刘德华', count: 35 },
-    { name: '企划部', manager: '林志玲', count: 29 },
-    { name: '物流部', manager: '王宝强', count: 37 }
-  ];
-  
-  // 随机选择5-7个部门
-  const totalDepts = mockDepts.length;
-  const selectedCount = Math.floor(Math.random() * 3) + 5; // 5到7之间的随机数
-  
-  // 随机打乱数组顺序，然后选择前几个
-  const shuffledDepts = [...mockDepts].sort(() => Math.random() - 0.5).slice(0, selectedCount);
-  
-  // 生成部门数据
-  deptData.value = shuffledDepts.map((dept, index) => {
-    // 在原始数据基础上增加±20%的随机波动，使数据更自然
-    const variation = Math.random() * 0.4 - 0.2; // -20%到+20%之间的随机变化
-    const adjustedCount = Math.max(10, Math.floor(dept.count * (1 + variation)));
-    
-    return {
-      id: index + 1,
-      deptId: index + 1,
-      deptName: dept.name,
-      manager: dept.manager,
-      memberCount: adjustedCount,
-      description: `${dept.name}负责公司的${dept.name.replace('部', '')}相关工作。`,
-      createTime: new Date(2023, index % 12, (index + 1) * 3).toLocaleString('zh-CN')
-    };
-  });
-  
-  // 确保每个部门都有实际的名称，不存在未命名情况
-  deptData.value.forEach((dept, index) => {
-    if (!dept.deptName || dept.deptName.trim() === '') {
-      dept.deptName = `部门${index + 1}`;
-    }
-  });
-  
-  console.log('生成的模拟部门数据:', deptData.value); // 调试用
 };
 
-// 添加生成模拟员工数据的函数
-const generateMockEmployeeData = () => {
-  // 确保使用真实的部门名称
-  const currentDeptNames = deptData.value.length > 0 
-    ? deptData.value.map(dept => dept.deptName) 
-    : ['教学部', '行政部', '研发部', '人事部', '财务部', '市场部', '运营部'];
-  
-  // 生成30个模拟员工
-  employeeData.value = Array.from({ length: 30 }, (_, index) => {
-    // 确保员工分配到实际存在的部门
-    const deptIndex = Math.floor(Math.random() * currentDeptNames.length);
-    const deptName = currentDeptNames[deptIndex];
-    const deptId = deptData.value.find(d => d.deptName === deptName)?.deptId || (deptIndex + 1);
-    
-    const gender = Math.random() > 0.5 ? '男' : '女';
-    const status = Math.random() > 0.2 ? '在职' : '离职';
-    
-    // 生成更真实的姓名
-    const surnames = ['张', '王', '李', '赵', '刘', '陈', '杨', '黄', '周', '吴', '郑', '孙'];
-    const names = ['伟', '芳', '娜', '秀英', '敏', '静', '强', '磊', '洋', '艳', '勇', '杰', '娟', '涛', '明', '超'];
-    const surname = surnames[Math.floor(Math.random() * surnames.length)];
-    const name = names[Math.floor(Math.random() * names.length)];
-    const fullName = surname + name;
-    
-    return {
-      id: index + 1,
-      empId: `EMP${100000 + index}`,
-      name: fullName,
-      gender,
-      age: Math.floor(Math.random() * (50 - 22) + 22),
-      deptId: deptId,
-      deptName: deptName,
-      position: ['讲师', '教授', '助教', '研究员', '经理', '主管', '专员', '总监'][Math.floor(Math.random() * 8)],
-      salary: Math.floor(Math.random() * 10000 + 5000),
-      status,
-      phone: `1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
-      email: `${surname.toLowerCase()}${name.toLowerCase()}${Math.floor(Math.random() * 100)}@example.com`,
-      joinDate: new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('zh-CN'),
-      createTime: new Date().toLocaleString('zh-CN')
-    }
-  });
-}
-
 onMounted(() => {
-  fetchData()
+  fetchInitialData()
 })
 </script>
 

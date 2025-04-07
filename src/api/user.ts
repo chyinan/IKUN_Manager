@@ -1,26 +1,16 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/types/common'
+import type { 
+  LoginForm, 
+  LoginResult, 
+  UserInfo, 
+  ApiResponse, 
+  PasswordUpdateData
+} from '@/types/common'
 
 // 登录接口参数类型
 export interface LoginParams {
   username: string
   password: string
-}
-
-// 登录结果类型
-export interface LoginResult {
-  token: string
-  username: string
-}
-
-// 用户信息类型
-export interface UserInfo {
-  id: number
-  username: string
-  email: string
-  avatar?: string
-  roles: string[]
-  permissions: string[]
 }
 
 // 密码表单类型
@@ -31,43 +21,82 @@ export interface PasswordForm {
   confirmPassword: string
 }
 
-// 登录
-export function login(data: LoginParams): Promise<ApiResponse<LoginResult>> {
+/**
+ * 用户登录
+ * @param data 登录表单数据
+ */
+export function login(data: LoginForm): Promise<ApiResponse<LoginResult>> {
+  console.log('调用login API, 数据:', data);
   return request.post<ApiResponse<LoginResult>>('/user/login', data)
+    .then(response => response.data)
+    .catch(error => {
+        console.error('login API catch block:', error);
+        throw error; 
+    });
 }
 
-// 登出
+/**
+ * 用户登出
+ */
 export function logout(): Promise<ApiResponse<void>> {
   return request.post<ApiResponse<void>>('/user/logout')
+    .then(response => response.data)
+    .catch(error => {
+        console.error('logout API catch block:', error);
+        throw error; 
+    });
 }
 
-// 获取用户信息
+/**
+ * 获取用户信息
+ */
 export function getUserInfo(): Promise<ApiResponse<UserInfo>> {
   return request.get<ApiResponse<UserInfo>>('/user/info')
+    .then(response => response.data)
+    .catch(error => {
+        console.error('getUserInfo API catch block:', error);
+        throw error; 
+    });
 }
 
-// 更新密码
-export function updatePassword(data: any): Promise<ApiResponse<any>> {
-  console.log('调用 updatePassword API, 数据:', data); // Avoid logging passwords in production
-  // 移除 username，后端从 token 获取用户信息
-  const { username, ...passwordData } = data;
+/**
+ * 更新密码
+ */
+export function updatePassword(passwordData: PasswordUpdateData): Promise<ApiResponse<any>> {
   return request.post<ApiResponse<any>>('/user/update-password', passwordData)
+    .then(response => response.data)
+    .catch(error => {
+        console.error('updatePassword API catch block:', error);
+        throw error; 
+    });
 }
 
-// 更新用户信息 (Ensure this uses PUT and sends correct data)
-export function updateUserInfo(data: { email: string }): Promise<ApiResponse<any>> { // Specify expected data shape and return type
-  console.log('调用 updateUserInfo API, 数据:', data);
+/**
+ * 更新用户信息 (例如邮箱)
+ */
+export function updateUserInfo(data: Partial<UserInfo>): Promise<ApiResponse<any>> {
   return request.put<ApiResponse<any>>('/user/info', data) // Use PUT method and /user/info endpoint
+    .then(response => response.data)
+    .catch(error => {
+        console.error('updateUserInfo API catch block:', error);
+        throw error; 
+    });
 }
 
-// --- 新增：上传用户头像 ---
+/**
+ * 上传用户头像
+ */
 export function uploadUserAvatar(formData: FormData): Promise<ApiResponse<{ avatarUrl: string }>> {
   console.log('调用 uploadUserAvatar API');
   return request.post<ApiResponse<{ avatarUrl: string }>>('/user/avatar', formData, {
     // No need to set Content-Type header manually for FormData,
     // Axios handles it correctly.
   })
+    .then(response => response.data)
+    .catch(error => {
+        console.error('uploadUserAvatar API catch block:', error);
+        throw error; 
+    });
 }
-// --- 结束新增 ---
 
 // 上传头像 (示例)

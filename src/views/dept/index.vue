@@ -100,88 +100,74 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
-import type { 
-  DeptItem, 
-  DeptFormData, 
-  DeptResponseData, 
-  ApiDeptResponse,
-  DeptBackendData  // 添加 DeptBackendData 类型导入
-} from '@/types/dept'
+import type { DeptItem, DeptItemResponse, DeptBackendData } from '@/types/common'
+import { exportToExcel } from '@/utils/export'
+import dayjs from 'dayjs'
+import type { ApiResponse } from '@/types/common'
 
 // 修改表单数据
-const formData = reactive<DeptFormData & { id?: number }>({
+const formData = reactive<DeptItem>({
+  id: 0,
   deptName: '',
   manager: '',
-  description: ''
+  description: '',
+  memberCount: 0,
+  createTime: ''
 })
 
 // 数据状态
 const loading = ref(false)
 const tableData = ref<DeptItem[]>([])
+const total = ref(0)
+const searchKey = ref('')
+
+// 分页参数
+const currentPage = ref(1)
+const pageSize = ref(10)
+
+// 搜索参数
+const searchParams = reactive({
+  deptName: '',
+  manager: ''
+})
 
 // 获取部门列表
 const fetchData = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    const res = await getDeptList()
-    console.log('部门列表API响应:', res)
-    
-    if (res && res.data && res.data.code === 200 && Array.isArray(res.data.data)) {
-      tableData.value = res.data.data.map((item: DeptResponseData) => {
-        // 安全处理日期转换
-        let createTimeDisplay;
-        try {
-          createTimeDisplay = item.create_time 
-            ? new Date(item.create_time).toLocaleString('zh-CN') 
-            : new Date().toLocaleString('zh-CN');
-        } catch (e) {
-          createTimeDisplay = new Date().toLocaleString('zh-CN');
-        }
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      deptName: searchParams.deptName,
+      manager: searchParams.manager,
+    };
+    console.log('Fetching dept data with params:', params);
+    const res: ApiResponse<DeptItemResponse[]> = await getDeptList();
+    console.log('Dept API Response:', res);
 
-        return {
-          id: item.id,
-          deptName: item.dept_name || '',
-          manager: item.manager || '',
-          memberCount: item.member_count || 0,
-          description: item.description || '',
-          createTime: createTimeDisplay
-        };
-      });
-      total.value = tableData.value.length;
-      console.log('处理后的部门数据:', tableData.value);
+    if (res.code === 200 && Array.isArray(res.data)) {
+      tableData.value = res.data.map(item => ({
+        id: item.id,
+        deptName: item.dept_name,
+        manager: item.manager,
+        memberCount: item.member_count || 0,
+        description: item.description || '-',
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : 'N/A'
+      }));
+      total.value = res.total || res.data.length;
     } else {
-      console.warn('部门列表API响应格式不正确或 code !== 200，使用模拟数据');
-      generateMockData();
+      ElMessage.warning(res.message || '获取部门数据失败');
+      tableData.value = [];
+      total.value = 0;
     }
-  } catch (error) {
-    console.error('获取部门列表失败:', error);
-    ElMessage.error('获取数据失败');
-    generateMockData();
+  } catch (error: any) {
+    console.error('获取部门数据失败:', error);
+    ElMessage.error(error.message || '获取部门数据失败');
+    tableData.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
-};
-
-// 添加生成模拟数据的函数
-const generateMockData = () => {
-  const mockDepts = [
-    { name: '教学部', manager: '张三', count: 15 },
-    { name: '行政部', manager: '李四', count: 8 },
-    { name: '研发部', manager: '王五', count: 25 },
-    { name: '人事部', manager: '赵六', count: 12 },
-    { name: '财务部', manager: '钱七', count: 10 }
-  ];
-  
-  tableData.value = mockDepts.map((dept, index) => ({
-    id: index + 1,
-    deptName: dept.name,
-    manager: dept.manager,
-    memberCount: dept.count,
-    description: `${dept.name}负责公司的${dept.name.replace('部', '')}相关工作。`,
-    createTime: new Date(2023, index, 15).toLocaleString('zh-CN')
-  }));
-  
-  total.value = tableData.value.length;
 };
 
 // 页面初始化时获取数据
@@ -189,10 +175,6 @@ onMounted(() => {
   fetchData()
 })
 
-const searchKey = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
 const formRef = ref<FormInstance>()
@@ -209,39 +191,49 @@ const rules = reactive<FormRules>({
 
 const filteredTableData = computed(() => {
   return tableData.value.filter(item => {
-    if (!searchKey.value) return true;
+    if (!searchKey.value) return true
     
-    // 添加空值检查
-    const deptNameMatch = item.deptName && searchKey.value ? 
-      item.deptName.toString().toLowerCase().includes(searchKey.value.toLowerCase()) : 
-      false;
+    const searchText = searchKey.value.toLowerCase()
+    const deptNameMatch = item.deptName && searchText ? 
+      item.deptName.toString().toLowerCase().includes(searchText) : 
+      false
     
-    const managerMatch = item.manager && searchKey.value ? 
-      item.manager.toString().toLowerCase().includes(searchKey.value.toLowerCase()) : 
-      false;
+    const managerMatch = item.manager && searchText ? 
+      item.manager.toString().toLowerCase().includes(searchText) : 
+      false
     
-    return deptNameMatch || managerMatch;
-  });
+    return deptNameMatch || managerMatch
+  })
 })
 
 // 修改新增处理方法
 const handleAdd = () => {
   dialogType.value = 'add'
   dialogVisible.value = true
-  formData.deptName = ''
-  formData.manager = ''
-  formData.description = ''
+  Object.assign(formData, {
+    id: undefined,
+    deptName: '',
+    manager: '',
+    description: '',
+    memberCount: 0,
+    createTime: ''
+  })
+  formRef.value?.clearValidate()
 }
 
 // 修改编辑处理方法
 const handleEdit = (row: DeptItem) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
-  // 使用类型安全的方式赋值
-  formData.id = row.id
-  formData.deptName = row.deptName
-  formData.manager = row.manager
-  formData.description = row.description
+  Object.assign(formData, {
+    id: row.id,
+    deptName: row.deptName,
+    manager: row.manager,
+    description: row.description || '',
+    memberCount: row.memberCount,
+    createTime: row.createTime
+  })
+  formRef.value?.clearValidate()
 }
 
 const handleDelete = async (row: DeptItem) => {
@@ -257,9 +249,13 @@ const handleDelete = async (row: DeptItem) => {
     )
 
     loading.value = true
-    await deleteDept(row.id)
-    ElMessage.success('删除成功')
-    await fetchData()
+    const res = await deleteDept(row.id!)
+    if (res && res.code === 200) {
+      ElMessage.success('删除成功')
+      await fetchData()
+    } else {
+      ElMessage.error(res?.message || '删除失败')
+    }
   } catch (error: any) {
     if (error?.toString().includes('cancel')) {
       ElMessage.info('已取消删除')
@@ -272,43 +268,49 @@ const handleDelete = async (row: DeptItem) => {
   }
 }
 
-// 修改提交处理方法
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  
+  if (!formRef.value) return;
   await formRef.value.validate(async (valid) => {
     if (valid) {
-      try {
-        loading.value = true
-        // 转换为后端需要的格式
-        const backendData: DeptBackendData = {
-          dept_name: formData.deptName,
-          manager: formData.manager,
-          description: formData.description
-        }
+      loading.value = true;
+      // Prepare data for backend, explicitly handling description
+      const backendData = {
+        dept_name: formData.deptName,
+        manager: formData.manager,
+        description: formData.description || undefined // 确保 description 是 string | undefined
+      };
 
+      try {
+        let res: ApiResponse<any>;
         if (dialogType.value === 'add') {
-          await addDept(backendData)
-          ElMessage.success('新增成功')
-        } else if (formData.id) {
-          await updateDept(formData.id, backendData)
-          ElMessage.success('修改成功')
+          res = await addDept(backendData);
+          ElMessage.success('添加成功');
+        } else {
+          res = await updateDept(formData.id!, backendData);
+          ElMessage.success('修改成功');
         }
-        
-        dialogVisible.value = false
-        await fetchData()
-      } catch (error) {
-        console.error('操作失败:', error)
-        ElMessage.error(dialogType.value === 'add' ? '新增失败' : '修改失败')
+        dialogVisible.value = false;
+        await fetchData();
+      } catch (error: any) {
+        console.error('操作失败:', error);
+        ElMessage.error(`操作失败: ${error.response?.data?.message || error.message}`);
       } finally {
-        loading.value = false
+        loading.value = false;
       }
     }
-  })
-}
+  });
+};
 
 const handleExport = () => {
-  ElMessage.success('导出成功')
+  const data = tableData.value.map(item => ({
+    '部门名称': item.deptName,
+    '部门主管': item.manager,
+    '部门人数': item.memberCount,
+    '创建时间': item.createTime,
+    '部门描述': item.description || ''
+  }))
+  
+  exportToExcel(data, '部门数据')
 }
 </script>
 

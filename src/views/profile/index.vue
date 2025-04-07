@@ -147,10 +147,24 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { updatePassword, uploadUserAvatar, updateUserInfo } from '@/api/user'
-import type { FormInstance } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import { 
   Lock, SwitchButton, Delete, ArrowRight
 } from '@element-plus/icons-vue'
+
+// 用户信息接口
+interface UserInfo {
+  username: string
+  email: string
+  avatar: string
+}
+
+// 密码表单接口
+interface PasswordForm {
+  oldPassword: string
+  newPassword: string
+  confirmPassword: string
+}
 
 // 路由实例
 const router = useRouter()
@@ -166,17 +180,15 @@ const passwordFormRef = ref<FormInstance>()
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 
 // 用户信息表单
-const userInfo = reactive({
+const userInfo = reactive<UserInfo>({
   username: userStore.username || localStorage.getItem('username') || '',
   email: userStore.userInfo?.email || localStorage.getItem('email') || '', 
-  // Initialize avatar primarily from store (which reads localStorage initially)
   avatar: userStore.avatar || defaultAvatar 
 })
 
-// --- Add state for initial values to track changes ---
-const initialEmail = ref('');
-const initialAvatar = ref('');
-// --- End initial values ---
+// 初始值
+const initialEmail = ref(userInfo.email)
+const initialAvatar = ref(userInfo.avatar)
 
 // 加载状态
 const loading = reactive({
@@ -186,24 +198,24 @@ const loading = reactive({
 })
 
 // 表单验证规则
-const rules = {
+const rules = reactive<FormRules>({
   email: [
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ]
-}
+})
 
 // 对话框显示状态
 const passwordDialogVisible = ref(false)
 
 // 密码表单
-const passwordForm = reactive({
+const passwordForm = reactive<PasswordForm>({
   oldPassword: '',
   newPassword: '',
   confirmPassword: ''
 })
 
 // 密码表单验证规则
-const passwordRules = {
+const passwordRules = reactive<FormRules>({
   oldPassword: [
     { required: true, message: '请输入原密码', trigger: 'blur' }
   ],
@@ -224,102 +236,39 @@ const passwordRules = {
       trigger: 'blur'
     }
   ]
-}
+})
 
-// --- Computed property to check for changes ---
+// 检查是否有更改
 const hasChanges = computed(() => {
-  const emailChanged = userInfo.email !== initialEmail.value;
-  const avatarChanged = userInfo.avatar !== initialAvatar.value;
-  // console.log(`[Computed hasChanges] Email changed: ${emailChanged}, Avatar changed: ${avatarChanged}`);
-  return emailChanged || avatarChanged;
-});
-// --- End computed property ---
-
-// 初始化数据
-onMounted(() => {
-  console.log('[Profile onMounted] Initializing...'); 
-  // If user data exists in store, populate form
-  if (userStore.username) {
-    userInfo.username = userStore.username
-    userInfo.email = userStore.userInfo?.email || localStorage.getItem('email') || '' 
-    // Ensure avatar is synced with store or default
-    userInfo.avatar = userStore.avatar || defaultAvatar;
-  }
-  // Ensure avatar is at least the default if sync fails
-  if (!userInfo.avatar) {
-    console.log('[Profile onMounted] Avatar still null/empty, setting to default.'); 
-    userInfo.avatar = defaultAvatar;
-  }
-
-  // Store initial values after potential population
-  initialEmail.value = userInfo.email;
-  initialAvatar.value = userInfo.avatar;
-  console.log('[Profile onMounted] Initial Email set to:', initialEmail.value);
-  console.log('[Profile onMounted] Initial Avatar set to:', initialAvatar.value);
+  return userInfo.email !== initialEmail.value || userInfo.avatar !== initialAvatar.value
 })
 
 // 头像上传错误处理
 const avatarError = () => {
   userInfo.avatar = defaultAvatar
-  ElMessage.warning('头像加载失败，已使用默认头像')
 }
 
 // 上传头像
 const uploadAvatar = async (options: any) => {
-  const file = options.file
-  console.log('准备上传头像:', file.name);
-
-  // 检查文件类型和大小 (moved earlier)
-  const isImage = file.type.startsWith('image/')
-  if (!isImage) {
-    ElMessage.error('请上传图片文件')
-    return
-  }
-  const isLt2M = file.size / 1024 / 1024 < 2
-  if (!isLt2M) {
-    ElMessage.error('图片大小不能超过2MB')
-    return
-  }
-
-  // 创建 FormData
-  const formData = new FormData()
-  formData.append('avatar', file) // Key must match backend upload.single('avatar')
-
   try {
     loading.avatar = true
-    console.log('调用 uploadUserAvatar API...');
-    // 调用新的后端 API 上传
-    const res = await uploadUserAvatar(formData)
-    console.log('上传 API 响应:', res);
-
-    // Explicitly check based on observed AxiosResponse structure
-    if (res?.status === 200 && res.data?.code === 200 && res.data?.data?.avatarUrl) {
-      // Success Case: Extract URL from nested data
-      const avatarUrl = res.data.data.avatarUrl;
-      console.log('头像上传成功, URL:', avatarUrl);
-      // 更新页面显示
-      userInfo.avatar = avatarUrl
-      
-      // --- Update userStore with the new avatar URL ---
-      userStore.setAvatar(avatarUrl); 
-      // --- End update userStore ---
-
-      ElMessage.success(res.data.message || '头像上传成功')
-      // --- Update initialAvatar after successful upload ---
-      initialAvatar.value = avatarUrl; 
-      // --- End update initialAvatar ---
+    const formData = new FormData()
+    formData.append('file', options.file)
+    
+    const response = await uploadUserAvatar(formData)
+    
+    if (response?.code === 200 && response.data?.avatarUrl) {
+      const newAvatarUrl = response.data.avatarUrl;
+      userInfo.avatar = newAvatarUrl;
+      userStore.setAvatar(newAvatarUrl);
+      initialAvatar.value = newAvatarUrl;
+      ElMessage.success('头像更新成功');
     } else {
-      // Failure Case: Log the received structure and show error message
-      console.error('头像上传失败，响应结构不符合预期:', res);
-      // Try to get a meaningful error message
-      const errMsg = res?.data?.message || res?.message || '头像上传失败，请稍后重试';
-      ElMessage.error(errMsg) 
+      ElMessage.error(response?.message || '上传头像失败，未收到有效的头像URL');
     }
   } catch (error: any) {
-    console.error('上传头像 API 调用失败:', error)
-    // Handle network errors or errors thrown by the interceptor
-    const message = error.response?.data?.message || error.message || '上传失败，请检查网络或联系管理员'
-    ElMessage.error(message)
+    console.error('上传头像失败 (catch):', error);
+    ElMessage.error(error.response?.data?.message || error.message || '上传头像失败');
   } finally {
     loading.avatar = false
   }
@@ -329,162 +278,99 @@ const uploadAvatar = async (options: any) => {
 const handleUpdateInfo = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate(async (valid) => {
-    if (!valid) {
-      ElMessage.warning('请完善表单信息')
-      return
-    }
+  try {
+    await formRef.value.validate()
+    loading.updateInfo = true
     
-    try {
-      loading.updateInfo = true
-      
-      // Call the backend API to update email
-      const res = await updateUserInfo({ email: userInfo.email });
-
-      // Check API response
-      // Handle potential full Axios response vs direct payload
-      const responseData = res.data || res; 
-
-      if (responseData?.code === 200) {
-        console.log('邮箱更新 API 成功:', responseData);
-        const updatedEmail = responseData.data?.email || userInfo.email; // Use email from response if available
-
-        // Update localStorage (still useful as a fallback, but store should be primary source)
-        localStorage.setItem('email', updatedEmail)
-        
-        // --- Update userStore with the new email --- 
-        if (userStore.userInfo) {
-          userStore.userInfo.email = updatedEmail; 
-          console.log('userStore updated with new email:', updatedEmail);
-          // Optionally, trigger an action if direct modification isn't ideal
-          // userStore.setUserEmail(updatedEmail);
-        } else {
-          console.warn('userStore.userInfo is null, cannot update email in store.');
-        }
-        // --- End update userStore ---
-
-        // --- Update initialEmail after successful save ---
-        initialEmail.value = updatedEmail; 
-        // --- End update initialEmail ---
-        
-        ElMessage.success(responseData.message || '个人信息更新成功')
-      } else {
-        // Handle API error
-        console.error('邮箱更新 API 失败:', responseData);
-        ElMessage.error(responseData?.message || '邮箱更新失败')
+    const updateData = {
+      email: userInfo.email
+    };
+    
+    const response = await updateUserInfo(updateData)
+    
+    if (response?.code === 200) {
+      if (userStore.userInfo) { 
+        userStore.userInfo.email = userInfo.email;
       }
-
-    } catch (error: any) {
-      console.error('更新用户信息失败 (catch block):', error)
-      const message = error.response?.data?.message || error.message || '更新失败，请稍后重试'
-      ElMessage.error(message)
-    } finally {
-      loading.updateInfo = false
+      initialEmail.value = userInfo.email;
+      ElMessage.success('个人信息更新成功');
+    } else {
+      ElMessage.error(response?.message || '更新个人信息失败');
     }
-  })
+  } catch (error: any) {
+    console.error('更新个人信息失败 (catch):', error);
+    ElMessage.error(error.response?.data?.message || error.message || '更新个人信息失败');
+  } finally {
+    loading.updateInfo = false
+  }
 }
 
 // 修改密码
 const handleChangePassword = async () => {
   if (!passwordFormRef.value) return
   
-  await passwordFormRef.value.validate(async (valid) => {
-    if (!valid) {
-      ElMessage.warning('请完善表单信息')
-      return
-    }
+  try {
+    await passwordFormRef.value.validate()
+    loading.password = true
     
-    try {
-      loading.password = true
-      
-      // 构建密码数据
-      const passwordData = {
-        username: userInfo.username,
-        oldPassword: passwordForm.oldPassword,
-        newPassword: passwordForm.newPassword,
-        confirmPassword: passwordForm.confirmPassword
-      }
-      
-      // 调用API更新密码
-      const res = await updatePassword(passwordData)
-      
-      // --- Add diagnostic log ---
-      console.log('Response received by handleChangePassword:', res)
-      // --- End diagnostic log ---
-      
-      if (res.data?.code === 200) {
-        ElMessage.success('密码修改成功，请重新登录')
-        passwordDialogVisible.value = false
-        
-        // 清空表单
-        passwordForm.oldPassword = ''
-        passwordForm.newPassword = ''
-        passwordForm.confirmPassword = ''
-        
-        // 退出登录
-        handleLogout()
-      } else {
-        ElMessage.error(res.message || '密码修改失败')
-      }
-    } catch (error) {
-      console.error('修改密码失败:', error)
-      ElMessage.error('修改失败，请稍后重试')
-    } finally {
-      loading.password = false
+    const response = await updatePassword({
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
+    })
+    
+    if (response?.code === 200) {
+      passwordDialogVisible.value = false
+      passwordForm.oldPassword = ''
+      passwordForm.newPassword = ''
+      passwordForm.confirmPassword = ''
+      ElMessage.success('密码修改成功')
     }
+  } catch (error) {
+    console.error('修改密码失败:', error)
+    ElMessage.error('修改密码失败')
+  } finally {
+    loading.password = false
+  }
+}
+
+// 确认退出登录
+const confirmLogout = () => {
+  ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    userStore.logout()
+    router.push('/login')
   })
 }
 
 // 确认注销账户
 const confirmDeactivate = () => {
-  ElMessageBox.confirm(
-    '注销账户将删除您的所有个人数据，此操作不可逆，是否继续？',
-    '警告',
-    {
-      confirmButtonText: '确认注销',
-      cancelButtonText: '取消',
-      type: 'warning',
-      distinguishCancelAndClose: true
-    }
-  ).then(() => {
-    // 在生产环境中，这里应该调用API注销账户
-    // await deactivateAccount()
-    
-    // 开发环境模拟
+  ElMessageBox.confirm('确定要注销账户吗？此操作不可恢复！', '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'error'
+  }).then(() => {
+    // TODO: 实现注销账户逻辑
     ElMessage.success('账户已注销')
-    handleLogout()
-  }).catch(() => {
-    // 用户取消操作
+    userStore.logout()
+    router.push('/login')
   })
 }
 
-// 确认退出登录
-const confirmLogout = () => {
-  ElMessageBox.confirm(
-    '确定要退出登录吗？',
-    '提示',
-    {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
-    handleLogout()
-  }).catch(() => {
-    // 用户取消操作
-  })
-}
-
-// 退出登录
-const handleLogout = () => {
-  // 调用store的logout
-  userStore.logout()
+// 初始化数据
+onMounted(() => {
+  if (userStore.username) {
+    userInfo.username = userStore.username
+    userInfo.email = userStore.userInfo?.email || localStorage.getItem('email') || ''
+    userInfo.avatar = userStore.avatar || defaultAvatar
+  }
   
-  // 跳转到登录页
-  router.push('/login')
-  
-  ElMessage.success('退出成功')
-}
+  if (!userInfo.avatar) {
+    userInfo.avatar = defaultAvatar
+  }
+})
 </script>
 
 <style scoped>

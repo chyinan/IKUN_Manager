@@ -1,37 +1,62 @@
 import request from '@/utils/request'
-import type { ClassItem, ApiResponse } from '@/types/common'
+import type { ClassItem, ClassItemResponse, ApiResponse } from '@/types/common'
 
 /**
  * 获取班级列表
  * @param params 查询参数
  */
-export function getClassList() {
-  console.log('调用getClassList API');
-  return request.get<ApiResponse<ClassItem[]>>('/class/list')
+export function getClassList(params?: any): Promise<ApiResponse<ClassItemResponse[]>> {
+  console.log('调用getClassList API, 参数:', params);
+  return request.get<ApiResponse<ClassItemResponse[]>>('/class/list', { params })
+    .then(response => response.data)
+    .catch(error => {
+        console.error('getClassList API catch block:', error);
+        throw error; 
+    });
 }
 
 // 获取班级详情
-export function getClassDetail(id: number) {
+export function getClassDetail(id: number): Promise<ApiResponse<ClassItemResponse>> {
   console.log('调用getClassDetail API, ID:', id);
-  return request.get<ApiResponse<ClassItem>>(`/class/${id}`)
+  return request.get<ApiResponse<ClassItemResponse>>(`/class/${id}`)
+    .then(response => response.data)
+    .catch(error => {
+        console.error('getClassDetail API catch block:', error);
+        throw error; 
+    });
 }
 
 // 添加班级
-export function addClass(data: ClassItem) {
+export function addClass(data: ClassItem): Promise<ApiResponse<ClassItemResponse>> {
   console.log('调用addClass API, 数据:', data);
-  return request.post<ApiResponse<ClassItem>>('/class/add', data)
+  return request.post<ApiResponse<ClassItemResponse>>('/class/add', data)
+    .then(response => response.data)
+    .catch(error => {
+        console.error('addClass API catch block:', error);
+        throw error; 
+    });
 }
 
 // 更新班级
-export function updateClass(id: number, data: ClassItem) {
+export function updateClass(id: number, data: ClassItem): Promise<ApiResponse<ClassItemResponse>> {
   console.log('调用updateClass API, ID:', id, '数据:', data);
-  return request.put<ApiResponse<ClassItem>>(`/class/${id}`, data)
+  return request.put<ApiResponse<ClassItemResponse>>(`/class/${id}`, data)
+    .then(response => response.data)
+    .catch(error => {
+        console.error('updateClass API catch block:', error);
+        throw error; 
+    });
 }
 
 // 删除班级
-export function deleteClass(id: number) {
+export function deleteClass(id: number): Promise<ApiResponse<void>> {
   console.log('调用deleteClass API, ID:', id);
   return request.delete<ApiResponse<void>>(`/class/${id}`)
+    .then(response => response.data)
+    .catch(error => {
+        console.error('deleteClass API catch block:', error);
+        throw error; 
+    });
 }
 
 // 批量删除班级
@@ -65,4 +90,14 @@ export function exportClasses() {
   return request.get<Blob>('/class/export', {
     responseType: 'blob'
   })
+}
+
+// 获取班级选项列表 (通常用于下拉框)
+export function getClassOptions(): Promise<ApiResponse<ClassItem[]>> {
+    return request.get<ApiResponse<ClassItem[]>>('/class/options')
+      .then(response => response.data)
+      .catch(error => {
+        console.error('getClassOptions API catch block:', error);
+        throw error; 
+    });
 }

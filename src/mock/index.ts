@@ -24,10 +24,12 @@ const studentMockData: StudentItem[] = Array.from({ length: 50 }, (_, i) => ({
   id: i + 1,
   studentId: `2024${String(i + 1).padStart(4, '0')}`,
   name: `学生${i + 1}`,
-  class_name: classMockData[i % classMockData.length].className,
+  gender: i % 2 === 0 ? '男' : '女',
+  className: classMockData[i % classMockData.length].className,
   phone: `1381234${String(i + 1).padStart(4, '0')}`,
   email: `student${i + 1}@example.com`,
-  joinDate: generateDate()
+  joinDate: generateDate(),
+  createTime: new Date().toISOString()
 }))
 
 // 模拟部门数据
@@ -42,14 +44,18 @@ const deptMockData: DeptItem[] = [
 // 模拟员工数据
 const employeeMockData: EmployeeItem[] = Array.from({ length: 50 }, (_, i) => ({
   id: i + 1,
+  empId: `EMP${String(i + 1).padStart(4, '0')}`,
   name: `员工${i + 1}`,
+  gender: i % 3 === 0 ? '男' : '女',
+  age: Math.floor(Math.random() * 30) + 22,
   deptName: deptMockData[i % deptMockData.length].deptName,
   position: ['工程师', '经理', '主管', '专员', '助理'][i % 5],
   salary: Math.floor(Math.random() * 10000) + 5000,
   status: i % 10 === 0 ? '离职' : '在职',
   phone: `1381234${String(i + 1).padStart(4, '0')}`,
   email: `employee${i + 1}@example.com`,
-  joinDate: generateDate()
+  joinDate: generateDate(),
+  createTime: new Date().toISOString()
 }))
 
 // 模拟成绩数据
@@ -57,7 +63,7 @@ const scoreMockData = studentMockData.map(student => ({
   id: student.id,
   studentId: student.studentId,
   name: student.name,
-  className: student.class_name,
+  className: student.className,
   scores: {
     '语文': Math.floor(Math.random() * 30) + 70,
     '数学': Math.floor(Math.random() * 30) + 70,

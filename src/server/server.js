@@ -217,27 +217,27 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (token == null) {
-    // If no token, treat as unauthenticated ('system' for logging)
-    req.user = { username: 'system' }; 
     console.log('[Auth] No token provided.');
-    // For protected routes, you might want to return 401 here instead of calling next()
-    // return res.sendStatus(401); 
-    return next(); // Allow request for now, log as system
+    // Return 401 Unauthorized if no token is provided for a protected route
+    return res.status(401).json({ code: 401, message: '用户未认证，请求需要Token' });
   }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       console.error('[Auth] Token verification failed:', err.message);
-      // If token is invalid/expired, treat as unauthenticated ('system' for logging)
-      req.user = { username: 'system' }; 
-      // For protected routes, return 403 Forbidden here instead of calling next()
-      // return res.sendStatus(403); 
-      return next(); // Allow request for now, log as system
+      // Return 403 Forbidden if token is invalid or expired
+      let message = 'Token无效或已过期';
+      if (err.name === 'TokenExpiredError') {
+          message = '登录已过期，请重新登录';
+      } else if (err.name === 'JsonWebTokenError') {
+          message = '无效的Token';
+      }
+      return res.status(403).json({ code: 403, message: message });
     }
     // Token is valid, attach decoded payload (user info) to request
     req.user = decoded; // decoded payload usually contains user id, username, etc.
-    console.log(`[Auth] Token verified successfully. User: ${req.user?.username}`);
-    next();
+    console.log(`[Auth] Token verified successfully. User ID: ${req.user?.id}, Username: ${req.user?.username}`); // Log user ID and username
+    next(); // Proceed to the next middleware/route handler ONLY if token is valid
   });
 };
 
@@ -1805,82 +1805,119 @@ app.put(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
 // --- End Update User Info Route ---
 
 // --- Multer Configuration for Avatar Uploads ---
-const avatarUploadPath = path.join(__dirname, 'uploads', 'avatars');
+const avatarUploadDir = path.join(__dirname, 'uploads', 'avatars');
 
-// Ensure upload directory exists
-if (!fs.existsSync(avatarUploadPath)){
-    fs.mkdirSync(avatarUploadPath, { recursive: true });
-    console.log(`Created avatar upload directory: ${avatarUploadPath}`);
+// Ensure the avatar directory exists
+if (!fs.existsSync(avatarUploadDir)){
+    fs.mkdirSync(avatarUploadDir, { recursive: true });
+    console.log(`Created avatar upload directory: ${avatarUploadDir}`);
 }
 
-const storage = multer.diskStorage({
+const avatarStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, avatarUploadPath); // Save files to src/server/uploads/avatars/
+    cb(null, avatarUploadDir); // Save avatars to uploads/avatars
   },
   filename: function (req, file, cb) {
-    // Generate a unique filename: user-<userId>-<timestamp>.<extension>
-    const userId = req.user?.id || 'unknown'; // Get userId from authenticated user
+    // Generate a unique filename (e.g., user-<id>-timestamp.<ext>)
+    // We need the user ID, so we'll rely on authenticateToken middleware
+    const userId = req.user?.id || 'unknown'; 
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const extension = path.extname(file.originalname);
     cb(null, `user-${userId}-${uniqueSuffix}${extension}`);
   }
 });
 
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // Limit file size to 2MB
-  fileFilter: function (req, file, cb) {
-    // Accept only image files
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('只允许上传图片文件!'), false);
-    }
+// File filter to accept only images
+const imageFileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
     cb(null, true);
-  }
-});
-// --- End Multer Configuration ---
-
-// --- New Avatar Upload Route ---
-// Apply authenticateToken first to get user ID, then multer middleware
-app.post(`${apiPrefix}/user/avatar`, authenticateToken, upload.single('avatar'), (req, res) => {
-  console.log(`[Avatar Upload] Received request for user ID: ${req.user?.id}`);
-  if (req.file) {
-    console.log('[Avatar Upload] File uploaded successfully:', req.file);
-    // Construct the URL path relative to the server root
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    console.log(`[Avatar Upload] Generated URL: ${avatarUrl}`);
-
-    // TODO (Optional future enhancement): 
-    // - Save avatarUrl to the user table in the database
-    // - Delete old avatar file if it exists
-
-    res.json({
-      code: 200,
-      message: '头像上传成功',
-      data: {
-        avatarUrl: avatarUrl // Return the URL path
-      }
-    });
   } else {
-    // This part might be reached if fileFilter rejected the file
-    console.error('[Avatar Upload] Upload failed or no file received.');
-    res.status(400).json({ code: 400, message: '头像上传失败，请确保文件是图片且小于2MB' });
+    cb(new Error('仅支持上传图片文件!'), false);
   }
-}, (error, req, res, next) => {
-  // --- Multer Error Handling ---
-  console.error('[Avatar Upload] Multer error:', error);
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ code: 400, message: '文件过大，请上传小于2MB的图片' });
+};
+
+const uploadAvatarMiddleware = multer({
+  storage: avatarStorage,
+  fileFilter: imageFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB file size limit
+}).single('file'); // *** IMPORTANT: Expect a single file with field name 'file' ***
+
+// --- Avatar Upload Route --- 
+app.post(`${apiPrefix}/user/avatar`, authenticateToken, (req, res) => {
+  // Use the configured multer middleware first
+  uploadAvatarMiddleware(req, res, async (err) => {
+    // Handle Multer errors (e.g., file size limit, wrong file type)
+    if (err instanceof multer.MulterError) {
+      console.error('[Avatar Upload] Multer error:', err);
+      let message = '上传头像时发生错误';
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        message = '文件过大，请上传小于 5MB 的图片';
+      }
+      return res.status(400).json({ code: 400, message: message });
+    } else if (err) {
+      // Handle other errors (e.g., file filter error)
+      console.error('[Avatar Upload] Other upload error:', err);
+      return res.status(400).json({ code: 400, message: err.message || '上传头像失败' });
     }
-    // Handle other Multer errors if necessary
-  } else if (error) {
-    // Handle non-Multer errors (e.g., from fileFilter)
-    return res.status(400).json({ code: 400, message: error.message || '上传失败' });
-  }
-  // If no file was uploaded without an error being caught specifically
-  if (!req.file) { 
-      return res.status(400).json({ code: 400, message: '未选择文件或文件无效' });
-  }
-  res.status(500).json({ code: 500, message: '上传过程中发生未知错误' });
+
+    // --- File should be uploaded at this point --- 
+    if (!req.file) {
+      console.error('[Avatar Upload] No file received after Multer middleware.');
+      return res.status(400).json({ code: 400, message: '未检测到上传的文件' });
+    }
+    
+    // --- Check authentication AFTER Multer --- 
+    if (!req.user || !req.user.id) {
+        console.error('[Avatar Upload] User not authenticated after file upload.');
+        // Optional: Delete the uploaded file if user is not authenticated
+        fs.unlink(req.file.path, (unlinkErr) => {
+            if (unlinkErr) console.error("[Avatar Upload] Failed to delete orphaned file:", unlinkErr);
+        });
+        return res.status(401).json({ code: 401, message: '用户未认证，无法上传头像' });
+    }
+
+    // --- Construct the URL --- 
+    // The URL should be relative to the server's root if served statically
+    // Example: /uploads/avatars/user-1-1678886400000-123456789.png
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    // --- Update user's avatar URL in the database --- 
+    try {
+      const userId = req.user.id;
+      const success = await userService.updateUser(userId, { avatar: avatarUrl });
+
+      if (!success) {
+        // Should not happen if user is authenticated, but handle defensively
+         fs.unlink(req.file.path, (unlinkErr) => {
+            if (unlinkErr) console.error("[Avatar Upload] Failed to delete file after DB update fail:", unlinkErr);
+        });
+        return res.status(404).json({ code: 404, message: '用户不存在或更新头像失败' });
+      }
+
+      // --- Log the successful update --- 
+       logService.addLog({
+          type: 'database',
+          operation: '更新',
+          content: `用户资料: ID=${userId}, 更新头像为 ${avatarUrl}`,
+          operator: req.user?.username || 'system'
+      });
+      
+      // --- Send success response --- 
+      console.log(`[Avatar Upload] User ${userId} avatar updated to: ${avatarUrl}`);
+      res.json({
+        code: 200,
+        message: '头像上传成功',
+        data: { avatarUrl: avatarUrl } // Send back the new URL
+      });
+
+    } catch (dbError) {
+      console.error('[Avatar Upload] Database update failed:', dbError);
+      // Attempt to delete the uploaded file if DB update fails
+       fs.unlink(req.file.path, (unlinkErr) => {
+            if (unlinkErr) console.error("[Avatar Upload] Failed to delete file after DB error:", unlinkErr);
+        });
+      res.status(500).json({ code: 500, message: '更新用户头像信息失败' });
+    }
+  });
 });
 // --- End Avatar Upload Route --- 

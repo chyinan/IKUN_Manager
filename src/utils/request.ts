@@ -22,8 +22,11 @@ service.interceptors.request.use(
     // Show loading indicator (optional)
     // NProgress.start()
 
-    // Get token from localStorage
+    console.log(`[Request Interceptor] Intercepting request to: ${config.url}`); // Log the URL
+
+    // Get token from localStorage AT THE TIME OF THE REQUEST
     const token = localStorage.getItem('token') // Use the same key as in the user store
+    console.log(`[Request Interceptor] Token read from localStorage: ${token ? 'Found (' + token.substring(0, 10) + '...)' : 'Not Found'}`); // Log if token was found
 
     // Ensure headers object exists
     config.headers = config.headers || {};
@@ -31,9 +34,9 @@ service.interceptors.request.use(
     // Add Authorization header if token exists
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('[Request Interceptor] Token found, adding Authorization header.'); // Log for debugging
+      console.log('[Request Interceptor] Authorization header ADDED.');
     } else {
-        console.log('[Request Interceptor] No token found, request sent without Authorization header.'); // Log for debugging
+        console.warn('[Request Interceptor] No token found in localStorage, Authorization header NOT ADDED.'); // Changed to warn
     }
 
     // Add other headers if needed

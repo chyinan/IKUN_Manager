@@ -35,18 +35,24 @@ export const useUserStore = defineStore('user', () => {
   const loginAction = async (credentials: { username: string; password: string }) => {
     try {
       // Call the actual backend login API
-      // 'res' here is the full Axios response object because the interceptor returns it
+      // 'res' contains the full Axios response
       const res = await login(credentials);
       
-      // Access the backend payload from res.data
-      const backendPayload = res.data; 
+      // Access the backend payload directly from res (assuming interceptor passes it through)
+      // Or potentially res.data if your interceptor structure differs
+      const backendPayload = res; // Adjust if needed based on request.ts interceptor
 
-      // Check for successful response based on backend structure within backendPayload
+      console.log('[userStore loginAction] Received backend payload:', backendPayload); // Add detailed log
+
+      // Check for successful response using the correct structure
       if (backendPayload?.code === 200 && backendPayload?.data?.token && backendPayload?.data?.user) {
-        // Extract token and user info from backendPayload.data
+        // Extract token and user info correctly
         const receivedToken = backendPayload.data.token;
-        const receivedUser = backendPayload.data.user;
+        const receivedUser = backendPayload.data.user; // Use user instead of userInfo
         
+        console.log('[userStore loginAction] Login successful, token received:', receivedToken);
+        console.log('[userStore loginAction] Received user info:', receivedUser);
+
         // Update store state
         token.value = receivedToken;
         userInfo.value = {
@@ -54,27 +60,34 @@ export const useUserStore = defineStore('user', () => {
           username: receivedUser.username,
           email: receivedUser.email || undefined,
           avatar: receivedUser.avatar,
-          roles: receivedUser.roles,
-          permissions: receivedUser.permissions
+          // Handle roles/permissions if they exist in userInfo
+          roles: receivedUser.roles || [], 
+          permissions: receivedUser.permissions || [] 
         };
+        // Update derived state
         username.value = receivedUser.username;
-        avatar.value = receivedUser.avatar || avatar.value || '';
+        avatar.value = receivedUser.avatar || avatar.value || ''; // Keep existing if null/undefined
+        roles.value = receivedUser.roles || [];
+        permissions.value = receivedUser.permissions || [];
         
-        // Save token to localStorage
+        // Save token and avatar to localStorage
         localStorage.setItem('token', receivedToken);
+        if (avatar.value) { // Only save avatar if it exists
+           localStorage.setItem('user_avatar_url', avatar.value);
+        }
         
         ElMessage.success('登录成功');
         return true; // Indicate success
       } else {
         // Handle login failure using message from backendPayload
-        ElMessage.error(backendPayload?.message || '登录失败: 无效的响应数据');
+        const errorMsg = backendPayload?.message || '登录失败: 无效的响应数据格式';
+        console.error('[userStore loginAction] Login failed:', errorMsg, 'Payload:', backendPayload);
+        ElMessage.error(errorMsg);
         return false;
       }
     } catch (error: any) {
       console.error('登录 API 调用失败 (catch block):', error);
-      // Error might be from network or interceptor rejection
-      // Use the error message provided by the interceptor or a default
-      const message = error?.message || '登录失败，请稍后重试'; 
+      const message = error?.response?.data?.message || error?.message || '登录失败，请稍后重试'; 
       ElMessage.error(message);
       return false;
     }

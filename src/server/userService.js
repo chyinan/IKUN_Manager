@@ -175,11 +175,51 @@ async function updateUserEmail(userId, newEmail) {
   }
 }
 
+/**
+ * 更新用户信息
+ * @param {number} userId 用户ID
+ * @param {object} updateData 要更新的数据对象
+ * @returns {Promise<boolean>} 更新是否成功
+ */
+async function updateUser(userId, updateData) {
+  console.log(`[UserService] Updating user info for ID: ${userId}, data:`, updateData);
+  try {
+    if (!userId || !updateData || Object.keys(updateData).length === 0) {
+      console.warn('[UserService] Invalid update parameters');
+      return false;
+    }
+
+    // 构建更新字段和值的数组
+    const fields = Object.keys(updateData);
+    const values = fields.map(field => updateData[field]);
+    values.push(userId); // 添加 userId 作为 WHERE 条件
+
+    // 构建 SET 子句
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const query = `UPDATE user SET ${setClause}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
+
+    const result = await db.query(query, values);
+    const success = result && result.affectedRows > 0;
+
+    if (success) {
+      console.log(`[UserService] User info updated successfully for ID: ${userId}`);
+    } else {
+      console.warn(`[UserService] User info update failed for ID: ${userId}`);
+    }
+
+    return success;
+  } catch (error) {
+    console.error(`[UserService] Error updating user info for ID ${userId}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   findUserByUsername,
   comparePassword,
   findUserById,
   hashPassword,
   updateUserPassword,
-  updateUserEmail
+  updateUserEmail,
+  updateUser
 }; 

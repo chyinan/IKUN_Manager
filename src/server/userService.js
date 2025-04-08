@@ -73,10 +73,17 @@ async function findUserById(id) {
     return null;
   }
   try {
-    const query = 'SELECT id, username, password, email FROM user WHERE id = ?';
+    const query = 'SELECT id, username, password, email, create_time FROM user WHERE id = ?';
     // Use destructuring, expecting a single user object if found
     const [userObject] = await db.query(query, [userId]); 
     console.log(`[UserService] Result from db.query for ID ${userId} (destructured): ${JSON.stringify(userObject)}`); 
+
+    // **** 添加强制日志 ****
+    if (userObject) {
+      console.log(`[UserService DEBUG] Email read from DB for ID ${userId}: ${userObject.email}`);
+      console.log(`[UserService DEBUG] CreateTime read from DB for ID ${userId}: ${userObject.create_time}`); // <-- 添加 create_time 日志
+    }
+    // **** 结束强制日志 ****
 
     // Check if the destructured object exists
     if (userObject) { 

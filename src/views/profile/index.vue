@@ -289,9 +289,7 @@ const handleUpdateInfo = async () => {
     const response = await updateUserInfo(updateData)
     
     if (response?.code === 200) {
-      if (userStore.userInfo) { 
-        userStore.userInfo.email = userInfo.email;
-      }
+      userStore.updateUserEmailAction(userInfo.email);
       initialEmail.value = userInfo.email;
       ElMessage.success('个人信息更新成功');
     } else {

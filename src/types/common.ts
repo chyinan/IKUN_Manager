@@ -307,13 +307,9 @@ export interface LoginForm {
 }
 
 // Login API Result Data (Backend)
-export interface LoginResult {
-  code: number
-  data: {
-    token: string
-    user: UserInfo
-  }
-  message: string
+export interface LoginData {
+  token: string;
+  user: UserInfo;
 }
 
 // User Info Data (Frontend)

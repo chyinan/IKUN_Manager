@@ -1611,198 +1611,133 @@ process.on('unhandledRejection', (reason, promise) => {
 // --- Login Route --- 
 app.post(`${apiPrefix}/user/login`, async (req, res) => {
   const { username, password } = req.body;
-  console.log(`[Login Route] Received login attempt for username: ${username}, Password provided: ${password ? 'Yes' : 'No'}`); // Log received data (don't log password value)
-
-  if (!username || !password) {
-    console.log('[Login Route] Username or password missing in request body.');
-    return res.status(400).json({ code: 400, message: '用户名和密码不能为空' });
-  }
-
+  console.log(`[Login Route] Attempting login for username: ${username}`);
   try {
     // 1. Find user by username
     const user = await userService.findUserByUsername(username);
     if (!user) {
-      console.log(`[Login Route] Authentication failed: User '${username}' not found.`);
-      return res.status(401).json({ code: 401, message: '用户名或密码错误' });
+      console.log(`[Login Route] User not found: ${username}`);
+      return res.status(401).json({ code: 401, message: '用户名或密码错误', data: null });
     }
+    console.log(`[Login Route] User found: ${username}, ID: ${user.id}`);
 
     // 2. Compare password
-    console.log(`[Login Route] Comparing password for user: ${username}`);
-    const isPasswordValid = await userService.comparePassword(password, user.password);
-    if (!isPasswordValid) {
-      console.log(`[Login Route] Authentication failed: Password mismatch for user '${username}'.`);
-      return res.status(401).json({ code: 401, message: '用户名或密码错误' });
+    const passwordMatch = await userService.comparePassword(password, user.password);
+    if (!passwordMatch) {
+      console.log(`[Login Route] Password mismatch for user: ${username}`);
+      return res.status(401).json({ code: 401, message: '用户名或密码错误', data: null });
     }
-    
-    console.log(`[Login Route] Authentication successful for user: ${username}`);
+    console.log(`[Login Route] Password matched for user: ${username}`);
 
-    // 3. Generate JWT 
-    // Include essential, non-sensitive user info in the payload
+    // 3. Generate JWT
+    // IMPORTANT: Customize payload as needed. Avoid putting sensitive info here.
     const payload = {
       id: user.id,
       username: user.username,
-      // Add roles or other permissions if applicable
+      // Add roles/permissions if needed, but keep payload small
+      // roles: user.roles, 
     };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' }); // Token expires in 1 hour
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: config.jwt.expiresIn || '1h' });
     console.log(`[Login Route] JWT generated for user: ${username}`);
 
-    // 4. Send token and user info (excluding password)
+    // 4. Prepare response user info (omit password)
+    const { password: _, ...safeUserInfo } = user;
+
+    // 5. Send response
     res.json({
       code: 200,
       message: '登录成功',
       data: {
-        token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email
-          // Include other relevant user details here
-        }
+        token: token,
+        user: safeUserInfo // Send user info without password
       }
     });
 
   } catch (error) {
-    console.error(`[Login Route] Error during login process for user '${username}':`, error);
-    res.status(500).json({ code: 500, message: '登录失败，服务器内部错误' });
-  }
-}); 
-
-// 新增：修改密码路由 (Apply middleware for authentication)
-app.post(`${apiPrefix}/user/update-password`, authenticateToken, async (req, res) => {
-  const { oldPassword, newPassword, confirmPassword } = req.body;
-  const userId = req.user?.id; // Get user ID from authenticated token
-
-  console.log(`[Update Password Route] Received request for user ID: ${userId}`);
-
-  // Basic validation
-  if (!userId) {
-    console.error('[Update Password Route] Error: User ID not found in token.');
-    return res.status(401).json({ code: 401, message: '用户未登录或认证无效' });
-  }
-  if (!oldPassword || !newPassword || !confirmPassword) {
-    console.log('[Update Password Route] Validation failed: Missing fields.');
-    return res.status(400).json({ code: 400, message: '所有密码字段不能为空' });
-  }
-  if (newPassword !== confirmPassword) {
-    console.log('[Update Password Route] Validation failed: New passwords do not match.');
-    return res.status(400).json({ code: 400, message: '新密码和确认密码不一致' });
-  }
-  if (newPassword.length < 6) { // Basic length check
-      console.log('[Update Password Route] Validation failed: New password too short.');
-      return res.status(400).json({ code: 400, message: '新密码长度不能少于6位' });
-  }
-
-  try {
-    // 1. Find user by ID (more secure than using username from request body)
-    const user = await userService.findUserById(userId); // Assume userService has findUserById
-    if (!user) {
-      console.log(`[Update Password Route] Error: User with ID ${userId} not found.`);
-      return res.status(404).json({ code: 404, message: '用户不存在' });
-    }
-
-    // 2. Compare old password
-    console.log(`[Update Password Route] Comparing old password for user ID: ${userId}`);
-    const isOldPasswordValid = await userService.comparePassword(oldPassword, user.password);
-    if (!isOldPasswordValid) {
-      console.log(`[Update Password Route] Failed: Old password incorrect for user ID: ${userId}.`);
-      return res.status(400).json({ code: 400, message: '原密码错误' }); 
-      // --- Add diagnostic log --- 
-      console.log('!!! CRITICAL: Code continued after sending 400 response for incorrect old password! !!!'); 
-    }
-
-    // If the code reaches here, old password MUST be valid
-    console.log(`[Update Password Route] Old password verified for user ID: ${userId}. Hashing new password.`);
-    // 3. Hash new password
-    const newPasswordHash = await userService.hashPassword(newPassword); // Assume userService has hashPassword
-
-    // 4. Update password in database
-    console.log(`[Update Password Route] Updating password in DB for user ID: ${userId}`);
-    const updateSuccess = await userService.updateUserPassword(userId, newPasswordHash); // Assume userService has updateUserPassword
-
-    if (!updateSuccess) {
-        console.error(`[Update Password Route] Failed to update password in DB for user ID: ${userId}.`);
-        throw new Error('数据库更新密码失败');
-    }
-
-    console.log(`[Update Password Route] Password updated successfully for user ID: ${userId}.`);
-    // --- Add Logging ---
-    logService.addLog({
-      type: 'security', // Or 'system'
-      operation: '修改密码',
-      content: `用户: ID=${userId}`, // Avoid logging username if possible
-      operator: user.username // Or use userId directly
-    });
-    // --- End Logging ---
-    
-    res.json({
-      code: 200,
-      message: '密码修改成功'
-    });
-
-  } catch (error) {
-    console.error(`[Update Password Route] Error during password update for user ID ${userId}:`, error);
-    res.status(500).json({ code: 500, message: `密码修改失败: ${error.message || '服务器内部错误'}` });
-  }
-}); 
-
-// --- New: Update User Info Route ---
-app.put(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
-  const userId = req.user?.id;
-  const { email } = req.body; // Expecting email in the body
-
-  console.log(`[Update Info Route] Received request for user ID: ${userId}, Email: ${email}`);
-
-  // Validation
-  if (!userId) {
-    return res.status(401).json({ code: 401, message: '用户未登录或认证无效' });
-  }
-  if (typeof email !== 'string' || email.trim() === '') {
-    return res.status(400).json({ code: 400, message: '邮箱不能为空' });
-  }
-  // Basic format check (more thorough check is in userService)
-  if (email.length > 100 || !email.includes('@')) { 
-    return res.status(400).json({ code: 400, message: '邮箱格式不正确' });
-  }
-
-  try {
-    // Call the service function to update the email
-    const success = await userService.updateUserEmail(userId, email.trim());
-
-    if (success) {
-      console.log(`[Update Info Route] Email updated successfully for user ID: ${userId}`);
-      // --- Add Logging ---
-      logService.addLog({
-        type: 'security', // or 'system'
-        operation: '更新信息',
-        content: `用户: ID=${userId} 更新邮箱`, 
-        operator: req.user?.username || `User ${userId}`
-      });
-      // --- End Logging ---
-      res.json({ 
-        code: 200, 
-        message: '用户信息更新成功',
-        // Optionally return updated user info if needed
-        data: { email: email.trim() } 
-      });
-    } else {
-      // This might happen if the user ID doesn't exist (unlikely if authenticated)
-      console.warn(`[Update Info Route] userService.updateUserEmail returned false for user ID: ${userId}`);
-      res.status(404).json({ code: 404, message: '更新失败，未找到用户' });
-    }
-
-  } catch (error) {
-    console.error(`[Update Info Route] Error updating info for user ID ${userId}:`, error);
-    // Handle specific errors like email already exists
-    if (error.message && error.message.includes('邮箱已被')) {
-        return res.status(400).json({ code: 400, message: error.message });
-    }
-    if (error.message && error.message.includes('无效的邮箱格式')) {
-        return res.status(400).json({ code: 400, message: error.message });
-    }
-    res.status(500).json({ code: 500, message: `用户信息更新失败: ${error.message || '服务器内部错误'}` });
+    console.error(`[Login Route] Error during login for ${username}:`, error);
+    res.status(500).json({ code: 500, message: '登录过程中发生错误', data: null });
   }
 });
-// --- End Update User Info Route ---
+
+// 获取用户信息 (GET /api/user/info)
+app.get(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
+  try {
+    // Get user ID from the decoded token attached by the middleware
+    const userId = req.user?.id; // Use optional chaining
+
+    if (!userId) {
+      console.error('[User Info Route] User ID not found in token payload');
+      return res.status(403).json({ code: 403, message: '无法从Token中获取用户ID' });
+    }
+
+    console.log(`[User Info Route] Getting info for user ID: ${userId}`);
+    // Call userService to find user by ID
+    const userInfo = await userService.findUserById(userId);
+
+    if (userInfo) {
+      console.log(`[User Info Route] User info found:`, userInfo);
+      // IMPORTANT: Omit password before sending back to client
+      const { password, ...safeUserInfo } = userInfo;
+      res.json({ code: 200, data: safeUserInfo, message: '获取成功' });
+    } else {
+      console.warn(`[User Info Route] User not found for ID: ${userId}`);
+      res.status(404).json({ code: 404, message: '用户不存在' });
+    }
+  } catch (error) {
+    console.error('[User Info Route] Error getting user info:', error);
+    res.status(500).json({ code: 500, message: '获取用户信息失败' });
+  }
+});
+
+// 更新用户信息 (PUT /api/user/info) - 确保 authenticateToken 应用
+app.put(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(403).json({ code: 403, message: '无法从Token中获取用户ID' });
+    }
+
+    const updateData = req.body; // e.g., { email: 'new@example.com' }
+    console.log(`[Update User Info Route] Attempting update for user ID: ${userId}, data:`, updateData);
+
+    // Filter out disallowed fields (e.g., cannot update ID, username, password via this route)
+    const allowedUpdates = {};
+    if (updateData.hasOwnProperty('email')) {
+      allowedUpdates.email = updateData.email;
+    }
+    // Add other allowed fields here if necessary
+    // if (updateData.hasOwnProperty('some_other_field')) { ... }
+
+    if (Object.keys(allowedUpdates).length === 0) {
+      return res.status(400).json({ code: 400, message: '没有提供有效的更新字段' });
+    }
+
+    // Validate email format if email is being updated
+    if (allowedUpdates.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(allowedUpdates.email)) {
+            return res.status(400).json({ code: 400, message: '无效的邮箱格式' });
+        }
+        // Consider adding uniqueness check here too if userService doesn't handle it
+    }
+
+    const success = await userService.updateUser(userId, allowedUpdates);
+
+    if (success) {
+      console.log(`[Update User Info Route] Update successful for user ID: ${userId}`);
+      res.json({ code: 200, message: '用户信息更新成功' });
+    } else {
+      console.warn(`[Update User Info Route] Update failed for user ID: ${userId}`);
+      // Could be user not found or no changes made
+      res.status(400).json({ code: 400, message: '用户信息更新失败' }); 
+    }
+
+  } catch (error) {
+    console.error('[Update User Info Route] Error updating user info:', error);
+    // Send back specific validation errors if available (e.g., from userService)
+    res.status(500).json({ code: 500, message: error.message || '更新用户信息时发生错误' });
+  }
+});
 
 // --- Multer Configuration for Avatar Uploads ---
 const avatarUploadDir = path.join(__dirname, 'uploads', 'avatars');

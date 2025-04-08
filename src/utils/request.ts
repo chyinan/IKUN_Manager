@@ -7,6 +7,7 @@ import type {
 } from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { useRouter } from 'vue-router'
 
 // 创建axios实例
 const service: AxiosInstance = axios.create({
@@ -117,37 +118,38 @@ service.interceptors.response.use(
     if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
-        console.error('Error Response Data:', error.response.data);
-        console.error('Error Response Status:', error.response.status);
-        console.error('Error Response Headers:', error.response.headers);
-        if (error.response.status === 401) {
-            errorMessage = '认证失败或登录已过期，请重新登录';
-             ElMessageBox.confirm(
-               '您的登录已过期或无效，请重新登录。',
-               '认证失败',
-               {
-                 confirmButtonText: '重新登录',
-                 cancelButtonText: '取消',
-                 type: 'warning',
-               }
-             ).then(() => {
-               localStorage.removeItem('token'); 
-               window.location.href = '/login';
-             })
-        } else if (error.response.status === 403) {
-            errorMessage = '您没有权限执行此操作';
-        } else if (error.response.data && error.response.data.message) {
-            errorMessage = `请求失败: ${error.response.data.message}`;
-        } else if (error.message) {
-            errorMessage = `请求失败: ${error.message}`;
+        console.error(' [Response Interceptor] Error Response Data:', error.response.data);
+        console.error(' [Response Interceptor] Error Response Status:', error.response.status);
+        console.error(' [Response Interceptor] Error Response Headers:', error.response.headers);
+
+        // **处理 Token 过期或无效**
+        if (error.response.status === 401 || error.response.status === 403) {
+          const userStore = useUserStore(); // 获取 user store 实例
+          // 检查后端返回的消息是否明确指示 Token 问题
+          const message = error.response.data?.message || '';
+          if (message.includes('过期') || message.includes('无效') || message.includes('未认证')) {
+            console.warn('[Response Interceptor] Token expired or invalid. Redirecting to login...');
+            // 避免重复弹窗
+            if (!window.location.pathname.includes('/login')) {
+              ElMessage.error(message || '登录状态已失效，请重新登录');
+              userStore.resetState(); // 清除本地状态和 token
+              window.location.href = '/login'; // 强制跳转并刷新页面
+            }
+            // 返回一个永远不会 resolve 的 Promise 来中断后续的 .catch
+            return new Promise(() => {}); 
+          }
         }
+        
+        // 显示通用错误消息 (如果不是 Token 问题)
+        ElMessage.error(error.response.data.message || '请求失败，请稍后重试');
+        
     } else if (error.request) {
         // The request was made but no response was received
-        console.error('Error Request:', error.request);
+        console.error(' [Response Interceptor] No response received:', error.request);
         errorMessage = '无法连接到服务器，请检查网络连接';
     } else {
         // Something happened in setting up the request that triggered an Error
-        console.error('Error Message:', error.message);
+        console.error(' [Response Interceptor] Request setup error:', error.message);
         errorMessage = error.message || '请求发送失败';
     }
 

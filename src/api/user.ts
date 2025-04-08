@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 import type { 
   LoginForm, 
-  LoginResult, 
+  LoginData, 
   UserInfo, 
   ApiResponse, 
   PasswordUpdateData
@@ -25,9 +25,9 @@ export interface PasswordForm {
  * 用户登录
  * @param data 登录表单数据
  */
-export function login(data: LoginForm): Promise<ApiResponse<LoginResult>> {
+export function login(data: LoginForm): Promise<ApiResponse<LoginData>> {
   console.log('调用login API, 数据:', data);
-  return request.post<ApiResponse<LoginResult>>('/user/login', data)
+  return request.post<ApiResponse<LoginData>>('/user/login', data)
     .then(response => response.data)
     .catch(error => {
         console.error('login API catch block:', error);
@@ -75,7 +75,7 @@ export function updatePassword(passwordData: PasswordUpdateData): Promise<ApiRes
  * 更新用户信息 (例如邮箱)
  */
 export function updateUserInfo(data: Partial<UserInfo>): Promise<ApiResponse<any>> {
-  return request.put<ApiResponse<any>>('/user/info', data) // Use PUT method and /user/info endpoint
+  return request.put<ApiResponse<any>>('/user/info', data)
     .then(response => response.data)
     .catch(error => {
         console.error('updateUserInfo API catch block:', error);

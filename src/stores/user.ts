@@ -45,10 +45,10 @@ export const useUserStore = defineStore('user', () => {
       console.log('[userStore loginAction] Received backend payload:', backendPayload); // Add detailed log
 
       // Check for successful response using the correct structure
-      if (backendPayload?.code === 200 && backendPayload?.data?.token && backendPayload?.data?.user) {
+      if (backendPayload?.code === 200 && backendPayload?.data?.data?.token && backendPayload?.data?.data?.user) {
         // Extract token and user info correctly
-        const receivedToken = backendPayload.data.token;
-        const receivedUser = backendPayload.data.user; // Use user instead of userInfo
+        const receivedToken = backendPayload.data.data.token;
+        const receivedUser = backendPayload.data.data.user; // Use user instead of userInfo
         
         console.log('[userStore loginAction] Login successful, token received:', receivedToken);
         console.log('[userStore loginAction] Received user info:', receivedUser);

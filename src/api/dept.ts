@@ -45,3 +45,25 @@ export const deleteDept = (id: number) => {
         throw error; 
     });
 }
+
+// 新增：导入部门数据
+export const importDepartments = (file: File): Promise<ApiResponse<any>> => {
+  console.log('调用importDepartments API, 文件:', file.name);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return request.post<ApiResponse<any>>('/dept/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+  .then(response => response.data) // 直接返回后端响应体中的 data 部分
+  .catch(error => {
+    console.error('importDepartments API catch block:', error);
+    // 尝试从 Axios 错误中提取后端返回的 data (可能包含错误详情)
+    if (error.response && error.response.data) {
+      throw error.response.data; 
+    }
+    throw error; 
+  });
+}

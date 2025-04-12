@@ -68,7 +68,27 @@ app.use((req, res, next) => {
   next();
 });
 
-// 错误处理中间件
+// --- Multer Configuration for Import (Moved to Top) ---
+const importUpload = multer({
+    storage: multer.memoryStorage(), // Store file in memory buffer
+    limits: { fileSize: 10 * 1024 * 1024 }, // Limit file size (e.g., 10MB)
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'application/vnd.ms-excel', // .xls
+          'text/csv' // .csv
+        ];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            console.warn(`[Import Filter] Rejected file type: ${file.mimetype}`);
+            cb(new Error('仅支持上传 Excel (.xlsx, .xls) 或 CSV (.csv) 文件'), false);
+        }
+    }
+});
+// --- End Multer Configuration for Import ---
+
+// 错误处理中间件 (Keep it here or move to the very end)
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);
   res.status(500).json({
@@ -825,6 +845,141 @@ app.delete(`${apiPrefix}/dept/:id`, authenticateToken, async (req, res) => {
     });
   }
 });
+
+// --- Department Import Route --- 
+// POST /api/dept/import
+app.post(`${apiPrefix}/dept/import`, authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[Dept Import Route] Received file import request.');
+
+  if (!req.file) {
+    console.log('[Dept Import Route] No file uploaded.');
+    return res.status(400).json({ code: 400, message: '没有文件被上传' });
+  }
+
+  console.log(`[Dept Import Route] Processing file: ${req.file.originalname}, Type: ${req.file.mimetype}, Size: ${req.file.size} bytes`);
+
+  let rawData = [];
+  const validationErrors = [];
+
+  try {
+    // 1. 解析文件 (Excel 或 CSV)
+    if (req.file.mimetype.includes('spreadsheetml') || req.file.mimetype.includes('ms-excel')) {
+      console.log('[Dept Import Route] Parsing Excel file...');
+      const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      // *** 修正 header 映射，确保 description 对应 Excel 的第 5 列 ***
+      rawData = xlsx.utils.sheet_to_json(sheet, { 
+        header: ["dept_name", "manager", "member_count_ignored", "create_time_ignored", "description"], 
+        range: 1, 
+        rawNumbers: false // 保留此选项，以防万一
+      });
+      console.log(`[Dept Import Route] Parsed ${rawData.length} rows from Excel.`);
+    } else if (req.file.mimetype === 'text/csv') {
+      console.log('[Dept Import Route] Parsing CSV file...');
+      const csvString = req.file.buffer.toString('utf-8');
+      const parseResult = papaparse.parse(csvString, { header: true, skipEmptyLines: true });
+      if (parseResult.errors.length > 0) {
+          throw new Error(`CSV文件解析错误: ${parseResult.errors[0].message} (行: ${parseResult.errors[0].row})`);
+      }
+      // CSV 需要映射表头
+      const headerMap = {
+         '部门名称': 'dept_name',
+         '部门主管': 'manager',
+         '部门描述': 'description'
+       };
+       rawData = parseResult.data.map(row => {
+           const newRow = {};
+           for (const key in row) {
+               if (headerMap[key.trim()]) {
+                   newRow[headerMap[key.trim()]] = row[key];
+               }
+           }
+           return newRow;
+       });
+      console.log(`[Dept Import Route] Parsed ${rawData.length} rows from CSV.`);
+    } else {
+      throw new Error('不支持的文件类型');
+    }
+
+    // 2. 验证数据
+    console.log('[Dept Import Route] Validating data...');
+    const deptsToInsert = [];
+    for (let i = 0; i < rawData.length; i++) {
+      const row = rawData[i];
+      const rowNum = i + 2; // Excel/CSV 行号 (假设有表头)
+      const errorsInRow = [];
+
+      if (!row.dept_name || String(row.dept_name).trim() === '') {
+        errorsInRow.push('部门名称不能为空');
+      }
+       if (!row.manager || String(row.manager).trim() === '') {
+        errorsInRow.push('部门主管不能为空');
+      }
+      // description 是可选的
+
+      if (errorsInRow.length > 0) {
+        validationErrors.push({ row: rowNum, errors: errorsInRow, rowData: row });
+      } else {
+        // *** 添加日志：检查解析后的原始行数据 ***
+        console.log(`[Dept Import DEBUG] Row ${rowNum} raw data from parser:`, JSON.stringify(row)); 
+        
+        // 准备插入数据库的数据
+        const deptToInsert = {
+          dept_name: String(row.dept_name).trim(),
+          manager: String(row.manager).trim(),
+          description: row.description ? String(row.description).trim() : null
+        };
+        
+        // *** 添加日志：检查准备传递给 Service 的数据 ***
+        console.log(`[Dept Import DEBUG] Row ${rowNum} data prepared for service:`, JSON.stringify(deptToInsert)); 
+        
+        deptsToInsert.push(deptToInsert);
+      }
+    }
+
+    // 3. 如果有验证错误，则返回
+    if (validationErrors.length > 0) {
+      console.warn(`[Dept Import Route] Validation failed for ${validationErrors.length} rows.`);
+      return res.status(400).json({
+        code: 400,
+        message: `导入文件中存在 ${validationErrors.length} 条数据错误，请修正后重试`,
+        data: { errors: validationErrors }
+      });
+    }
+
+    // 4. 调用 Service 进行批量添加或更新
+    const importResult = await deptService.batchAddDepts(deptsToInsert);
+    console.log('[Dept Import Route] Service Result:', importResult);
+
+    // 5. 构建响应
+    if (importResult.success) {
+      let message = `成功处理 ${importResult.processedCount} 条部门数据。`; // Use processedCount
+      if (importResult.errors.length > 0) {
+        message += ` 跳过 ${importResult.errors.length} 条错误数据。`;
+        res.status(200).json({
+          code: 200, 
+          message: message,
+          data: { errors: importResult.errors } // Send back errors for detailed feedback
+        });
+      } else {
+        res.status(200).json({ code: 200, message: message });
+      }
+    } else {
+      res.status(500).json({
+        code: 500,
+        message: '导入过程中发生数据库错误',
+        data: { errors: importResult.errors }
+      });
+    }
+
+  } catch (error) {
+    console.error('[Dept Import Route] Error processing import file:', error);
+    res.status(500).json({ code: 500, message: `部门导入处理失败: ${error.message}` });
+  }
+  // Note: No finally block to delete file as we use memoryStorage
+});
+// --- End Department Import Route ---
 
 // 班级相关API
 app.get(`${apiPrefix}/class/list`, async (req, res) => {
@@ -1974,28 +2129,7 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, (req, res) => {
 });
 // --- End Avatar Upload Route --- 
 
-// --- Multer Configuration for Import ---
-// 使用内存存储，因为我们只需要读取文件内容，不需要保存
-const importUpload = multer({
-    storage: multer.memoryStorage(), // Store file in memory buffer
-    limits: { fileSize: 10 * 1024 * 1024 }, // Limit file size (e.g., 10MB)
-    fileFilter: function (req, file, cb) {
-        const allowedTypes = [
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-          'application/vnd.ms-excel', // .xls
-          'text/csv' // .csv
-        ];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            console.warn(`[Import Filter] Rejected file type: ${file.mimetype}`);
-            cb(new Error('仅支持上传 Excel (.xlsx, .xls) 或 CSV (.csv) 文件'), false);
-        }
-    }
-});
-// --- End Multer Configuration ---
-
-// --- Restoring Employee Import Route ---
+// --- Restoring Employee Import Route (Moved Here) ---
 // --- 员工导入路由 ---
 // POST /api/employee/import
 app.post(`${apiPrefix}/employee/import`, authenticateToken, importUpload.single('file'), async (req, res) => {

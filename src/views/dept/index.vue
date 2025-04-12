@@ -16,6 +16,17 @@
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>新增部门
         </el-button>
+        <el-upload
+          :action="''" 
+          :show-file-list="false"
+          :before-upload="beforeUpload"
+          :http-request="handleImportRequest" 
+          accept=".xlsx, .xls, .csv"
+          style="margin: 0 10px;"> 
+          <el-button type="warning">
+            <el-icon><Upload /></el-icon>导入数据
+          </el-button>
+        </el-upload>
         <el-button type="success" @click="handleExport">
           <el-icon><Download /></el-icon>导出数据
         </el-button>
@@ -36,15 +47,15 @@
           <el-tag>{{ row.deptName }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="manager" label="部门主管" min-width="120" />
+      <el-table-column prop="manager" label="部门主管" min-width="120" align="center" />
       <el-table-column prop="memberCount" label="部门人数" width="100" align="center">
         <template #default="{ row }">
           <el-badge :value="row.memberCount" type="primary" />
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" min-width="180" />
+      <el-table-column prop="createTime" label="创建时间" min-width="180" align="center" />
       <el-table-column prop="description" label="部门描述" min-width="200" show-overflow-tooltip />
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="180" fixed="right" align="center">
         <template #default="{ row }">
           <el-button-group>
             <el-button type="primary" @click="handleEdit(row)" :icon="Edit" circle />
@@ -96,11 +107,11 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
-import type { FormInstance, FormRules } from 'element-plus'
-import { getDeptList, addDept, updateDept, deleteDept } from '@/api/dept'
-import type { DeptItem, DeptItemResponse, DeptBackendData } from '@/types/common'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { Delete, Edit, Plus, Search, Download, Upload } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
+import { getDeptList, addDept, updateDept, deleteDept, importDepartments } from '@/api/dept'
+import type { DeptItem, DeptItemResponse } from '@/types/dept'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
 import type { ApiResponse } from '@/types/common'
@@ -125,23 +136,11 @@ const searchKey = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// 搜索参数
-const searchParams = reactive({
-  deptName: '',
-  manager: ''
-})
-
 // 获取部门列表
 const fetchData = async () => {
   loading.value = true;
   try {
-    const params = {
-      page: currentPage.value,
-      pageSize: pageSize.value,
-      deptName: searchParams.deptName,
-      manager: searchParams.manager,
-    };
-    console.log('Fetching dept data with params:', params);
+    console.log('Fetching dept data...');
     const res: ApiResponse<DeptItemResponse[]> = await getDeptList();
     console.log('Dept API Response:', res);
 
@@ -154,7 +153,7 @@ const fetchData = async () => {
         description: item.description || '-',
         createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : 'N/A'
       }));
-      total.value = res.total || res.data.length;
+      total.value = tableData.value.length;
     } else {
       ElMessage.warning(res.message || '获取部门数据失败');
       tableData.value = [];
@@ -190,59 +189,54 @@ const rules = reactive<FormRules>({
 })
 
 const filteredTableData = computed(() => {
-  return tableData.value.filter(item => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  const filtered = tableData.value.filter(item => {
     if (!searchKey.value) return true
-    
     const searchText = searchKey.value.toLowerCase()
-    const deptNameMatch = item.deptName && searchText ? 
-      item.deptName.toString().toLowerCase().includes(searchText) : 
-      false
-    
-    const managerMatch = item.manager && searchText ? 
-      item.manager.toString().toLowerCase().includes(searchText) : 
-      false
-    
+    const deptNameMatch = item.deptName?.toLowerCase().includes(searchText)
+    const managerMatch = item.manager?.toLowerCase().includes(searchText)
     return deptNameMatch || managerMatch
   })
+  total.value = filtered.length
+  return filtered.slice(start, end)
 })
 
-// 修改新增处理方法
 const handleAdd = () => {
   dialogType.value = 'add'
   dialogVisible.value = true
   Object.assign(formData, {
-    id: undefined,
+    id: 0,
     deptName: '',
     manager: '',
     description: '',
     memberCount: 0,
     createTime: ''
   })
-  formRef.value?.clearValidate()
+  setTimeout(() => {
+    formRef.value?.clearValidate()
+  }, 0);
 }
 
-// 修改编辑处理方法
 const handleEdit = (row: DeptItem) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
-  Object.assign(formData, {
-    id: row.id,
-    deptName: row.deptName,
-    manager: row.manager,
-    description: row.description || '',
-    memberCount: row.memberCount,
-    createTime: row.createTime
-  })
-  formRef.value?.clearValidate()
+  Object.assign(formData, JSON.parse(JSON.stringify(row)))
+  if (formData.description === '-') {
+    formData.description = ''
+  }
+  setTimeout(() => {
+    formRef.value?.clearValidate()
+  }, 0);
 }
 
 const handleDelete = async (row: DeptItem) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除部门 ${row.deptName} 吗？`,
+      `确定要删除部门 ${row.deptName} 吗？ 该部门下的员工将无法关联！`,
       '警告',
       {
-        confirmButtonText: '确定',
+        confirmButtonText: '确定删除',
         cancelButtonText: '取消',
         type: 'warning'
       }
@@ -257,11 +251,11 @@ const handleDelete = async (row: DeptItem) => {
       ElMessage.error(res?.message || '删除失败')
     }
   } catch (error: any) {
-    if (error?.toString().includes('cancel')) {
+    if (error === 'cancel') {
       ElMessage.info('已取消删除')
     } else {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(error?.message || '删除部门失败')
     }
   } finally {
     loading.value = false
@@ -273,11 +267,10 @@ const handleSubmit = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       loading.value = true;
-      // Prepare data for backend, explicitly handling description
       const backendData = {
         dept_name: formData.deptName,
         manager: formData.manager,
-        description: formData.description || undefined // 确保 description 是 string | undefined
+        description: formData.description || undefined
       };
 
       try {
@@ -286,14 +279,23 @@ const handleSubmit = async () => {
           res = await addDept(backendData);
           ElMessage.success('添加成功');
         } else {
-          res = await updateDept(formData.id!, backendData);
+          if (!formData.id) {
+              ElMessage.error('无法更新：部门ID无效');
+              loading.value = false;
+              return;
+          }
+          res = await updateDept(formData.id, backendData);
           ElMessage.success('修改成功');
         }
-        dialogVisible.value = false;
-        await fetchData();
+        if (res && res.code === 200 || res.code === 201) {
+            dialogVisible.value = false;
+            await fetchData();
+        } else {
+            ElMessage.error(res?.message || '操作失败');
+        }
       } catch (error: any) {
         console.error('操作失败:', error);
-        ElMessage.error(`操作失败: ${error.response?.data?.message || error.message}`);
+        ElMessage.error(`操作失败: ${error.response?.data?.message || error.message || '未知错误'}`);
       } finally {
         loading.value = false;
       }
@@ -302,15 +304,96 @@ const handleSubmit = async () => {
 };
 
 const handleExport = () => {
-  const data = tableData.value.map(item => ({
+  const dataToExport = filteredTableData.value.map(item => ({
     '部门名称': item.deptName,
     '部门主管': item.manager,
     '部门人数': item.memberCount,
     '创建时间': item.createTime,
-    '部门描述': item.description || ''
+    '部门描述': item.description === '-' ? '' : item.description
   }))
+  if (dataToExport.length === 0) {
+    ElMessage.warning('没有可导出的数据');
+    return;
+  }
+  exportToExcel(dataToExport, '部门数据')
+}
+
+const beforeUpload = (file: File) => {
+  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel';
+  const isCsv = file.type === 'text/csv';
+  const isLt10M = file.size / 1024 / 1024 < 10;
+
+  if (!isExcel && !isCsv) {
+    ElMessage.error('上传文件只能是 Excel 或 CSV 格式!');
+    return false;
+  }
+  if (!isLt10M) {
+    ElMessage.error('上传文件大小不能超过 10MB!');
+    return false;
+  }
+  loading.value = true;
+  return true;
+}
+
+const handleImportRequest = async (options: UploadRequestOptions) => {
+  try {
+    const res = await importDepartments(options.file);
+    console.log("Import API Response:", res);
+    if (res.code === 200) {
+       let notificationMessage = `${res.message || '导入成功'}`;
+       if (res.data && res.data.errors && res.data.errors.length > 0) {
+           let errorDetails = res.data.errors.map((err: any) => `行 ${err.row}: ${err.error || err.errors.join(', ')}`).join('<br>');
+           ElNotification({
+              title: '导入完成（有错误）',
+              dangerouslyUseHTMLString: true,
+              message: `${notificationMessage}<br>以下行未成功导入：<br>${errorDetails}`,
+              type: 'warning',
+              duration: 0
+            });
+       } else {
+           ElMessage.success(notificationMessage);
+       }
+       await fetchData();
+    } else {
+        handleImportError(res); 
+    }
+  } catch (error: any) {
+      console.error('Import error caught:', error);
+      handleImportError(error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+const handleImportError = (error: any) => {
+  loading.value = false;
+  let title = '导入失败';
+  let message = '发生未知错误';
+
+  if (error && error.message) {
+    message = error.message;
+  } else if (error && error.response && error.response.data && error.response.data.message) {
+    message = error.response.data.message;
+  } else if (typeof error === 'string') {
+    message = error;
+  }
   
-  exportToExcel(data, '部门数据')
+  const validationErrors = error?.data?.errors || error?.response?.data?.data?.errors;
+  if (validationErrors && Array.isArray(validationErrors) && validationErrors.length > 0) {
+    title = '导入失败（数据错误）';
+    message = `文件中有 ${validationErrors.length} 行数据格式错误，请修正后重试。`;
+    let errorDetails = validationErrors.map((err: any) => `行 ${err.row}: ${err.error || err.errors.join(', ')}`).join('<br>');
+      ElNotification({
+        title: title,
+        dangerouslyUseHTMLString: true,
+        message: `${message}<br>错误详情:<br>${errorDetails}`,
+        type: 'error',
+        duration: 0
+      });
+      return;
+  }
+
+  ElMessage.error(`${title}: ${message}`);
 }
 </script>
 
@@ -338,6 +421,7 @@ const handleExport = () => {
 .operation-buttons {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .dept-table {
@@ -359,5 +443,13 @@ const handleExport = () => {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+:deep(.el-table .el-table__cell) {
+  text-align: center;
+}
+
+:deep(.el-table th.el-table__cell) {
+  text-align: center;
 }
 </style>

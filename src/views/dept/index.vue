@@ -111,7 +111,7 @@ import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Delete, Edit, Plus, Search, Download, Upload } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { getDeptList, addDept, updateDept, deleteDept, importDepartments } from '@/api/dept'
-import type { DeptItem, DeptItemResponse } from '@/types/dept'
+import type { DeptItem, DeptResponseData } from '@/types/dept'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
 import type { ApiResponse } from '@/types/common'
@@ -141,7 +141,7 @@ const fetchData = async () => {
   loading.value = true;
   try {
     console.log('Fetching dept data...');
-    const res: ApiResponse<DeptItemResponse[]> = await getDeptList();
+    const res: ApiResponse<DeptResponseData[]> = await getDeptList();
     console.log('Dept API Response:', res);
 
     if (res.code === 200 && Array.isArray(res.data)) {

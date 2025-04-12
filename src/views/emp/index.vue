@@ -112,7 +112,8 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogType === 'add' ? '新增员工' : '编辑员工'"
-      width="600px">
+      width="600px"
+      @close="handleDialogClose">
       <el-form
         ref="formRef"
         :model="formData"
@@ -126,8 +127,8 @@
         </el-form-item>
         <el-form-item label="性别" prop="gender">
           <el-radio-group v-model="formData.gender">
-            <el-radio label="男">男</el-radio>
-            <el-radio label="女">女</el-radio>
+            <el-radio value="男">男</el-radio>
+            <el-radio value="女">女</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="职位" prop="position">
@@ -168,6 +169,19 @@
             <el-option label="离职" value="离职" />
           </el-select>
         </el-form-item>
+        <el-form-item label="证件照:">
+          <el-image
+            style="width: 100px; height: 100px; border-radius: 5px;"
+            :src="idPhotoPlaceholderUrl" 
+            fit="cover"
+          >
+            <template #error>
+              <div class="image-slot" style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #f5f7fa; color: #c0c4cc;">
+                <el-icon><Picture /></el-icon>
+              </div>
+            </template>
+          </el-image>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -178,9 +192,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Search, Download, Picture } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
@@ -336,25 +350,39 @@ const updateDeptOptions = () => {
 const handleAdd = () => {
   dialogType.value = 'add'
   dialogVisible.value = true
+  // 先重置表单数据
   Object.assign(formData, {
     empId: '',
     name: '',
     gender: '男',
     age: 18,
     position: '',
-    deptName: '',
+    deptName: '', 
     salary: 0,
     status: '在职',
     phone: '',
     email: '',
     joinDate: ''
   })
+  // DOM 更新后清除验证状态
+  nextTick(() => {
+    formRef.value?.clearValidate();
+  });
 }
 
 const handleEdit = (row: EmployeeItem) => {
   dialogType.value = 'edit'
   dialogVisible.value = true
-  Object.assign(formData, row)
+  // 确保 salary 是数字类型
+  const rowDataWithNumberSalary = {
+    ...row,
+    salary: Number(row.salary) || 0
+  };
+  Object.assign(formData, rowDataWithNumberSalary)
+  // 编辑时也清除一下验证状态，以防万一
+  nextTick(() => {
+    formRef.value?.clearValidate();
+  });
 }
 
 const handleDelete = async (row: EmployeeItem) => {
@@ -462,7 +490,7 @@ const fetchData = async () => {
         age: item.age,
         position: item.position,
         deptName: item.dept_name,
-        salary: item.salary,
+        salary: Number(item.salary) || 0,
         status: item.status,
         phone: item.phone || '',
         email: item.email || '',
@@ -784,6 +812,16 @@ onMounted(async () => {
     checkDataFormat();
   }, 500);
 })
+
+// 默认证件照 URL
+const idPhotoPlaceholderUrl = ref('https://cube.elemecdn.com/9/c2/f0ee8a3c7c9638a54940382568c9dpng.png'); // Element Plus 提供的头像占位图
+
+// 新增：处理对话框关闭事件
+const handleDialogClose = () => {
+  formRef.value?.clearValidate();
+  // 如果需要，也可以在这里重置 formData
+  // Object.assign(formData, { ... initial empty state ... });
+}
 </script>
 
 <style scoped>

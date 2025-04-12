@@ -30,6 +30,21 @@
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>新增员工
         </el-button>
+        
+        <!-- 导入按钮和上传组件 -->
+        <el-upload
+          ref="uploadRef"
+          action="#" 
+          :http-request="handleImportUpload"
+          :show-file-list="false" 
+          :before-upload="beforeImportUpload"
+          accept=".xlsx, .xls, .csv"
+        >
+          <el-button type="warning" :loading="loadingImport">
+            <el-icon><Upload /></el-icon>导入数据
+          </el-button>
+        </el-upload>
+        
         <el-button type="success" @click="handleExport">
           <el-icon><Download /></el-icon>导出数据
         </el-button>
@@ -46,50 +61,38 @@
       v-loading="loading">
       <el-table-column type="index" label="#" width="60" align="center" />
       <el-table-column prop="empId" label="工号" width="100" align="center" />
-      <el-table-column prop="name" label="姓名" min-width="100">
+      <el-table-column prop="name" label="姓名" min-width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.gender === '男' ? 'primary' : 'success'">
-            {{ row.name }}
-          </el-tag>
+          <el-tag :type="row.gender === '男' ? 'primary' : 'success'">{{ row.name }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="80" align="center">
         <template #default="{ row }">
-          <el-icon :color="row.gender === '男' ? '#409EFF' : '#67C23A'">
-            <Male v-if="row.gender === '男'" />
-            <Female v-else />
-          </el-icon>
-          {{ row.gender }}
+          <el-icon :color="row.gender === '男' ? '#409EFF' : '#67C23A'"><Male v-if="row.gender === '男'" /><Female v-else /></el-icon>{{ row.gender }}
         </template>
       </el-table-column>
-      <el-table-column prop="position" label="职位" min-width="120" />
+      <el-table-column prop="position" label="职位" min-width="120" align="center" />
       <el-table-column prop="age" label="年龄" width="80" align="center" />
-      <el-table-column label="所属部门" min-width="120">
+      <el-table-column label="所属部门" min-width="120" align="center">
         <template #default="{ row }">
           <div @click="debugRowData(row)">
-            <el-tag v-if="getDeptName(row)" size="small" effect="plain" type="success">
-              {{ getDeptName(row) }}
-            </el-tag>
-            <el-tag v-else size="small" effect="plain" type="info">
-              未分配
-            </el-tag>
+            <el-tag v-if="getDeptName(row)" size="small" effect="plain" type="success">{{ getDeptName(row) }}</el-tag>
+            <el-tag v-else size="small" effect="plain" type="info">未分配</el-tag>
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="joinDate" label="入职时间" min-width="180" />
-      <el-table-column prop="salary" label="薪资" min-width="120" align="right">
-        <template #default="{ row }">
-          {{ formatSalary(row.salary) }}
-        </template>
+      <el-table-column prop="joinDate" label="入职时间" min-width="180" align="center" />
+      <el-table-column prop="salary" label="薪资" min-width="120" align="center">
+        <template #default="{ row }">{{ formatSalary(row.salary) }}</template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.status === '在职' ? 'success' : 'danger'">
-            {{ row.status }}
-          </el-tag>
+          <el-tag :type="row.status === '在职' ? 'success' : 'danger'">{{ row.status }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column prop="phone" label="联系电话" width="120" align="center" />
+      <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip align="center" />
+      <el-table-column label="操作" width="180" fixed="right" align="center">
         <template #default="{ row }">
           <el-button-group>
             <el-button type="primary" @click="handleEdit(row)" :icon="Edit" circle />
@@ -113,7 +116,8 @@
       v-model="dialogVisible"
       :title="dialogType === 'add' ? '新增员工' : '编辑员工'"
       width="600px"
-      @close="handleDialogClose">
+      @close="handleDialogClose"
+      center>
       <el-form
         ref="formRef"
         :model="formData"
@@ -136,6 +140,9 @@
         </el-form-item>
         <el-form-item label="年龄" prop="age">
           <el-input-number v-model="formData.age" :min="18" :max="60" />
+        </el-form-item>
+        <el-form-item label="联系电话" prop="phone">
+          <el-input v-model="formData.phone" placeholder="请输入联系电话" />
         </el-form-item>
         <el-form-item label="所属部门" prop="deptName">
           <el-select v-model="formData.deptName">
@@ -169,6 +176,9 @@
             <el-option label="离职" value="离职" />
           </el-select>
         </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="formData.email" placeholder="请输入邮箱" />
+        </el-form-item>
         <el-form-item label="证件照:">
           <el-image
             style="width: 100px; height: 100px; border-radius: 5px;"
@@ -193,10 +203,19 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Search, Download, Picture } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, ElTable, ElForm } from 'element-plus'
+import {
+  Search, Plus, Edit, Delete, Download, UploadFilled, Refresh, CircleCloseFilled, Picture, Upload
+} from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { getEmployeeList, addEmployee, updateEmployee, deleteEmployee } from '@/api/employee'
+import {
+  getEmployeeList,
+  addEmployee,
+  updateEmployee,
+  deleteEmployee,
+  importEmployees,
+  exportEmployees
+} from '@/api/employee'
 import { getDeptList } from '@/api/dept'
 import type { EmployeeItem, EmployeeFormData, DeptItem, EmployeeItemResponse } from '@/types/employee'
 import { exportToExcel } from '@/utils/export'
@@ -204,6 +223,7 @@ import type { Pagination } from '@/types/pagination'
 import type { DeptResponseData, ApiDeptResponse } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
 import dayjs from 'dayjs'
+import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
 
 // 初始化部门数据
 const initDeptOptions = () => {
@@ -213,6 +233,7 @@ const initDeptOptions = () => {
 
 // 基础数据状态 
 const loading = ref(false)
+const loadingImport = ref(false)
 const searchKey = ref('')
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
@@ -221,6 +242,7 @@ const formRef = ref<FormInstance>()
 const deptFilter = ref('')
 // 直接初始化部门选项，确保始终有值
 const deptOptions = ref<string[]>(initDeptOptions())
+const uploadRef = ref<UploadInstance>()
 
 // 替换原有的分页变量定义
 const pagination = reactive<Pagination>({
@@ -446,17 +468,58 @@ const handleSubmit = async () => {
   }
 }
 
-const handleExport = () => {
-  const exportData = tableData.value.map(item => ({
-    '工号': item.empId,
-    '姓名': item.name,
-    '部门': item.deptName,
-    '职位': item.position,
-    '薪资': formatSalary(item.salary),
-    '状态': item.status
-  }))
-  exportToExcel(exportData, `员工数据_${new Date().toLocaleDateString()}`)
-}
+const handleExport = async () => {
+  try {
+    // 可以根据需要添加加载状态
+    // loadingExport.value = true; 
+
+    // 准备查询参数 (与列表筛选逻辑一致)
+    const params = {
+      name: searchKey.value || undefined, // 使用搜索关键字
+      deptName: deptFilter.value || undefined // 使用部门筛选
+      // 可以添加其他筛选条件，例如状态等
+    };
+
+    console.log('[Export] Exporting with params:', params);
+    const blob = await exportEmployees(params);
+    
+    // 创建下载链接
+    const link = document.createElement('a');
+    const objectUrl = URL.createObjectURL(blob);
+    
+    link.href = objectUrl;
+    // 设置下载文件名
+    const timestamp = dayjs().format('YYYYMMDDHHmmss');
+    link.download = `员工数据_${timestamp}.xlsx`; 
+    
+    // 触发点击下载
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+    
+    ElMessage.success('导出成功');
+
+  } catch (error: any) {
+    console.error('[Export] 导出失败:', error);
+    // 尝试解析 Blob 中的错误信息 (如果后端返回错误 JSON)
+    if (error instanceof Blob && error.type === 'application/json') {
+      try {
+        const errorText = await error.text();
+        const errorJson = JSON.parse(errorText);
+        ElMessage.error(`导出失败: ${errorJson.message || '未知错误'}`);
+      } catch (parseError) {
+        ElMessage.error('导出失败，无法解析错误信息');
+      }
+    } else {
+        ElMessage.error(error.message || '导出失败');
+    }
+  } finally {
+    // loadingExport.value = false;
+  }
+};
 
 // 获取部门列表
 const fetchDeptList = async () => {
@@ -822,6 +885,59 @@ const handleDialogClose = () => {
   // 如果需要，也可以在这里重置 formData
   // Object.assign(formData, { ... initial empty state ... });
 }
+
+// 处理文件导入上传
+const handleImportUpload = async (options: any) => {
+  loadingImport.value = true;
+  try {
+    const response = await importEmployees(options.file);
+    if (response && response.code === 200) {
+      ElMessage.success(response.message || '导入成功');
+      fetchData(); // 刷新列表
+    } else {
+      // 如果后端返回了详细的错误信息 (例如校验失败的行)
+      let errorDetails = '';
+      if (response?.data?.errors && Array.isArray(response.data.errors)) {
+        errorDetails = '<br/>' + response.data.errors.map((err: any) => `行 ${err.row}: ${err.errors.join(', ')}`).join('<br/>');
+      } else if (response?.data?.message) {
+        errorDetails = `<br/>详情: ${response.data.message}`;
+      }
+      ElMessageBox.alert(`导入失败: ${response?.message || '未知错误'}${errorDetails}`, '导入错误', { 
+          dangerouslyUseHTMLString: true, // 允许使用 HTML 字符串
+          type: 'error' 
+      });
+    }
+  } catch (error: any) {
+    console.error('导入失败 (catch):', error);
+    ElMessage.error(error.response?.data?.message || error.message || '导入文件失败');
+  } finally {
+    loadingImport.value = false;
+    uploadRef.value?.clearFiles(); // 清空已上传文件列表
+  }
+};
+
+// 限制上传文件类型
+const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile) => {
+  const allowedTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls (旧版 Excel)
+    'text/csv' // .csv
+  ];
+  const fileType = rawFile.type;
+  const isAllowed = allowedTypes.includes(fileType);
+
+  if (!isAllowed) {
+    ElMessage.error('仅支持上传 Excel (.xlsx, .xls) 或 CSV (.csv) 文件!')
+    return false;
+  }
+  // 可以添加文件大小限制
+  // const isLt2M = rawFile.size / 1024 / 1024 < 2;
+  // if (!isLt2M) {
+  //   ElMessage.error('上传文件大小不能超过 2MB!');
+  //   return false;
+  // }
+  return true;
+};
 </script>
 
 <style scoped>

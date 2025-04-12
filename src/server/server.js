@@ -18,6 +18,15 @@ const userService = require('./userService'); // Import userService
 const path = require('path'); // <-- Add path module
 const fs = require('fs'); // <-- Add fs module for directory check
 const multer = require('multer'); // <-- Add multer module
+const xlsx = require('xlsx');
+const papaparse = require('papaparse');
+
+// --- Simple Middleware for Debugging ---
+const simpleAuthLogger = (req, res, next) => {
+  console.log('[DEBUG] simpleAuthLogger executed for export route.');
+  next();
+};
+// --- End Simple Middleware ---
 
 // 创建Express应用
 const app = express();
@@ -213,6 +222,7 @@ if (JWT_SECRET === 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME') {
 
 // --- Authentication Middleware (Updated with JWT Verification) ---
 const authenticateToken = (req, res, next) => {
+  console.log('[Auth DEBUG] authenticateToken middleware started.'); // <-- 添加日志
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -222,6 +232,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ code: 401, message: '用户未认证，请求需要Token' });
   }
 
+  console.log('[Auth DEBUG] Token found, attempting verification...'); // <-- 添加日志
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       console.error('[Auth] Token verification failed:', err.message);
@@ -232,12 +243,26 @@ const authenticateToken = (req, res, next) => {
       } else if (err.name === 'JsonWebTokenError') {
           message = '无效的Token';
       }
-      return res.status(403).json({ code: 403, message: message });
+      // Ensure response is sent ONLY if headers haven't been sent already
+      if (!res.headersSent) {
+        return res.status(403).json({ code: 403, message: message });
+      }
+      return; // Stop execution if headers were already sent
     }
-    // Token is valid, attach decoded payload (user info) to request
-    req.user = decoded; // decoded payload usually contains user id, username, etc.
-    console.log(`[Auth] Token verified successfully. User ID: ${req.user?.id}, Username: ${req.user?.username}`); // Log user ID and username
-    next(); // Proceed to the next middleware/route handler ONLY if token is valid
+    
+    // --- Added try-catch around decoded/next() --- 
+    try {
+        // Token is valid, attach decoded payload (user info) to request
+        req.user = decoded; // decoded payload usually contains user id, username, etc.
+        console.log(`[Auth] Token verified successfully. User ID: ${req.user?.id}, Username: ${req.user?.username}`); // Log user ID and username
+        console.log('[Auth DEBUG] Calling next()...'); // <-- 添加日志
+        next(); // Proceed to the next middleware/route handler ONLY if token is valid
+    } catch (nextError) {
+        console.error('[Auth DEBUG] Error occurred AFTER token verification but BEFORE/DURING next():', nextError);
+        // Pass the error to the Express global error handler
+        next(nextError); 
+    }
+    // --- End added try-catch ---
   });
 };
 
@@ -348,7 +373,7 @@ app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
 
 // API路由
 // 员工相关API
-app.get('/api/employee/list', async (req, res) => {
+app.get('/api/employee/list', authenticateToken, async (req, res) => { // Added authenticateToken
   try {
     const employees = await employeeService.getEmployeeList(req.query);
     res.json({
@@ -365,8 +390,99 @@ app.get('/api/employee/list', async (req, res) => {
     });
   }
 });
+// --- End /list Route ---
 
-app.get('/api/employee/:id', async (req, res) => {
+// --- Employee Export Route (Restored) ---
+// GET /api/employee/export
+// Restore authenticateToken and the original async handler
+app.get(`${apiPrefix}/employee/export`, authenticateToken, async (req, res) => { 
+  // **** 添加日志：确认路由处理器被调用 ****
+  console.log(`[Export Route DEBUG - CORRECT ORDER] Handler function for ${req.method} ${req.path} was called.`);
+  // **** 结束日志 ****
+  try {
+    console.log('[Export Route - CORRECT ORDER] Received export request with query:', req.query);
+    // 1. 获取需要导出的员工数据，应用查询参数进行过滤
+    const employees = await employeeService.getEmployeesForExport(req.query);
+    console.log(`[Export Route - CORRECT ORDER] Got ${employees.length} employees to export.`);
+    // **** 添加日志：打印从 Service 获取的第一条原始数据 ****
+    if (employees.length > 0) {
+      console.log('[Export Route DEBUG - CORRECT ORDER] First raw employee data from service:', JSON.stringify(employees[0]));
+    }
+    // **** 结束日志 ****
+
+    if (employees.length === 0) {
+      // 如果没有数据，可以返回一个空文件或错误提示
+      // 这里选择返回 404 (或者可以发送一个空的 Excel 文件)
+      return res.status(404).json({ code: 404, message: '没有符合条件的员工数据可以导出' });
+    }
+
+    // 2. 定义 Excel 表头 (使用中文，与导入格式对应)
+    const headers = [
+      "工号", "姓名", "性别", "年龄", "职位", "所属部门",
+      "薪资", "状态", "联系电话", "邮箱", "入职时间"
+    ];
+
+    // 3. 准备工作表数据 (对象数组转换为数组的数组，并添加表头)
+    const worksheetData = [
+      headers,
+      ...employees.map((emp, index) => {
+        // **** 添加日志：打印映射前的 emp 对象和映射后的数组 ****
+        const mappedRow = [
+            emp.emp_id, emp.name, emp.gender, emp.age, emp.position,
+            emp.dept_name, emp.salary, emp.status, emp.phone, emp.email, emp.join_date
+        ];
+        if (index === 0) { // 只打印第一行的数据用于调试
+            console.log(`[Export Route DEBUG - CORRECT ORDER] Mapping row ${index}:`, JSON.stringify(emp));
+            console.log(`[Export Route DEBUG - CORRECT ORDER] Mapped row ${index}:`, JSON.stringify(mappedRow));
+        }
+        // **** 结束日志 ****
+        return mappedRow;
+      })
+    ];
+    // **** 添加日志：打印最终要写入 Excel 的数据结构 (部分) ****
+    console.log('[Export Route DEBUG - CORRECT ORDER] Final worksheetData (first 2 rows):', JSON.stringify(worksheetData.slice(0, 2)));
+    // **** 结束日志 ****
+    console.log('[Export Route - CORRECT ORDER] Worksheet data prepared.');
+
+    // 4. 创建工作簿和工作表
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
+
+    // (可选) 调整列宽
+    const colWidths = headers.map((_, i) => ({ wch: i === 1 || i === 4 || i === 5 || i === 9 || i === 10 ? 20 : 15 })); // 给姓名、职位、部门、邮箱、入职时间更宽的列
+    worksheet['!cols'] = colWidths;
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, "员工数据");
+    console.log('[Export Route - CORRECT ORDER] Workbook created.');
+
+    // 5. 生成 Excel 文件 buffer
+    // type: 'buffer' 生成 Buffer 对象
+    const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+    console.log('[Export Route - CORRECT ORDER] Excel buffer generated.');
+
+    // 6. 设置响应头，告诉浏览器这是一个 Excel 文件下载
+    const fileName = `employees_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    // 7. 发送 buffer
+    res.send(excelBuffer);
+    console.log(`[Export Route - CORRECT ORDER] Sent Excel file: ${fileName}`);
+
+  } catch (error) {
+    console.error('[Export Route - CORRECT ORDER] Error during export:', error);
+    // **** 添加日志 ****
+    console.error('[Export Route DEBUG - CORRECT ORDER] Error caught in handler:', error);
+    // **** 结束日志 ****
+    // 如果捕获到错误，确保发送错误响应，而不是让请求挂起
+    if (!res.headersSent) {
+       res.status(500).json({ code: 500, message: `导出失败: ${error.message}` });
+    }
+  }
+});
+// --- End Restored Export Route ---
+
+app.get('/api/employee/:id', authenticateToken, async (req, res) => { // Added authenticateToken
   try {
     const id = parseInt(req.params.id);
     const employee = await employeeService.getEmployeeDetail(id);
@@ -393,6 +509,7 @@ app.get('/api/employee/:id', async (req, res) => {
     });
   }
 });
+// --- End /:id Route ---
 
 app.post('/api/employee/add', authenticateToken, async (req, res) => {
   try {
@@ -1856,3 +1973,231 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, (req, res) => {
   });
 });
 // --- End Avatar Upload Route --- 
+
+// --- Multer Configuration for Import ---
+// 使用内存存储，因为我们只需要读取文件内容，不需要保存
+const importUpload = multer({
+    storage: multer.memoryStorage(), // Store file in memory buffer
+    limits: { fileSize: 10 * 1024 * 1024 }, // Limit file size (e.g., 10MB)
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'application/vnd.ms-excel', // .xls
+          'text/csv' // .csv
+        ];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            console.warn(`[Import Filter] Rejected file type: ${file.mimetype}`);
+            cb(new Error('仅支持上传 Excel (.xlsx, .xls) 或 CSV (.csv) 文件'), false);
+        }
+    }
+});
+// --- End Multer Configuration ---
+
+// --- Restoring Employee Import Route ---
+// --- 员工导入路由 ---
+// POST /api/employee/import
+app.post(`${apiPrefix}/employee/import`, authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[Import Route] Received file import request.');
+
+  if (!req.file) {
+    console.log('[Import Route] No file uploaded.');
+    return res.status(400).json({ code: 400, message: '没有文件被上传' });
+  }
+
+  console.log(`[Import Route] Processing file: ${req.file.originalname}, Type: ${req.file.mimetype}, Size: ${req.file.size} bytes`);
+
+  let rawData = [];
+  const validationErrors = [];
+
+  try {
+    // 1. 解析文件
+    if (req.file.mimetype.includes('spreadsheetml') || req.file.mimetype.includes('ms-excel')) {
+      // --- 解析 Excel ---
+      console.log('[Import Route] Parsing Excel file...');
+      const workbook = xlsx.read(req.file.buffer, { type: 'buffer', cellDates: true }); // cellDates: true 尝试解析日期
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      // header: 1 生成数组的数组，更易于映射和验证
+      // header: 'A' 会使用列字母做键
+      // 默认行为会尝试使用第一行作为 header
+       rawData = xlsx.utils.sheet_to_json(sheet, {
+         header: ["empId", "name", "gender", "age", "position", "deptName", "salary", "status", "phone", "email", "joinDate"], // 指定预期的列头（与前端对应）
+         range: 1 // 跳过标题行 (假设第一行是标题)
+         // defval: '' // 可以给空单元格设置默认值
+       });
+       console.log(`[Import Route] Parsed ${rawData.length} rows from Excel.`);
+
+    } else if (req.file.mimetype === 'text/csv') {
+      // --- 解析 CSV ---
+      console.log('[Import Route] Parsing CSV file...');
+      const csvString = req.file.buffer.toString('utf-8');
+      const parseResult = papaparse.parse(csvString, {
+        header: true, // 使用第一行作为 header
+        skipEmptyLines: true,
+        transformHeader: header => header.trim(), // 清理 header 空格
+        // dynamicTyping: true // 自动转换类型，但可能不准确，手动验证更好
+      });
+
+      if (parseResult.errors.length > 0) {
+          console.error('[Import Route] CSV parsing errors:', parseResult.errors);
+          // 只取第一个错误信息返回
+          throw new Error(`CSV文件解析错误: ${parseResult.errors[0].message} (行: ${parseResult.errors[0].row})`);
+      }
+      rawData = parseResult.data;
+       // 需要将 CSV header 映射到我们的标准字段名
+       const headerMap = {
+         '工号': 'empId',
+         '姓名': 'name',
+         '性别': 'gender',
+         '年龄': 'age',
+         '职位': 'position',
+         '所属部门': 'deptName',
+         '薪资': 'salary',
+         '状态': 'status',
+         '联系电话': 'phone',
+         '邮箱': 'email',
+         '入职时间': 'joinDate'
+       };
+       rawData = rawData.map(row => {
+           const newRow = {};
+           for (const key in row) {
+               if (headerMap[key.trim()]) {
+                   newRow[headerMap[key.trim()]] = row[key];
+               }
+           }
+           return newRow;
+       });
+      console.log(`[Import Route] Parsed ${rawData.length} rows from CSV.`);
+    } else {
+      // Should have been caught by fileFilter, but double-check
+      throw new Error('不支持的文件类型');
+    }
+
+    // 2. 验证和转换数据
+    console.log('[Import Route] Validating and transforming data...');
+    const employeesToInsert = [];
+    for (let i = 0; i < rawData.length; i++) {
+      const row = rawData[i];
+      const rowNum = i + 2; // 假设第一行是标题行，数据从第二行开始
+      const errorsInRow = [];
+
+      // --- 字段存在性和基本类型验证 ---
+      if (!row.empId) errorsInRow.push('工号不能为空');
+      if (!row.name) errorsInRow.push('姓名不能为空');
+      if (!row.gender) errorsInRow.push('性别不能为空');
+      if (row.age === undefined || row.age === null) errorsInRow.push('年龄不能为空');
+      if (!row.position) errorsInRow.push('职位不能为空');
+      if (!row.deptName) errorsInRow.push('所属部门不能为空'); // 部门存在性由 service 检查
+      if (row.salary === undefined || row.salary === null) errorsInRow.push('薪资不能为空');
+      if (!row.status) errorsInRow.push('状态不能为空');
+      if (!row.joinDate) errorsInRow.push('入职时间不能为空');
+
+      // --- 特定值验证 ---
+      if (row.gender && !['男', '女'].includes(row.gender)) errorsInRow.push('性别必须是 "男" 或 "女"');
+      if (row.status && !['在职', '离职', '休假'].includes(row.status)) errorsInRow.push('状态必须是 "在职", "离职" 或 "休假"');
+      const ageNum = Number(row.age);
+      if (isNaN(ageNum) || ageNum < 18 || ageNum > 65) errorsInRow.push('年龄必须是 18 到 65 之间的数字');
+      const salaryNum = Number(row.salary);
+      if (isNaN(salaryNum) || salaryNum < 0) errorsInRow.push('薪资必须是大于等于 0 的数字');
+
+      // --- 日期处理 ---
+      let formattedJoinDate = null;
+      if (row.joinDate) {
+        try {
+           // 尝试将各种格式（包括Excel日期序列号）转换为 JS Date 对象
+           const date = (typeof row.joinDate === 'number')
+             ? xlsx.SSF.parse_date_code(row.joinDate) // Excel 日期序列号
+             : new Date(row.joinDate);
+
+           if (isNaN(date.getTime())) { // 检查是否是无效日期
+             errorsInRow.push('入职时间格式无效');
+           } else {
+             // 格式化为 YYYY-MM-DD
+             formattedJoinDate = date.toISOString().split('T')[0];
+           }
+        } catch (dateError) {
+          errorsInRow.push('入职时间格式无效');
+        }
+      } else {
+        // joinDate is required, error already added above
+      }
+
+      // --- 邮箱和电话格式 (可选) ---
+      if (row.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email)) errorsInRow.push('邮箱格式不正确');
+      // if (row.phone && !/^1[3-9]\d{9}$/.test(row.phone)) errorsInRow.push('电话号码格式不正确');
+
+      if (errorsInRow.length > 0) {
+        validationErrors.push({ row: rowNum, errors: errorsInRow, rowData: row });
+      } else {
+        // 验证通过，准备插入数据库的数据
+        employeesToInsert.push({
+          emp_id: String(row.empId).trim(),
+          name: String(row.name).trim(),
+          gender: row.gender,
+          age: ageNum,
+          position: String(row.position).trim(),
+          deptName: String(row.deptName).trim(), // 传递部门名称给 service
+          salary: salaryNum,
+          status: row.status,
+          phone: row.phone ? String(row.phone).trim() : null,
+          email: row.email ? String(row.email).trim() : null,
+          join_date: formattedJoinDate // 使用格式化后的日期
+        });
+      }
+    }
+
+    // 3. 如果有验证错误，则返回
+    if (validationErrors.length > 0) {
+      console.warn(`[Import Route] Validation failed for ${validationErrors.length} rows.`);
+      return res.status(400).json({
+        code: 400,
+        message: `导入文件中存在 ${validationErrors.length} 条数据错误，请修正后重试`,
+        data: { errors: validationErrors } // 将详细错误返回给前端
+      });
+    }
+
+    // 4. 调用 Service 进行批量添加
+    console.log(`[Import Route] Validation passed for ${employeesToInsert.length} rows. Calling batchAddEmployees...`);
+    const importResult = await employeeService.batchAddEmployees(employeesToInsert);
+    console.log('[Import Route] Batch add result:', importResult);
+
+    // 5. 根据 Service 返回结果响应前端
+    if (importResult.success) {
+      let message = `成功导入 ${importResult.addedCount} 条员工数据。`;
+      if (importResult.errors.length > 0) {
+        message += ` 跳过了 ${importResult.errors.length} 条数据（例如部门不存在）。`;
+        // 可以选择是否将 service 层的错误也返回给前端
+         return res.status(200).json({
+            code: 200,
+            message: message,
+            data: { errors: importResult.errors } // 返回部门不存在等错误
+        });
+      }
+       res.status(200).json({ code: 200, message: message });
+    } else {
+      // 如果 service 层面整体失败 (例如数据库连接问题)
+      res.status(500).json({
+        code: 500,
+        message: '导入过程中发生数据库错误',
+        data: { errors: importResult.errors } // 返回 service 层的错误
+      });
+    }
+
+  } catch (error) {
+    console.error('[Import Route] Error processing import file:', error);
+    res.status(500).json({ code: 500, message: `导入处理失败: ${error.message}` });
+  } finally {
+     // 如果需要，可以在这里清理上传的文件
+     // if (req.file && req.file.path) {
+     //   fs.unlink(req.file.path, (err) => {
+     //     if (err) console.error(`[Import Route] Error deleting temp file ${req.file.path}:`, err);
+     //     else console.log(`[Import Route] Deleted temp file ${req.file.path}`);
+     //   });
+     // }
+  }
+});
+// --- End Employee Import Route ---
+
+// ... (Restored export route definition) ...

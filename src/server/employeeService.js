@@ -1,5 +1,8 @@
 // 员工服务
 const db = require('./db');
+const xlsx = require('xlsx'); // 引入 xlsx
+const papaparse = require('papaparse'); // 引入 papaparse
+const fs = require('fs'); // 引入 fs 用于文件操作
 
 /**
  * 获取员工列表
@@ -365,6 +368,155 @@ async function getEmployeeStats() {
   }
 }
 
+/**
+ * 批量添加员工 (用于导入)
+ * @param {Array<Object>} employees 经过验证的员工数据数组 (使用数据库字段名)
+ * @returns {Promise<{ success: boolean, addedCount: number, errors: Array<{ rowData: object, error: string }> }>} 导入结果
+ */
+async function batchAddEmployees(employees) {
+  if (!employees || employees.length === 0) {
+    return { success: false, addedCount: 0, errors: [{ rowData: {}, error: '没有提供有效的员工数据' }] };
+  }
+
+  let connection;
+  let addedCount = 0;
+  const errors = [];
+
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. 获取所有部门信息，方便查找 ID
+    const [departments] = await connection.query('SELECT id, dept_name FROM department');
+    const deptMap = new Map(departments.map(dept => [dept.dept_name, dept.id]));
+    console.log('[Batch Add] Department Map:', deptMap);
+
+    // 2. 构建批量插入语句
+    // 注意：一次性插入大量数据可能有限制，分批次插入可能更稳健，但这里简化处理
+    const placeholders = employees.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'); // 11 placeholders + create_time
+    const sql = `
+      INSERT INTO employee (
+        emp_id, name, gender, age, position, dept_id, salary, status, phone, email, join_date, create_time
+      ) VALUES ${placeholders.join(', ')}
+      ON DUPLICATE KEY UPDATE name=VALUES(name) -- 简单处理，如果工号重复则仅更新姓名，避免插入失败
+    `;
+
+    const values = [];
+    const validEmployeesForInsert = []; // 只包含有效部门的员工
+
+    for (const emp of employees) {
+      const deptId = deptMap.get(emp.deptName); // 从 Map 获取部门 ID
+      if (deptId === undefined) {
+        console.warn(`[Batch Add] Skipped row: Department '${emp.deptName}' not found for emp_id ${emp.emp_id}`);
+        errors.push({ rowData: emp, error: `部门 '${emp.deptName}' 不存在` });
+        continue; // 跳过这条记录
+      }
+      validEmployeesForInsert.push(emp); // 添加到待插入列表
+      values.push(
+        emp.emp_id,
+        emp.name,
+        emp.gender,
+        emp.age,
+        emp.position,
+        deptId, // 使用查到的 deptId
+        emp.salary,
+        emp.status,
+        emp.phone || null,
+        emp.email || null,
+        emp.join_date // 确保日期格式正确
+      );
+    }
+
+    if (values.length > 0) {
+       // 执行批量插入
+       const [result] = await connection.query(sql, values);
+       console.log('[Batch Add] DB Insert Result:', result);
+       addedCount = result.affectedRows; // affectedRows 可能包含更新的行数，对于纯插入，用 insertId 可能更好，但批量复杂
+    } else {
+      console.log('[Batch Add] No valid employees to insert after department check.');
+    }
+
+
+    await connection.commit();
+    console.log(`[Batch Add] Transaction committed. Added/Updated: ${addedCount} employees.`);
+
+    return { success: true, addedCount: addedCount, errors: errors }; // 返回成功数量和跳过的错误
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('[Batch Add] Error during batch employee add:', error);
+    // 将通用错误添加到错误列表
+    errors.push({ rowData: {}, error: `数据库批量插入失败: ${error.message}` });
+    return { success: false, addedCount: 0, errors: errors }; // 返回失败状态和错误
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+/**
+ * 获取用于导出的员工数据 (包含所有字段)
+ * @param {Object} params 查询参数 (与列表查询一致)
+ * @returns {Promise<Array>} 员工数据数组
+ */
+async function getEmployeesForExport(params = {}) {
+  try {
+    // 构建与 getEmployeeList 类似的查询，但选择所有导出需要的字段
+    let query = `
+      SELECT 
+        e.emp_id, 
+        e.name, 
+        e.gender, 
+        e.age, 
+        e.position, 
+        d.dept_name, 
+        e.salary, 
+        e.status, 
+        e.phone, 
+        e.email, 
+        DATE_FORMAT(e.join_date, '%Y-%m-%d') as join_date 
+      FROM 
+        employee e
+      LEFT JOIN 
+        department d ON e.dept_id = d.id
+    `;
+
+    const conditions = [];
+    const values = [];
+
+    // 应用与列表查询相同的过滤条件
+    if (params.name) {
+      conditions.push('e.name LIKE ?');
+      values.push(`%${params.name}%`);
+    }
+    if (params.empId) {
+      conditions.push('e.emp_id LIKE ?');
+      values.push(`%${params.empId}%`);
+    }
+    if (params.deptName) {
+      conditions.push('d.dept_name = ?');
+      values.push(params.deptName);
+    }
+    if (params.status) {
+      conditions.push('e.status = ?');
+      values.push(params.status);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    // 导出通常不需要分页，按 ID 排序即可
+    query += ' ORDER BY e.id ASC';
+
+    const employees = await db.query(query, values);
+    console.log(`[Export Service] Fetched ${employees.length} records for export.`);
+    return employees;
+  } catch (error) {
+    console.error('[Export Service] Error fetching employees for export:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getEmployeeList,
   getEmployeeDetail,
@@ -372,5 +524,7 @@ module.exports = {
   updateEmployee,
   deleteEmployee,
   batchDeleteEmployee,
-  getEmployeeStats
+  getEmployeeStats,
+  batchAddEmployees,
+  getEmployeesForExport
 }; 

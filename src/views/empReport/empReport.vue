@@ -427,16 +427,18 @@ const convertDeptResponse = (item: DeptResponseData): ExtendedDeptItem => {
 
 // (Optional but recommended) Debounce function
 function debounce(func: Function, wait: number) {
-  let timeout: NodeJS.Timeout | null = null;
+  // Use the correct type for browser setTimeout IDs
+  let timeout: number | null = null;
   return function executedFunction(...args: any[]) {
     const later = () => {
       timeout = null;
       func(...args);
     };
-    if (timeout) {
+    if (timeout !== null) { // Check against null explicitly
       clearTimeout(timeout);
     }
-    timeout = setTimeout(later, wait);
+    // Assign the numeric ID returned by browser setTimeout
+    timeout = window.setTimeout(later, wait);
   };
 }
 

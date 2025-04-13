@@ -682,4 +682,10 @@ onMounted(() => {
     gap: 15px;
   }
 }
+
+/* 居中表格内容 */
+:deep(.el-table .el-table__cell),
+:deep(.el-table th.el-table__cell > .cell) {
+  text-align: center;
+}
 </style>

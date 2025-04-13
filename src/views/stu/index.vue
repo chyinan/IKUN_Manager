@@ -583,4 +583,10 @@ onMounted(async () => {
   overflow: hidden;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
+
+/* 居中表格内容 */
+:deep(.el-table .el-table__cell),
+:deep(.el-table th.el-table__cell > .cell) {
+  text-align: center;
+}
 </style>

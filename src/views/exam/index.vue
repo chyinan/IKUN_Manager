@@ -877,7 +877,7 @@ onMounted(async () => {
 }
 
 .header-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
   margin: 0;
   color: #303133;
@@ -886,7 +886,7 @@ onMounted(async () => {
 .header-desc {
   color: #909399;
   font-size: 14px;
-  margin-top: 5px;
+  margin-top: 2px;
 }
 
 .header-actions {
@@ -1074,5 +1074,11 @@ onMounted(async () => {
   .header-actions {
     justify-content: flex-end;
   }
+}
+
+/* 居中表格内容 */
+:deep(.el-table .el-table__cell),
+:deep(.el-table th.el-table__cell > .cell) {
+  text-align: center;
 }
 </style> 

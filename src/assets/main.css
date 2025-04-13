@@ -245,9 +245,5 @@ a {
 
 /* 统一 Element Plus 下拉菜单选项的字体 */
 .el-select-dropdown__item {
-   font-family: 
-    -apple-system, BlinkMacSystemFont, 
-    'Helvetica Neue', Helvetica, 
-    'PingFang SC', /* Keep user's version */
-    'Microsoft YaHei', Arial, sans-serif !important; /* Add important for dropdown */
+   font-family: 'Noto Sans SC', sans-serif !important; 
 }

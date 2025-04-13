@@ -177,8 +177,14 @@ const handleCommand = (command: string) => {
 }
 
 .sidebar-menu {
-  border-right: none;
+  border-right: none !important;
   height: calc(100% - 60px);
+}
+
+.sidebar-menu :deep(.el-menu-item) {
+  background-color: #304156 !important;
+  border: none !important;
+  overflow: hidden;
 }
 
 .main-container {

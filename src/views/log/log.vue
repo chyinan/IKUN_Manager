@@ -279,7 +279,7 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 20px;
   overflow-y: auto;
-  font-family: 'Consolas', monospace;
+  font-family: Consolas, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', monospace, sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }

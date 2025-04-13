@@ -29,7 +29,7 @@
             <span>部门人员分布</span>
           </div>
         </template>
-        <v-chart class="chart" :option="deptDistOption" />
+        <v-chart ref="deptChartRef" class="chart" :option="deptDistOption" />
       </el-card>
 
       <!-- 右侧薪资分布图 -->
@@ -39,14 +39,14 @@
             <span>部门平均薪资</span>
           </div>
         </template>
-        <v-chart class="chart" :option="salaryOption" />
+        <v-chart ref="salaryChartRef" class="chart" :option="salaryOption" />
       </el-card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -98,6 +98,10 @@ const employeeData = ref<ExtendedEmployeeItem[]>([])
 const deptData = ref<ExtendedDeptItem[]>([])
 const deptOptions = ref<string[]>([])
 const loading = ref(false)
+
+// 1. Create refs for chart instances
+const deptChartRef = ref<InstanceType<typeof VChart> | null>(null);
+const salaryChartRef = ref<InstanceType<typeof VChart> | null>(null);
 
 // 修复 summaryData 未定义的错误
 const summaryData = computed(() => [
@@ -210,7 +214,10 @@ const salaryOption = computed(() => {
   return {
   title: {
       text: '部门平均薪资',
-      left: 'center'
+      left: 'center',
+      textStyle: {
+        fontFamily: "'Noto Sans SC', sans-serif"
+      }
   },
   tooltip: {
     trigger: 'axis',
@@ -220,6 +227,9 @@ const salaryOption = computed(() => {
       },
     axisPointer: {
       type: 'shadow'
+    },
+    textStyle: {
+      fontFamily: "'Noto Sans SC', sans-serif"
     }
   },
     grid: {
@@ -236,7 +246,8 @@ const salaryOption = computed(() => {
         interval: 0,
         rotate: 30,
         fontSize: 12,
-        color: '#606266'
+        color: '#606266',
+        fontFamily: "'Noto Sans SC', sans-serif"
       },
       axisLine: {
         lineStyle: {
@@ -249,11 +260,13 @@ const salaryOption = computed(() => {
       name: '平均薪资(元)',
       nameTextStyle: {
         padding: [0, 0, 0, 40],
-        color: '#606266'
+        color: '#606266',
+        fontFamily: "'Noto Sans SC', sans-serif"
       },
       axisLabel: {
         formatter: (value: number) => `¥${value.toLocaleString('zh-CN')}`,
-        color: '#606266'
+        color: '#606266',
+        fontFamily: "'Noto Sans SC', sans-serif"
       },
       splitLine: {
         lineStyle: {
@@ -273,7 +286,8 @@ const salaryOption = computed(() => {
         formatter: (params: any) => `¥${params.value.toLocaleString('zh-CN')}`,
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#606266'
+        color: '#606266',
+        fontFamily: "'Noto Sans SC', sans-serif"
       },
       itemStyle: {
         borderRadius: [6, 6, 0, 0]
@@ -308,11 +322,17 @@ const deptDistOption = computed(() => {
   return {
   title: {
       text: '部门人员分布',
-      left: 'center'
+      left: 'center',
+      textStyle: {
+        fontFamily: "'Noto Sans SC', sans-serif"
+      }
   },
   tooltip: {
       trigger: 'item',
-      formatter: '<strong>{b}</strong>: {c} 人 ({d}%)'  // 增强提示格式
+      formatter: '<strong>{b}</strong>: {c} 人 ({d}%)',  // 增强提示格式
+      textStyle: {
+        fontFamily: "'Noto Sans SC', sans-serif"
+      }
   },
   legend: {
       orient: 'vertical',
@@ -321,14 +341,15 @@ const deptDistOption = computed(() => {
       itemWidth: 14,
       itemHeight: 14,
       textStyle: {
-        fontSize: 12
+        fontSize: 12,
+        fontFamily: "'Noto Sans SC', sans-serif"
       }
   },
   series: [{
       name: '部门分布',
     type: 'pie',
       radius: ['40%', '70%'], // 创建环形图
-      center: ['40%', '50%'], // 调整图表位置
+      center: ['49%', '50%'], // Change from 40% to 50%
       avoidLabelOverlap: true,
       itemStyle: {
         borderRadius: 6, // 添加圆角
@@ -339,7 +360,8 @@ const deptDistOption = computed(() => {
         show: true,
         formatter: '{b}: {c}人',
         fontSize: 12,
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        fontFamily: "'Noto Sans SC', sans-serif"
       },
       labelLine: {
         length: 10,
@@ -402,6 +424,36 @@ const convertDeptResponse = (item: DeptResponseData): ExtendedDeptItem => {
     createTime: deptData.create_time ? new Date(deptData.create_time).toLocaleString('zh-CN') : ''
   }
 }
+
+// (Optional but recommended) Debounce function
+function debounce(func: Function, wait: number) {
+  let timeout: NodeJS.Timeout | null = null;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      timeout = null;
+      func(...args);
+    };
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// 3. Resize handler function
+const handleResize = () => {
+  console.log('Window resized, resizing charts...'); // Debugging info
+  // Add checks to ensure refs are valid before calling resize
+  if (deptChartRef.value) {
+      deptChartRef.value.resize();
+  }
+  if (salaryChartRef.value) {
+      salaryChartRef.value.resize();
+  }
+}
+
+// (Recommended) Use debounce wrapper for the resize handler (150ms delay)
+const debouncedResizeHandler = debounce(handleResize, 150);
 
 // 获取初始数据
 const fetchInitialData = async () => {
@@ -468,9 +520,28 @@ const fetchInitialData = async () => {
   }
 };
 
+// Component Lifecycle Hooks
 onMounted(() => {
-  fetchInitialData()
-})
+  fetchInitialData();
+  // Listener will be added in onActivated
+});
+
+// Use hooks for keep-alive components
+onActivated(() => {
+  console.log('empReport component activated');
+  // Resize chart on activation to fit current container size
+  nextTick(() => { 
+    handleResize();
+  });
+  // Add listener when component is active
+  window.addEventListener('resize', debouncedResizeHandler); 
+});
+
+onDeactivated(() => {
+  console.log('empReport component deactivated');
+  // Remove listener when component is inactive
+  window.removeEventListener('resize', debouncedResizeHandler); 
+});
 </script>
 
 <style scoped>
@@ -545,16 +616,20 @@ onMounted(() => {
 .chart-card {
   background: white;
   border-radius: 8px;
+  font-size: 16px;
+  color: #606266;
 }
 
 .chart-header {
   display: flex;
   justify-content: flex-start;  /* 修改为左对齐 */
   align-items: center;
+  font-family: 'Noto Sans SC', sans-serif !important; 
 }
 
 .chart {
-  height: 300px;
+  /* Increase chart height */
+  height: 400px; 
 }
 
 :deep(.el-card) {

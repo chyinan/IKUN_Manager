@@ -295,9 +295,14 @@ onMounted(() => {
 }
 
 .welcome-text h2 {
-  font-size: 24px;
+  font-size: 26px;
   margin-bottom: 10px;
   color: #303133;
+  font-family:
+  -apple-system,BlinkMacSystemFont,
+  'PingFang SC', 'Hiragino Sans GB',
+  'Helvetica Neue', Helvetica,
+  'Microsoft YaHei', Arial, sans-serif;
 }
 
 .welcome-text p {

@@ -1025,6 +1025,28 @@ onMounted(async () => {
   background-color: #fafafa;
 }
 
+/* Add styles to unify filter input fonts */
+.filter-item :deep(.el-input__inner),
+.filter-item :deep(.el-range-input), /* Target date range inputs too */
+/* Also target placeholders */
+.filter-item :deep(.el-input__inner::placeholder),
+.filter-item :deep(.el-range-input::placeholder) {
+  font-family: 
+    -apple-system, BlinkMacSystemFont, 
+    'Helvetica Neue', Helvetica, 
+    'PingFang SC',
+    'Microsoft YaHei', Arial, sans-serif;
+}
+
+/* Unify button fonts within this component */
+:deep(.el-button) { 
+  font-family: 
+    -apple-system, BlinkMacSystemFont, 
+    'Helvetica Neue', Helvetica, 
+    'PingFang SC',
+    'Microsoft YaHei', Arial, sans-serif;
+}
+
 .dialog-footer {
   display: flex;
   justify-content: flex-end;

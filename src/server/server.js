@@ -1053,42 +1053,19 @@ app.get(`${apiPrefix}/class/:id/students`, async (req, res) => {
 
 // 新增班级 (Apply middleware)
 app.post(`${apiPrefix}/class/add`, authenticateToken, async (req, res) => {
+  console.log(`[API /class/add] Received POST request. Body:`, req.body);
+  const classData = req.body;
   try {
-    const classData = req.body;
-    console.log('收到新增班级请求, 数据:', classData);
-
-    // 注意：前端发送的是驼峰命名 (className)，后端服务需要下划线 (class_name)
-    // 在这里进行转换或确保 classService.addClass 能处理
-    // 假设 classService.addClass 期望下划线命名
-    const backendClassData = {
-        class_name: classData.className, // 转换
-        teacher: classData.teacher,
-        description: classData.description
-    };
-
-    // 调用 classService 中的 addClass 函数
-    const newClass = await classService.addClass(backendClassData);
-    // --- Add Logging ---
-    logService.addLog({
-      type: 'database',
-      operation: '新增',
-      content: `班级: 名称=${newClass?.class_name || '(未知)'}`,
-      operator: req.user?.username || 'system'
-    });
-    // --- End Logging ---
-    res.status(201).json({
-      code: 201, // 201 Created
-      message: '班级新增成功',
-      data: newClass // 返回新增的班级信息（包含ID）
-    });
+    const newClass = await classService.addClass(classData);
+    res.status(200).json({ code: 200, message: '班级添加成功', data: newClass });
   } catch (error) {
-    console.error('新增班级失败:', error);
-    const statusCode = error.message.includes('不能为空') || error.message.includes('已存在') ? 400 : 500;
-    res.status(statusCode).json({
-      code: statusCode,
-      message: `新增班级失败: ${error.message}`,
-      data: null
-    });
+    console.error('[API /class/add] Error:', error.message);
+    // 根据错误类型返回不同的状态码和消息
+    if (error.message === '班级名称已存在' || error.message.includes('不能为空')) {
+      res.status(400).json({ code: 400, message: error.message });
+    } else {
+      res.status(500).json({ code: 500, message: '添加班级失败，服务器内部错误' });
+    }
   }
 });
 
@@ -2335,3 +2312,28 @@ app.post(`${apiPrefix}/employee/import`, authenticateToken, importUpload.single(
 // --- End Employee Import Route ---
 
 // ... (Restored export route definition) ...
+
+// *** 新增：更新班级信息路由 ***
+app.put('/api/class/:id', authenticateToken, async (req, res) => {
+  const classId = parseInt(req.params.id, 10);
+  const classData = req.body;
+  console.log(`[API /class/:id] Received PUT request for ID: ${classId}. Body:`, classData);
+
+  if (isNaN(classId)) {
+    return res.status(400).json({ code: 400, message: '无效的班级ID' });
+  }
+
+  try {
+    const updatedClass = await classService.updateClass(classId, classData);
+    res.status(200).json({ code: 200, message: '班级更新成功', data: updatedClass });
+  } catch (error) {
+    console.error(`[API /class/:id] Error updating class ID ${classId}:`, error.message);
+    if (error.message.includes('未找到')) {
+      res.status(404).json({ code: 404, message: error.message });
+    } else if (error.message === '班级名称已存在' || error.message.includes('不能为空') || error.message.includes('无效的更新字段')) {
+      res.status(400).json({ code: 400, message: error.message });
+    } else {
+      res.status(500).json({ code: 500, message: '更新班级失败，服务器内部错误' });
+    }
+  }
+});

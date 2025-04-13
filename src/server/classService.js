@@ -200,10 +200,66 @@ async function deleteClass(id) {
   }
 }
 
+/**
+ * 更新班级信息
+ * @param {number} id 班级ID
+ * @param {Object} classData 班级更新数据 { class_name?, teacher?, description? }
+ * @returns {Promise<Object>} 更新后的班级信息
+ */
+async function updateClass(id, classData) {
+  try {
+    const allowedFields = ['class_name', 'teacher', 'description'];
+    const fieldsToUpdate = {};
+    
+    for (const field of allowedFields) {
+      // 允许更新为空字符串或 null，但不允许 undefined
+      if (classData[field] !== undefined) { 
+        fieldsToUpdate[field] = classData[field];
+      }
+    }
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      throw new Error('没有提供有效的更新字段');
+    }
+    
+    // 检查核心字段是否为空（如果它们在更新字段中）
+    if (fieldsToUpdate.class_name === '') {
+        throw new Error('班级名称不能为空');
+    }
+    if (fieldsToUpdate.teacher === '') {
+        throw new Error('班主任不能为空');
+    }
+
+    const setClauses = Object.keys(fieldsToUpdate).map(key => `${key} = ?`).join(', ');
+    const sql = `UPDATE class SET ${setClauses}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
+    const updateValues = [...Object.values(fieldsToUpdate), id];
+
+    console.log('Executing Class Update Query:', sql, updateValues);
+    const result = await db.query(sql, updateValues);
+
+    if (result.affectedRows === 0) {
+      throw new Error(`未找到 ID 为 ${id} 的班级记录`);
+    }
+
+    console.log(`班级 ID ${id} 更新成功`);
+    // 返回更新后的信息（可以重新查询以获取最新数据，这里简化处理）
+    return { id, ...fieldsToUpdate }; 
+
+  } catch (error) {
+    console.error(`更新班级 ID ${id} 失败:`, error);
+    // 检查是否是唯一性约束错误 (uk_class_name)
+    if (error.code === 'ER_DUP_ENTRY') {
+        throw new Error('班级名称已存在');
+    }
+    throw error; // 重新抛出错误
+  }
+}
+
 module.exports = {
   getClassList,
   getClassDetail,
   getStudentsInClass,
   addClass,
-  deleteClass
+  deleteClass,
+  updateClass
 }; 

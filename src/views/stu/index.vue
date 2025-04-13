@@ -24,7 +24,7 @@
 
     <!-- 学生数据表格 -->
     <el-table
-      :data="filteredTableData"
+      :data="paginatedStudentList"
       stripe
       border
       highlight-current-row
@@ -125,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId } from '@/api/student'
 import { Delete, Edit, Plus, Search, Download, Male, Female } from '@element-plus/icons-vue'
@@ -196,6 +196,13 @@ const dialogType = ref<'add' | 'edit'>('add')
 const tableData = ref<StudentItem[]>([])
 const formRef = ref<FormInstance>()
 
+// 分页数据
+const pagination = reactive<Pagination>({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+})
+
 // 获取学生列表
 const fetchData = async () => {
   try {
@@ -253,21 +260,36 @@ const fetchData = async () => {
   }
 }
 
-// 筛选数据
-const filteredTableData = computed(() => {
+// 1. Renamed computed property for filtering
+const filteredStudentList = computed(() => {
   return tableData.value.filter(item => {
-    // 添加空值检查
-    const studentIdMatch = item.studentId && searchKey.value ? 
-      item.studentId.toString().toLowerCase().includes(searchKey.value.toLowerCase()) : 
-      !searchKey.value;
-    
-    const nameMatch = item.name && searchKey.value ? 
-      item.name.toString().toLowerCase().includes(searchKey.value.toLowerCase()) : 
-      !searchKey.value;
+    // Add null/undefined checks for robustness
+    const searchLower = searchKey.value?.toLowerCase() || '';
+    if (!searchLower) return true; // No search key, show all
+
+    const studentIdMatch = item.studentId?.toString().toLowerCase().includes(searchLower);
+    const nameMatch = item.name?.toLowerCase().includes(searchLower);
     
     return studentIdMatch || nameMatch;
   });
 })
+
+// 2. New computed property for pagination
+const paginatedStudentList = computed(() => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize;
+  const end = start + pagination.pageSize;
+  // Slice the *filtered* list
+  return filteredStudentList.value.slice(start, end); 
+});
+
+// Watch filtered list to update total for pagination
+watch(filteredStudentList, (newList) => {
+  pagination.total = newList.length;
+  // Optional: Reset to page 1 if filters change and current page becomes invalid
+  if (pagination.currentPage > Math.ceil(newList.length / pagination.pageSize)) {
+    pagination.currentPage = 1;
+  }
+});
 
 // 生成下一个学号
 const generateNextStudentId = async () => {
@@ -437,13 +459,6 @@ const fetchClassList = async () => {
     classList.value = [];
   }
 };
-
-// 分页数据
-const pagination = reactive<Pagination>({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-})
 
 // 数据转换函数
 const convertToStudentItem = (item: StudentItemResponse): StudentItem => {

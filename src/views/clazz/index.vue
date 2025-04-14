@@ -16,6 +16,17 @@
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>新增班级
         </el-button>
+        <el-upload
+          :action="''" 
+          :show-file-list="false"
+          :before-upload="beforeUpload"
+          :http-request="handleImportRequest" 
+          accept=".xlsx, .xls, .csv"
+          style="margin: 0 10px;"> 
+          <el-button type="warning">
+            <el-icon><Upload /></el-icon>导入数据
+          </el-button>
+        </el-upload>
         <el-button type="success" @click="handleExport">
           <el-icon><Download /></el-icon>导出数据
         </el-button>
@@ -188,13 +199,12 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { Delete, Edit, Plus, Search, View, Download, Male, Female } from '@element-plus/icons-vue'
-import { getClassList, addClass, updateClass, deleteClass } from '@/api/class'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
+import { Delete, Edit, Plus, Search, View, Download, Male, Female, Upload } from '@element-plus/icons-vue'
+import { getClassList, addClass, updateClass, deleteClass, importClasses } from '@/api/class'
 import type { ClassItem, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
-import type { Pagination } from '@/types/common'
 import dayjs from 'dayjs'
 
 // 表单数据类型
@@ -457,12 +467,13 @@ const handleExport = () => {
     '班级名称': item.className,
     '班主任': item.teacher,
     '学生人数': item.studentCount,
+    '班级描述': item.description,
     '创建时间': item.createTime
-  }))
+  }));
   
-  exportToExcel(exportData, `班级数据_${new Date().toLocaleDateString()}`)
-  ElMessage.success('导出成功')
-}
+  exportToExcel(exportData, `班级数据_${new Date().toLocaleDateString()}`);
+  ElMessage.success('导出成功');
+};
 
 // 班级详情相关
 const detailDialogVisible = ref(false)
@@ -556,6 +567,90 @@ const fetchClassStudents = async (classId: number) => {
   } finally {
     studentLoading.value = false
   }
+}
+
+// 导入文件上传处理
+const beforeUpload = (file: File) => {
+  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel';
+  const isCsv = file.type === 'text/csv';
+  const isLt10M = file.size / 1024 / 1024 < 10;
+
+  if (!isExcel && !isCsv) {
+    ElMessage.error('上传文件只能是 Excel 或 CSV 格式!');
+    return false;
+  }
+  if (!isLt10M) {
+    ElMessage.error('上传文件大小不能超过 10MB!');
+    return false;
+  }
+  loading.value = true; // 开始加载状态
+  return true;
+}
+
+const handleImportRequest = async (options: UploadRequestOptions) => {
+  try {
+    const res = await importClasses(options.file);
+    console.log("Class Import API Response:", res);
+    if (res.code === 200) {
+       let notificationMessage = `${res.message || '导入成功'}`;
+       if (res.data && res.data.errors && res.data.errors.length > 0) {
+           let errorDetails = res.data.errors.map((err: any) => `行 ${err.row}: ${err.error || err.errors?.join(', ') || '未知错误'}`).join('<br>');
+           (ElNotification as any)({ // 使用 ElNotification 显示更详细信息
+              title: '导入完成（部分成功）',
+              dangerouslyUseHTMLString: true,
+              message: `${notificationMessage}<br>以下行未成功导入或更新：<br>${errorDetails}`,
+              type: 'warning',
+              duration: 0 // 不自动关闭
+            });
+       } else {
+           ElMessage.success(notificationMessage);
+       }
+       await fetchData(); // 成功后刷新列表
+    } else {
+        handleImportError(res); // 处理API返回的业务错误
+    }
+  } catch (error: any) {
+      console.error('Class Import error caught:', error);
+      handleImportError(error); // 处理网络或其他错误
+  } finally {
+    loading.value = false; // 结束加载状态
+  }
+}
+
+// 统一处理导入错误
+const handleImportError = (error: any) => {
+  loading.value = false;
+  let title = '导入失败';
+  let message = '发生未知错误';
+
+  // 尝试提取错误信息
+  if (error && error.message) {
+    message = error.message;
+  } else if (error && error.response && error.response.data && error.response.data.message) {
+    // 兼容 Axios 错误结构
+    message = error.response.data.message;
+  } else if (typeof error === 'string') {
+    message = error;
+  }
+  
+  // 检查是否有详细的行错误信息
+  const validationErrors = error?.data?.errors || error?.response?.data?.data?.errors;
+  if (validationErrors && Array.isArray(validationErrors) && validationErrors.length > 0) {
+    title = '导入失败（数据校验错误）';
+    message = `文件中有 ${validationErrors.length} 行数据格式错误，请修正后重试。`;
+    let errorDetails = validationErrors.map((err: any) => `行 ${err.row}: ${err.error || err.errors?.join(', ') || '未知错误'}`).join('<br>');
+      (ElNotification as any)({
+        title: title,
+        dangerouslyUseHTMLString: true,
+        message: `${message}<br>错误详情:<br>${errorDetails}`,
+        type: 'error',
+        duration: 0
+      });
+      return; // 使用 Notification 后不再显示 Message
+  }
+
+  // 如果没有详细错误，显示通用错误消息
+  ElMessage.error(`${title}: ${message}`);
 }
 
 onMounted(() => {

@@ -72,16 +72,25 @@ export function getClassStats() {
 }
 
 // 导入班级数据
-export function importClasses(file: File) {
-  console.log('调用importClasses API, 文件:', file.name);
-  const formData = new FormData()
-  formData.append('file', file)
-  
+export function importClasses(file: File): Promise<ApiResponse<any>> {
+  console.log('调用 importClasses API, 文件:', file.name);
+  const formData = new FormData();
+  formData.append('file', file);
+
   return request.post<ApiResponse<any>>('/class/import', formData, {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
   })
+  .then(response => response.data) // 直接返回后端响应体中的 data 部分
+  .catch(error => {
+    console.error('importClasses API catch block:', error);
+    // 尝试从 Axios 错误中提取后端返回的 data (可能包含错误详情)
+    if (error.response && error.response.data) {
+      throw error.response.data; 
+    }
+    throw error; 
+  });
 }
 
 // 导出班级数据

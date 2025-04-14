@@ -255,11 +255,77 @@ async function updateClass(id, classData) {
   }
 }
 
+/**
+ * 批量添加班级 (用于导入)
+ * @param {Array<Object>} classes 经过验证的班级数据数组 { class_name, teacher, description }
+ * @returns {Promise<{ success: boolean, processedCount: number, errors: Array<{ rowData: object, error: string }> }>} 导入结果
+ */
+async function batchAddClasses(classes) {
+  if (!classes || classes.length === 0) {
+    return { success: false, processedCount: 0, errors: [{ rowData: {}, error: '没有提供有效的班级数据' }] };
+  }
+
+  let connection;
+  let processedCount = 0;
+  const errors = [];
+
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 构建批量插入/更新语句 (基于 class_name 唯一键)
+    const placeholders = classes.map(() => '(?, ?, ?, CURRENT_TIMESTAMP)'); // class_name, teacher, description, create_time
+    const sql = `
+      INSERT INTO class (class_name, teacher, description, create_time)
+      VALUES ${placeholders.join(', ')}
+      ON DUPLICATE KEY UPDATE teacher=VALUES(teacher), description=VALUES(description), update_time=CURRENT_TIMESTAMP
+    `;
+
+    const values = [];
+    for (const cls of classes) {
+      // 简单验证 (更复杂的验证应在路由层完成)
+      if (!cls.class_name || !cls.teacher) {
+          errors.push({ rowData: cls, error: '班级名称或班主任不能为空' });
+          continue; // 跳过无效数据
+      }
+      values.push(
+        cls.class_name,
+        cls.teacher,
+        cls.description || null // 允许 description 为空
+      );
+    }
+
+    if (values.length > 0) {
+       // 将 values 数组扁平化
+       const flatValues = values.flat();
+       processedCount = values.length / 3; // 每个班级有3个值
+       const [result] = await connection.query(sql, flatValues);
+       console.log('[Batch Class Add] DB Insert/Update Result:', result);
+    } else {
+      console.log('[Batch Class Add] No valid classes to insert/update.');
+    }
+
+    await connection.commit();
+    console.log(`[Batch Class Add] Transaction committed. Processed rows: ${processedCount}. Skipped: ${errors.length}`);
+
+    return { success: true, processedCount: processedCount, errors: errors };
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('[Batch Class Add] Error during batch class add:', error);
+    errors.push({ rowData: {}, error: `数据库批量操作失败: ${error.message}` });
+    return { success: false, processedCount: 0, errors: errors };
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
 module.exports = {
   getClassList,
   getClassDetail,
   getStudentsInClass,
   addClass,
   deleteClass,
-  updateClass
+  updateClass,
+  batchAddClasses
 }; 

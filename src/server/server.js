@@ -2337,3 +2337,179 @@ app.put('/api/class/:id', authenticateToken, async (req, res) => {
     }
   }
 });
+
+// 导入班级数据
+app.post('/api/class/import', authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[API /class/import] Received POST request for file import.');
+  
+  if (!req.file) {
+    console.log('[API /class/import] No file uploaded.');
+    return res.status(400).json({ code: 400, message: '请上传文件' });
+  }
+
+  console.log('[API /class/import] File uploaded:', req.file.originalname, req.file.mimetype);
+
+  let rawData = [];
+  let classesToInsert = [];
+  const errors = []; // Unified error array
+  let addedCount = 0;
+
+  try {
+    const buffer = req.file.buffer;
+    const workbook = xlsx.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+
+    // --- 修改开始: 动态解析 Excel ---
+    if (req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || req.file.mimetype === 'application/vnd.ms-excel') {
+        console.log('[API /class/import] Parsing Excel file dynamically...');
+        const jsonData = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: null }); // Read as array of arrays
+
+        if (!jsonData || jsonData.length < 2) {
+            console.log('[API /class/import] Excel file is empty or has only header.');
+            return res.status(400).send({ code: 400, message: 'Excel 文件为空或只有表头' });
+        }
+
+        const headerRow = jsonData[0].map(h => String(h || '').trim());
+        const nameIndex = headerRow.indexOf('班级名称');
+        const teacherIndex = headerRow.indexOf('班主任');
+        const descriptionIndex = headerRow.indexOf('班级描述');
+
+        console.log(`[API /class/import DEBUG] Header Row: ${JSON.stringify(headerRow)}`);
+        console.log(`[API /class/import DEBUG] Indices - Name: ${nameIndex}, Teacher: ${teacherIndex}, Desc: ${descriptionIndex}`);
+
+        if (nameIndex === -1) {
+            console.log('[API /class/import] Missing required header: 班级名称');
+            return res.status(400).send({ code: 400, message: '导入文件缺少必需的表头: 班级名称' });
+        }
+         // 班主任也是必需的根据之前的逻辑
+         if (teacherIndex === -1) {
+            console.log('[API /class/import] Missing required header: 班主任');
+            return res.status(400).send({ code: 400, message: '导入文件缺少必需的表头: 班主任' });
+        }
+
+        rawData = jsonData.slice(1).map((row, index) => {
+            const rowNum = index + 2;
+            const originalClassName = nameIndex !== -1 ? row[nameIndex] : '[列 "班级名称" 未找到]';
+            const originalTeacher = teacherIndex !== -1 ? row[teacherIndex] : '[列 "班主任" 未找到]';
+            // 日志保留，但可以根据需要注释掉
+            // if (rowNum >= 3 && rowNum <= 5) { 
+            //   console.log(`[API /class/import DEBUG Row ${rowNum}] Original values - Name: '${originalClassName}', Teacher: '${originalTeacher}'`);
+            // }
+            const rowData = {
+                class_name: nameIndex !== -1 && row[nameIndex] !== null && row[nameIndex] !== undefined ? String(row[nameIndex]).trim() : null,
+                teacher: teacherIndex !== -1 && row[teacherIndex] !== null && row[teacherIndex] !== undefined ? String(row[teacherIndex]).trim() : null,
+                description: descriptionIndex !== -1 && row[descriptionIndex] !== null && row[descriptionIndex] !== undefined ? String(row[descriptionIndex]).trim() : null,
+                __rowNum__: rowNum
+            };
+            // 日志保留，但可以根据需要注释掉
+            // if (rowNum >= 3 && rowNum <= 5) { 
+            //    console.log(`[API /class/import DEBUG Row ${rowNum}] Trimmed values - Name: '${rowData.class_name}', Teacher: '${rowData.teacher}'`);
+            // }
+
+            // --- 修改：如果必要字段为空，直接返回 null 跳过该行，不再记录错误 --- 
+            if (!rowData.class_name || !rowData.teacher) {
+                // errors.push({ row: rowNum, error: '班级名称不能为空' }); // 移除错误记录
+                // console.log(`[API /class/import VALIDATION FAIL Row ${rowNum}] Class name is empty or null.`); 
+                // errors.push({ row: rowNum, error: '班主任不能为空' }); // 移除错误记录
+                // console.log(`[API /class/import VALIDATION FAIL Row ${rowNum}] Teacher is empty or null.`); 
+                console.log(`[API /class/import SKIP Row ${rowNum}] Skipping row due to empty required field (Name or Teacher).`); // 添加跳过日志
+                return null; // 直接返回 null，后续会被 filter 掉
+            }
+            // --- 修改结束 ---
+            
+            return rowData;
+        }).filter(row => row !== null); // filter(row => row !== null) 会移除返回 null 的行
+
+    } else if (req.file.mimetype === 'text/csv') {
+        console.log('[API /class/import] Parsing CSV file...');
+        const csvData = buffer.toString('utf8');
+         const parseResult = papaparse.parse(csvData, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: header => header.trim()
+        });
+
+         if (parseResult.errors.length > 0) {
+            console.error('[API /class/import] CSV parsing errors:', parseResult.errors);
+            throw new Error(`CSV文件解析错误: ${parseResult.errors[0].message} (行: ${parseResult.errors[0].row})`);
+         }
+
+         rawData = parseResult.data.map((row, index) => {
+            const rowNum = index + 2;
+            const mappedRow = {
+                class_name: row['班级名称'] !== null && row['班级名称'] !== undefined ? String(row['班级名称']).trim() : null,
+                teacher: row['班主任'] !== null && row['班主任'] !== undefined ? String(row['班主任']).trim() : null,
+                description: row['班级描述'] !== null && row['班级描述'] !== undefined ? String(row['班级描述']).trim() : null,
+                __rowNum__: rowNum
+            };
+            if (!mappedRow.class_name) {
+               errors.push({ row: rowNum, error: '班级名称不能为空' });
+               return null;
+            }
+            if (!mappedRow.teacher) {
+               errors.push({ row: rowNum, error: '班主任不能为空' });
+               return null;
+            }
+            return mappedRow;
+         }).filter(row => row !== null);
+
+    } else {
+        console.log(`[API /class/import] Unsupported file type: ${req.file.mimetype}`);
+        return res.status(400).send({ code: 400, message: '不支持的文件类型，请上传 Excel (.xlsx, .xls) 或 CSV (.csv) 文件' });
+    }
+    // --- 修改结束 ---
+
+    console.log(`[API /class/import DEBUG] Parsed & Validated Raw Data (first 5):`, JSON.stringify(rawData.slice(0, 5), null, 2));
+
+    classesToInsert = rawData.map(item => ({
+        class_name: item.class_name,
+        teacher: item.teacher,
+        description: item.description
+     }));
+
+    if (classesToInsert.length === 0 && errors.length > 0) {
+         console.log('[API /class/import] No valid data to import after validation.');
+         return res.status(400).send({ code: 400, message: `文件中有 ${errors.length} 行数据格式错误`, data: { errors } });
+     }
+     if (classesToInsert.length === 0) {
+         console.log('[API /class/import] No data found or all data was invalid.');
+         return res.status(400).send({ code: 400, message: '未在文件中找到有效数据' });
+     }
+
+    console.log(`[API /class/import] Calling classService.batchAddClasses with ${classesToInsert.length} records.`);
+    const result = await classService.batchAddClasses(classesToInsert);
+    console.log('[API /class/import] Batch add result:', result);
+
+    // --- 修改：从 service 返回结果中正确获取计数 --- 
+    // addedCount = result.addedCount || 0; // 旧的错误代码，service 返回的是 processedCount
+    addedCount = result.processedCount || 0; // 使用 service 返回的 processedCount
+    // --- 修改结束 ---
+    
+    const allErrors = [...errors, ...(result.errors || [])];
+
+    if (allErrors.length > 0) {
+         const message = `导入完成，成功新增/更新 ${addedCount} 条记录，但有 ${allErrors.length} 行数据存在问题。`;
+         console.log(`[API /class/import] Completed with errors. Added: ${addedCount}, Errors: ${allErrors.length}`);
+         res.status(200).send({ code: 200, message: message, data: { addedCount, errors: allErrors } });
+     } else {
+         const message = `成功导入 ${addedCount} 条班级记录。`;
+         console.log(`[API /class/import] Successfully imported ${addedCount} records.`); // 现在应该会打印正确的数量
+         res.status(200).send({ code: 200, message: message, data: { addedCount } });
+     }
+
+  } catch (error) {
+    console.error('[API /class/import] Error during import process:', error);
+    if (error.code && error.message) {
+         res.status(500).send({ code: 500, message: `导入过程中发生内部错误: ${error.message}`});
+     } else {
+         res.status(500).send({ code: 500, message: `处理导入文件时发生未知错误: ${error.message || error}`});
+     }
+  }
+});
+
+
+// 删除班级
+app.delete('/api/class/:id', authenticateToken, async (req, res) => {
+  // ... existing delete route logic ...
+});

@@ -75,21 +75,29 @@ export function getStudentStats(): Promise<ApiResponse<any>> {
 }
 
 // 导入学生数据
-export function importStudents(file: File): Promise<ApiResponse<any>> {
-  const formData = new FormData()
-  formData.append('file', file)
-  
-  return request.post<ApiResponse<any>>('/student/import', formData, {
+export const importStudents = (file: File): Promise<ApiResponse<any>> => {
+  console.log('[API student.ts] Importing students from file:', file.name);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return request({
+    url: '/student/import', // API endpoint
+    method: 'post',
+    data: formData, // Send file as FormData
     headers: {
-      'Content-Type': 'multipart/form-data'
+      'Content-Type': 'multipart/form-data' // Important for file uploads
     }
-  })
-    .then(response => response.data)
-    .catch(error => {
-        console.error('importStudents API catch block:', error);
-        throw error; 
+  }).catch(error => {
+      console.error('[API student.ts] Student import request failed:', error);
+      // Re-throw a structured error or handle it as needed
+      // Check if it's an Axios error with a response
+      if (error.response && error.response.data) {
+        throw error.response.data; // Throw the backend's error response
+      } else {
+        throw new Error(error.message || '学生导入请求失败');
+      }
     });
-}
+};
 
 // 导出学生数据
 export function exportStudents(params?: any): Promise<Blob> {

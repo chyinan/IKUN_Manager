@@ -16,6 +16,17 @@
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>新增学生
         </el-button>
+        <el-upload
+          :action="''"
+          :show-file-list="false"
+          :before-upload="beforeUpload"
+          :http-request="handleImportRequest"
+          accept=".xlsx, .xls, .csv"
+          style="margin: 0 10px;">
+          <el-button type="warning">
+            <el-icon><Upload /></el-icon>导入数据
+          </el-button>
+        </el-upload>
         <el-button type="success" @click="handleExport">
           <el-icon><Download /></el-icon>导出数据
         </el-button>
@@ -126,13 +137,13 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId } from '@/api/student'
-import { Delete, Edit, Plus, Search, Download, Male, Female } from '@element-plus/icons-vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId, importStudents } from '@/api/student'
+import { Delete, Edit, Plus, Search, Download, Male, Female, Upload } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { exportToExcel } from '@/utils/export'
 import { getClassList } from '@/api/class'
-import type { StudentItem, StudentItemResponse, StudentSubmitData, ClassItemResponse } from '@/types/common'
+import type { StudentItem, StudentItemResponse, StudentSubmitData, ClassItemResponse, ApiResponse } from '@/types/common'
 import type { Pagination } from '@/types/response'
 import dayjs from 'dayjs'
 
@@ -429,7 +440,7 @@ const handleExport = () => {
     '学号': item.studentId,
     '姓名': item.name,
     '性别': item.gender,
-    '班级': item.className,
+    '所属班级': item.className,
     '手机号': item.phone || '',
     '邮箱': item.email || '',
     '入学时间': item.joinDate
@@ -525,6 +536,156 @@ const fetchClassOptions = async () => {
     classList.value = [];
   }
 };
+
+// 导入文件上传前校验
+const beforeUpload = (file: File) => {
+  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel';
+  const isCsv = file.type === 'text/csv';
+  const isLt20M = file.size / 1024 / 1024 < 20; // 限制 20MB
+
+  if (!isExcel && !isCsv) {
+    ElMessage.error('上传文件只能是 Excel 或 CSV 格式!');
+    return false;
+  }
+  if (!isLt20M) {
+    ElMessage.error('上传文件大小不能超过 20MB!');
+    return false;
+  }
+  loading.value = true; // 开始加载状态
+  return true;
+}
+
+// 处理导入请求
+const handleImportRequest = async (options: UploadRequestOptions) => {
+  loading.value = true; // Start loading early
+  try {
+    console.log('[Student Import] handleImportRequest called with file:', options.file.name);
+    const res = await importStudents(options.file); // Call API
+    console.log('[Student Import] API Response:', res);
+
+    // Check if the response AND response.data exists and has a code property
+    if (res && res.data && res.data.hasOwnProperty('code')) {
+        // Corrected: Access data nested inside res.data.data
+        const processedCount = res.data?.data?.processedCount ?? 0;
+        const errors = res.data?.data?.errors ?? [];
+        const messageFromServer = res.message || res.data.message || '';
+
+        if (res.data.code === 200) {
+            // --- Backend returned 200 OK ---
+            
+            // **** Add specific logs before the check ****
+            console.log('[Student Import DEBUG] Extracted errors variable before check:', JSON.stringify(errors));
+            console.log('[Student Import DEBUG] Extracted errors.length before check:', errors ? errors.length : 'errors is null/undefined');
+            // **** End added logs ****
+
+            if (errors.length > 0) {
+                // Case 1: Code 200, but there were validation errors (even if processedCount is 0)
+                console.log('[Student Import DEBUG] Condition (errors.length > 0) is TRUE. Showing ElNotification.');
+                const errorCount = errors.length;
+                // Construct message prioritizing clarity about success/failure counts
+                const notificationMessage = `导入完成，尝试处理 ${processedCount + errorCount} 行，成功 ${processedCount} 行，失败/跳过 ${errorCount} 行。`;
+                let errorDetails = errors.map((err: any) => `行 ${err.row}: ${err.error || err.errors?.join(', ') || '未知错误'}`).join('<br>');
+
+                (ElNotification as any)({
+                  title: '导入完成（部分成功或有错误）',
+                  dangerouslyUseHTMLString: true,
+                  message: `${notificationMessage}<br>以下行未成功导入或更新：<br>${errorDetails}`,
+                  type: 'warning',
+                  duration: 0 // Do not close automatically
+                });
+
+            } else if (processedCount > 0) {
+                // Case 2: Code 200, processed > 0, no errors -> Full Success
+                console.log('[Student Import DEBUG] Condition (processedCount > 0) is TRUE. Showing ElMessage success.');
+                const successMessage = messageFromServer || `成功导入/更新 ${processedCount} 条学生记录。`;
+                ElMessage.success(successMessage);
+
+            } else {
+                // Case 3: Code 200, processed = 0, no errors -> Nothing to import/all duplicates/empty file
+                console.log('[Student Import DEBUG] Condition (else block) is TRUE. Showing ElMessage warning.');
+                ElMessage.warning(messageFromServer || '未导入任何新记录（文件可能为空或数据已存在）。');
+            }
+
+            // Refresh list only if there's a chance data changed (processed or had errors that might imply an update attempt)
+            if (processedCount > 0 || (errors && errors.length > 0)) { // Also check errors validity here
+                 await fetchData();
+            }
+        } else {
+            // --- Backend returned non-200 code in res.data.code ---
+             console.log(`[Student Import DEBUG] Non-200 code (${res.data.code}). Passing to handleImportError.`);
+            handleImportError(res.data);
+        }
+    } else {
+        // --- Response object is malformed or missing res.data or res.data.code ---
+        console.error('[Student Import] Invalid API response structure:', res);
+        handleImportError(res || new Error('收到了无效的服务器响应'));
+    }
+  } catch (error: any) { // Catches network errors or promise rejections from importStudents
+      console.error('[Student Import] Error caught in handleImportRequest catch block:', error);
+      handleImportError(error);
+  } finally {
+    loading.value = false; // Ensure loading is always stopped
+  }
+}
+
+// 统一处理导入错误
+const handleImportError = (error: any) => {
+  loading.value = false; // Ensure loading indicator is turned off
+  let title = '导入失败';
+  let message = '发生未知错误';
+  let errorDetails = '';
+  let errorType: 'error' | 'warning' = 'error';
+
+  // Try to extract information from different error structures
+  const responseData = error?.response?.data || error?.data; // Prioritize Axios error response data, fallback to direct data if `error` is the response itself
+  const backendMessage = responseData?.message || error?.message; // Get message from response data OR error object
+  const backendCode = responseData?.code || error?.code;       // Get code from response data OR error object
+  const validationErrors = responseData?.errors;             // Get validation errors from response data
+
+  if (backendMessage) {
+      message = backendMessage;
+  }
+
+  // Check for detailed validation errors from the backend (even if code != 200)
+  if (validationErrors && Array.isArray(validationErrors) && validationErrors.length > 0) {
+    title = '导入失败（数据校验错误）';
+    const processedCount = responseData?.processedCount || 0; // Get count if available
+    // Adjust message based on whether it was a partial success or complete validation failure
+    if (backendCode === 200) { // Came from the code === 200 block but had errors
+         message = `尝试处理 ${processedCount + validationErrors.length} 条记录，成功 ${processedCount} 条，失败/跳过 ${validationErrors.length} 行。`;
+    } else { // Came from code !== 200 block (e.g., 400)
+         message = backendMessage || `导入文件中存在 ${validationErrors.length} 条数据错误`;
+    }
+    errorDetails = validationErrors.map((err: any) => `行 ${err.row}: ${err.error || err.errors?.join(', ') || '未知错误'}`).join('<br>');
+    errorType = 'warning'; // Use warning type, as it's usually data format issues
+  } else if (backendCode === 400) {
+      // Handle 400 Bad Request (e.g., file type error, missing headers, general validation fail without specific row errors)
+      title = '导入请求错误';
+  } else if (backendCode === 401 || backendCode === 403) {
+      title = '认证失败';
+  } else if (backendCode === 500) {
+      // Handle 500 Internal Server Error
+      title = '服务器内部错误';
+  } else if (error?.name === 'AxiosError' && !error.response) {
+      // Handle network errors (request never reached server or no response)
+       title = '网络错误';
+       message = '无法连接到服务器，请检查网络连接。';
+  }
+
+  // Use ElNotification to display errors, especially when details are available
+  if (errorDetails) {
+     (ElNotification as any)({
+        title: title,
+        dangerouslyUseHTMLString: true,
+        message: `${message}<br>错误详情:<br>${errorDetails}`,
+        type: errorType,
+        duration: 0 // Don't auto-close detailed errors
+      });
+  } else {
+      // For simple errors without detailed lists, use ElMessage
+      ElMessage.error(`${title}: ${message}`);
+  }
+}
 
 // 页面初始化时获取数据
 onMounted(async () => {

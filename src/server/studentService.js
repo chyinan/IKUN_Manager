@@ -1,4 +1,6 @@
 const db = require('./db');
+const dayjs = require('dayjs'); // Import dayjs
+const logService = require('./logService'); // Import logService
 
 /**
  * 获取学生列表
@@ -361,6 +363,124 @@ async function getMaxStudentId() {
   }
 }
 
+// --- 新增：批量添加/更新学生 --- 
+async function batchAddStudents(students) {
+    console.log('[Batch Student Add] Starting batch add/update for', students.length, 'students.');
+    const connection = await db.getConnection();
+    let processedCount = 0;
+    const errors = [];
+
+    if (!students || students.length === 0) {
+        return { success: true, processedCount: 0, errors: [] };
+    }
+
+    try {
+        await connection.beginTransaction();
+        console.log('[Batch Student Add] Transaction started.');
+
+        // 1. 获取所有班级名称到ID的映射
+        const [classes] = await connection.query('SELECT id, class_name FROM class');
+        const classNameToIdMap = classes.reduce((map, cls) => {
+            map[cls.class_name] = cls.id;
+            return map;
+        }, {});
+        console.log('[Batch Student Add] Class name to ID map created.');
+
+        // 2. 准备批量插入/更新的数据
+        const values = [];
+        const studentIdsInBatch = new Set(); // 检查批次内学号是否重复
+        for (let i = 0; i < students.length; i++) {
+            const student = students[i];
+            const rowNum = i + 2; // Assuming row number for error reporting
+
+            // 检查批次内学号重复
+            if (studentIdsInBatch.has(student.student_id)) {
+                 errors.push({ row: rowNum, error: `学号 ${student.student_id} 在文件中重复` });
+                 continue; // 跳过重复学号
+            }
+            studentIdsInBatch.add(student.student_id);
+
+            // 查找班级ID
+            const classId = classNameToIdMap[student.class_name];
+            if (!classId) {
+                errors.push({ row: rowNum, error: `班级 '${student.class_name}' 不存在` });
+                continue; // 跳过无效班级
+            }
+
+            // 准备插入值 (确保与表列顺序一致)
+            values.push([
+                student.student_id, // 学号
+                student.name,       // 姓名
+                student.gender,     // 性别
+                classId,            // 班级ID
+                student.phone,      // 电话
+                student.email,      // 邮箱
+                student.join_date   // 入学时间
+            ]);
+        }
+
+        if (values.length === 0) {
+            console.log('[Batch Student Add] No valid student data to process after validation.');
+            await connection.rollback();
+            return { success: true, processedCount: 0, errors };
+        }
+
+        // 3. 执行批量插入/更新
+        const sql = `
+            INSERT INTO student (student_id, name, gender, class_id, phone, email, join_date) 
+            VALUES ? 
+            ON DUPLICATE KEY UPDATE 
+                name = VALUES(name),
+                gender = VALUES(gender),
+                class_id = VALUES(class_id),
+                phone = VALUES(phone),
+                email = VALUES(email),
+                join_date = VALUES(join_date),
+                update_time = CURRENT_TIMESTAMP
+        `;
+
+        console.log(`[Batch Student Add] Executing batch INSERT/UPDATE for ${values.length} students.`);
+        const [result] = await connection.query(sql, [values]);
+        console.log('[Batch Student Add] DB Insert/Update Result:', result);
+
+        // affectedRows 返回的是 (新增数 + 更新数 * 2), processedCount 更准确反映处理的行数
+        processedCount = values.length; 
+
+        await connection.commit();
+        console.log('[Batch Student Add] Transaction committed. Processed rows:', processedCount);
+
+        // 记录日志
+        logService.addLog({
+            type: 'database',
+            operation: '批量导入',
+            content: `学生: 处理了 ${processedCount} 条记录，其中错误 ${errors.length} 条`,
+            operator: 'system' // 或者从请求中获取用户名
+        });
+
+        return { success: true, processedCount, errors };
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('[Batch Student Add] Error during batch operation:', error);
+        // 记录错误日志
+        logService.addLog({
+            type: 'database',
+            operation: '批量导入失败',
+            content: `学生: ${error.message}`,
+            operator: 'system'
+        });
+        // 返回包含数据库错误的通用消息和详细错误
+        errors.push({ row: 'N/A', error: `数据库操作失败: ${error.message}` });
+        return { success: false, processedCount, errors };
+    } finally {
+        if (connection) {
+            connection.release();
+            console.log('[Batch Student Add] Database connection released.');
+        }
+    }
+}
+// --- 结束：批量添加/更新学生 ---
+
 module.exports = {
   getStudentList,
   getStudentDetail,
@@ -369,5 +489,6 @@ module.exports = {
   deleteStudent,
   batchDeleteStudent,
   getStudentStats,
-  getMaxStudentId
+  getMaxStudentId,
+  batchAddStudents
 }; 

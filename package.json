@@ -1,5 +1,5 @@
 {
-  "name": "vue-tlias-management",
+  "name": "ikun-manager-server",
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",

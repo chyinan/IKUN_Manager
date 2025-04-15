@@ -41,9 +41,13 @@ export interface SaveScoreParams {
 }
 
 // 获取成绩列表
-export function getScoreList(params?: ScoreQueryParams) {
+export const getScoreList = (params?: any): Promise<ApiResponse<ScoreDetail[]>> => {
   console.log('调用getScoreList API, 参数:', params);
   return request.get<ApiResponse<ScoreDetail[]>>('/score/list', { params })
+    .catch(error => {
+        console.error('[API score.ts] Error fetching score list:', error);
+        throw error;
+    });
 }
 
 // 获取成绩详情
@@ -77,22 +81,17 @@ export function batchDeleteScore(ids: number[]) {
 }
 
 // 获取成绩统计数据
-export function getScoreStats() {
+export const getScoreStats = (): Promise<ApiResponse<any>> => {
   console.log('调用getScoreStats API');
-  return request.get<ApiResponse<{
-    total: number;
-    averageScore: number;
-    passRate: number;
-    subjectStats: Array<{
-      subject: string;
-      average: number;
-      passRate: number;
-    }>;
-  }>>('/score/stats')
+  return request.get<ApiResponse<any>>('/score/stats')
+    .catch(error => {
+        console.error('[API score.ts] Error fetching score stats:', error);
+        throw error;
+    });
 }
 
 // 导入成绩数据
-export function importScores(file: File) {
+export const importScores = (file: File): Promise<ApiResponse<any>> => {
   console.log('调用importScores API, 文件:', file.name);
   const formData = new FormData()
   formData.append('file', file)
@@ -102,15 +101,23 @@ export function importScores(file: File) {
       'Content-Type': 'multipart/form-data'
     }
   })
+    .catch(error => {
+        console.error('[API score.ts] Error importing scores:', error);
+        throw error;
+    });
 }
 
 // 导出成绩数据
-export function exportScores(params?: ScoreQueryParams) {
+export const exportScores = (params?: any): Promise<Blob> => {
   console.log('调用exportScores API, 参数:', params);
   return request.get<Blob>('/score/export', {
     params,
     responseType: 'blob'
   })
+    .catch(error => {
+        console.error('[API score.ts] Error exporting scores:', error);
+        throw error;
+    });
 }
 
 // 获取学生列表（用于选择学生）
@@ -126,24 +133,40 @@ export function getStudentOptions() {
 
 // 获取考试类型选项
 export function getExamTypeOptions(): Promise<ApiResponse<string[]>> {
-  return request.get<ApiResponse<string[]>>('/score/exam-types').then(res => res.data)
+  return request.get<ApiResponse<string[]>>('/score/exam-types')
+    .catch(error => {
+      console.error('[API score.ts] Error fetching exam types for score:', error);
+      throw error;
+    });
 }
 
 // 获取科目选项
 export function getSubjectOptions(): Promise<ApiResponse<string[]>> {
-  return request.get<ApiResponse<string[]>>('/score/subjects').then(res => res.data)
+  return request.get<ApiResponse<string[]>>('/score/subjects')
+    .catch(error => {
+      console.error('[API score.ts] Error fetching subjects for score:', error);
+      throw error;
+    });
 }
 
 // 获取学生成绩
-export function getStudentScore(studentId: number, examType: string): Promise<ApiResponse<ScoreData>> {
+export const getStudentScore = (studentId: number, examType: string): Promise<ApiResponse<ScoreData>> => {
   return request.get<ApiResponse<ScoreData>>(`/score/student/${studentId}`, {
     params: { examType }
-  }).then(res => res.data)
+  })
+    .catch(error => {
+        console.error(`[API score.ts] Error fetching scores for student ${studentId}, exam type ${examType}:`, error);
+        throw error;
+    });
 }
 
 // 保存学生成绩
-export function saveStudentScore(data: SaveScoreParams): Promise<ApiResponse<boolean>> {
-  return request.post<ApiResponse<boolean>>('/score/save', data).then(res => res.data)
+export const saveStudentScore = (data: SaveScoreParams): Promise<ApiResponse<boolean>> => {
+  return request.post<ApiResponse<boolean>>('/score/save', data)
+    .catch(error => {
+        console.error('[API score.ts] Error saving student score:', error);
+        throw error;
+    });
 }
 
 // 获取班级成绩
@@ -151,11 +174,6 @@ export function getClassScores(classId: number, examType: string): Promise<ApiRe
   return request.get<ApiResponse<any>>(`/score/class/${classId}`, {
     params: { examType }
   }).then(res => res.data)
-}
-
-// 测试API
-export function testScoreApi(): Promise<ApiResponse<boolean>> {
-  return request.get<ApiResponse<boolean>>('/score/test').then(res => res.data)
 }
 
 // 获取学生成绩详细统计
@@ -169,31 +187,40 @@ export interface ScoreStatsQueryParams {
 }
 
 // 获取学生成绩详细统计
-export function getStudentScoreStats(params?: ScoreStatsQueryParams) {
+export const getStudentScoreStats = (params: ScoreStatsQueryParams): Promise<ApiResponse<any>> => {
   console.log('调用getStudentScoreStats API, 参数:', params);
-  return request.get<ApiResponse<any[]>>('/score/student-stats', { params })
+  return request.get<ApiResponse<any>>('/score/student-stats', { params })
+    .catch(error => {
+        console.error('[API score.ts] Error fetching student score stats:', error);
+        throw error;
+    });
 }
 
 // 获取学生成绩汇总
-export function getStudentScoreSummary(params?: ScoreStatsQueryParams) {
+export const getStudentScoreSummary = (params: ScoreStatsQueryParams): Promise<ApiResponse<any>> => {
   console.log('调用getStudentScoreSummary API, 参数:', params);
-  return request.get<ApiResponse<any[]>>('/score/student-summary', { params })
+  return request.get<ApiResponse<any>>('/score/student-summary', { params })
+    .catch(error => {
+        console.error('[API score.ts] Error fetching student score summary:', error);
+        throw error;
+    });
 }
 
 // 获取班级成绩统计
-export function getClassScoreStats(params?: ScoreStatsQueryParams) {
+export const getClassScoreStats = (params: ScoreStatsQueryParams): Promise<ApiResponse<any>> => {
   console.log('调用getClassScoreStats API, 参数:', params);
-  return request.get<ApiResponse<any[]>>('/score/class-stats', { params })
+  return request.get<ApiResponse<any>>('/score/class-stats', { params })
+    .catch(error => {
+        console.error('[API score.ts] Error fetching class score stats:', error);
+        throw error;
+    });
 }
 
-/**
- * 测试API连接
- * @returns {Promise<boolean>} 测试结果
- */
+// 测试API连接
 export async function testConnection() {
   try {
-    const response = await axios.get(`${apiUrl}/score/test`);
-    return response.data.success;
+    const response = await request.get<ApiResponse<boolean>>('/score/test');
+    return response.data;
   } catch (error) {
     console.error('测试API连接失败:', error);
     return false;
@@ -231,30 +258,18 @@ export async function getExams(examType: string) {
   }
 }
 
-/**
- * 获取学生成绩（通过考试ID）
- * @param {number} studentId 学生ID
- * @param {number} examId 考试ID
- * @returns {Promise<any>} 学生成绩详情
- */
-export async function getStudentScoreByExamId(studentId: number, examId: number) {
-  try {
-    const response = await axios.get(`${apiUrl}/score/student/${studentId}`, {
-      params: { examId }
+// 获取学生成绩（通过考试ID）
+export const getStudentScoreByExamId = (studentId: number, examId: number): Promise<ApiResponse<ScoreData>> => {
+  return request.get<ApiResponse<ScoreData>>(`/score/student/${studentId}`, {
+    params: { examId }
+  })
+    .catch(error => {
+        console.error(`[API score.ts] Error fetching scores for student ${studentId}, exam ID ${examId}:`, error);
+        throw error;
     });
-    return response.data.data;
-  } catch (error) {
-    console.error('获取学生成绩失败:', error);
-    return null;
-  }
 }
 
-/**
- * 获取学生成绩（通过考试类型，兼容旧接口）
- * @param {number} studentId 学生ID
- * @param {string} examType 考试类型
- * @returns {Promise<any>} 学生成绩详情
- */
+// 获取学生成绩（通过考试类型，兼容旧接口）
 export async function getStudentScoreByType(studentId: number, examType: string) {
   try {
     const response = await axios.get(`${apiUrl}/score/student/${studentId}`, {

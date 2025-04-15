@@ -113,16 +113,16 @@ const loadHistoryLogs = async () => {
     console.log('调用 API 获取历史日志');
     const response = await getLogList({ pageSize: 30, page: 1 });
 
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      const logEntries = response.data.data; 
+    if (response && response.code === 200 && Array.isArray(response.data)) {
+      const logEntries: LogEntry[] = response.data;
 
       const historyLogs = logEntries
-        .sort((a, b) => {
+        .sort((a: LogEntry, b: LogEntry) => {
           const dateA = a.createTime ? new Date(a.createTime).getTime() : 0;
           const dateB = b.createTime ? new Date(b.createTime).getTime() : 0;
-          return dateA - dateB; 
+          return dateB - dateA;
         })
-        .map(log => {
+        .map((log: LogEntry) => {
           return {
             ...log,
             createTime: log.createTime || new Date().toLocaleString()
@@ -135,8 +135,8 @@ const loadHistoryLogs = async () => {
          scrollToBottom();
       });
     } else {
-      console.error('加载历史日志失败: API 返回无效数据结构或错误代码', response?.data);
-      ElMessage.warning('加载历史日志失败，请检查后端服务或API响应');
+      console.error('加载历史日志失败: API 返回无效数据结构或错误代码', response);
+      ElMessage.warning(response?.message || '加载历史日志失败，请检查后端服务或API响应');
     }
   } catch (error) {
     console.error('加载历史日志失败:', error);

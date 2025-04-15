@@ -359,3 +359,12 @@ export interface StudentBackendData {
   email?: string
   join_date: string
 }
+
+// ---- Added ExamStats Interface ----
+export interface ExamStats {
+  total?: number;
+  completedCount?: number; 
+  inProgressCount?: number;
+  upcomingCount?: number;
+  typeDistribution?: Array<{ type: string; count: number }>;
+}

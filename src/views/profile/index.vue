@@ -18,7 +18,7 @@
           <el-upload
             class="avatar-uploader"
             action="#"
-            :http-request="uploadAvatar"
+            :http-request="handleUploadAvatar"
             :show-file-list="false"
             accept="image/*"
           >
@@ -146,7 +146,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { updatePassword, uploadUserAvatar, updateUserInfo } from '@/api/user'
+import { updatePassword, uploadAvatar, updateUserInfo } from '@/api/user'
 import type { FormInstance, FormRules } from 'element-plus'
 import { 
   Lock, SwitchButton, Delete, ArrowRight
@@ -248,14 +248,23 @@ const avatarError = () => {
   userInfo.avatar = defaultAvatar
 }
 
-// 上传头像
-const uploadAvatar = async (options: any) => {
+// 重命名: 上传头像处理函数
+const handleUploadAvatar = async (options: any) => {
   try {
+    // Check if the file exists on the options object
+    if (!options || !options.file) {
+      ElMessage.error('未选择文件');
+      return;
+    }
+    const fileToUpload: File = options.file; // Extract the file
+
     loading.avatar = true
-    const formData = new FormData()
-    formData.append('file', options.file)
+    // Removed FormData creation
+    // const formData = new FormData()
+    // formData.append('file', options.file)
     
-    const response = await uploadUserAvatar(formData)
+    // Corrected: Pass the File object directly
+    const response = await uploadAvatar(fileToUpload)
     
     if (response?.code === 200 && response.data?.avatarUrl) {
       const newAvatarUrl = response.data.avatarUrl;

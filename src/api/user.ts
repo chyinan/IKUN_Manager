@@ -25,37 +25,35 @@ export interface PasswordForm {
  * 用户登录
  * @param data 登录表单数据
  */
-export function login(data: LoginForm): Promise<ApiResponse<LoginData>> {
+export const login = (data: LoginForm): Promise<ApiResponse<LoginData>> => {
   console.log('调用login API, 数据:', data);
   return request.post<ApiResponse<LoginData>>('/user/login', data)
-    .then(response => response.data)
     .catch(error => {
-        console.error('login API catch block:', error);
-        throw error; 
+        console.error('[API user.ts] Login failed:', error);
+        throw error;
     });
 }
 
 /**
  * 用户登出
  */
-export function logout(): Promise<ApiResponse<void>> {
+export const logout = (): Promise<ApiResponse<void>> => {
   return request.post<ApiResponse<void>>('/user/logout')
-    .then(response => response.data)
     .catch(error => {
-        console.error('logout API catch block:', error);
-        throw error; 
+        console.error('[API user.ts] Logout request failed (may ignore):', error);
+        // Corrected: Return a resolved promise satisfying ApiResponse<void>
+        return Promise.resolve({ code: -1, message: 'Logout request failed locally', data: undefined }); 
     });
 }
 
 /**
  * 获取用户信息
  */
-export function getUserInfo(): Promise<ApiResponse<UserInfo>> {
+export const getUserInfo = (): Promise<ApiResponse<UserInfo>> => {
   return request.get<ApiResponse<UserInfo>>('/user/info')
-    .then(response => response.data)
     .catch(error => {
-        console.error('getUserInfo API catch block:', error);
-        throw error; 
+        console.error('[API user.ts] Fetch user info failed:', error);
+        throw error;
     });
 }
 
@@ -64,7 +62,6 @@ export function getUserInfo(): Promise<ApiResponse<UserInfo>> {
  */
 export function updatePassword(passwordData: PasswordUpdateData): Promise<ApiResponse<any>> {
   return request.post<ApiResponse<any>>('/user/update-password', passwordData)
-    .then(response => response.data)
     .catch(error => {
         console.error('updatePassword API catch block:', error);
         throw error; 
@@ -74,28 +71,27 @@ export function updatePassword(passwordData: PasswordUpdateData): Promise<ApiRes
 /**
  * 更新用户信息 (例如邮箱)
  */
-export function updateUserInfo(data: Partial<UserInfo>): Promise<ApiResponse<any>> {
+export const updateUserInfo = (data: Partial<UserInfo>): Promise<ApiResponse<any>> => {
   return request.put<ApiResponse<any>>('/user/info', data)
-    .then(response => response.data)
     .catch(error => {
-        console.error('updateUserInfo API catch block:', error);
-        throw error; 
+        console.error('[API user.ts] Update user info failed:', error);
+        throw error;
     });
 }
 
 /**
  * 上传用户头像
  */
-export function uploadUserAvatar(formData: FormData): Promise<ApiResponse<{ avatarUrl: string }>> {
-  console.log('调用 uploadUserAvatar API');
+export const uploadAvatar = (file: File): Promise<ApiResponse<{ avatarUrl: string }>> => {
+  const formData = new FormData();
+  formData.append('file', file);
   return request.post<ApiResponse<{ avatarUrl: string }>>('/user/avatar', formData, {
     // No need to set Content-Type header manually for FormData,
-    // Axios handles it correctly.
+    // browser and Axios will handle it.
   })
-    .then(response => response.data)
     .catch(error => {
-        console.error('uploadUserAvatar API catch block:', error);
-        throw error; 
+        console.error('[API user.ts] Upload avatar failed:', error);
+        throw error;
     });
 }
 

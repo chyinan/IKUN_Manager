@@ -1,12 +1,16 @@
 import request from '@/utils/request'
-import type { ApiResponse } from '@/types/common'
+import type { ApiResponse, LogItem } from '@/types/common'
 
 /**
  * 获取日志列表
  * @param params 查询参数
  */
-export function getLogList(params?: any) {
-  return request.get<ApiResponse<any[]>>('/log/list', { params })
+export const getLogList = (params?: any): Promise<ApiResponse<LogItem[]>> => {
+  return request.get<ApiResponse<LogItem[]>>('/log/list', { params })
+    .catch(error => {
+        console.error('[API log.ts] Error fetching log list:', error);
+        throw error;
+    });
 }
 
 /**
@@ -29,15 +33,23 @@ export function deleteLog(id: number) {
  * 批量删除日志
  * @param ids 日志ID数组
  */
-export function batchDeleteLog(ids: number[]) {
-  return request.delete<ApiResponse<void>>('/log/batch', { data: { ids } })
+export const batchDeleteLogs = (ids: number[]): Promise<ApiResponse<{ deletedCount: number }>> => {
+  return request.delete<ApiResponse<{ deletedCount: number }>>('/log/batch', { data: { ids } })
+    .catch(error => {
+        console.error('[API log.ts] Error batch deleting logs:', error);
+        throw error;
+    });
 }
 
 /**
  * 清空日志
  */
-export function clearLogs() {
+export const clearLogs = (): Promise<ApiResponse<void>> => {
   return request.delete<ApiResponse<void>>('/log/clear')
+    .catch(error => {
+        console.error('[API log.ts] Error clearing logs:', error);
+        throw error;
+    });
 }
 
 /**
@@ -50,3 +62,21 @@ export function exportLogs(params?: any) {
     responseType: 'blob'
   })
 }
+
+// Define AddLogData if it doesn't exist elsewhere
+interface AddLogData {
+  type: 'vue' | 'system' | 'database'; // Example types
+  operation: string;
+  content: string;
+  operator?: string;
+}
+
+// 添加前端日志 (发送到后端)
+export const addFrontendLog = (logData: AddLogData): Promise<ApiResponse<void>> => {
+  return request.post<ApiResponse<void>>('/log/add', logData) // Assuming endpoint exists
+    .catch(error => {
+      console.error('[API log.ts] Failed to send frontend log to server:', error);
+      // Corrected: Return a resolved promise satisfying ApiResponse<void>
+      return Promise.resolve({ code: -1, message: 'Log sending failed locally', data: undefined }); 
+    });
+};

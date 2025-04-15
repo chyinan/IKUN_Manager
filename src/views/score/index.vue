@@ -206,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance } from 'element-plus'
 import { getClassList } from '@/api/class'
@@ -219,13 +219,20 @@ import dayjs from 'dayjs'
 // 导入新的score API
 import * as scoreApi from '@/api/score'
 import { 
-  testScoreApi, 
   getExamTypeOptions, 
   getSubjectOptions,
   getScoreList,
+  getStudentScoreByExamId,
   type ScoreQueryParams,
   type SaveScoreParams
 } from '@/api/score'
+
+// Define Pagination type if not already available globally
+interface Pagination { 
+  currentPage: number;
+  pageSize: number;
+  total: number;
+}
 
 const router = useRouter()
 
@@ -258,6 +265,13 @@ const activeSubjects = ref<string[]>([])
 const scoreForm = ref<Record<string, number | null>>({}); // Initialize as empty object
 const originalScores = ref<Record<string, number | null>>({}); // Initialize as empty object
 const isScoreChanged = ref(false);
+
+// Corrected: Define pagination ref
+const pagination = reactive<Pagination>({
+  currentPage: 1,
+  pageSize: 10, // Or your desired default
+  total: 0
+});
 
 // 根据选择的班级筛选学生
 const filteredStudents = computed(() => {
@@ -336,7 +350,7 @@ const fetchStudentList = async () => {
 }
 
 // 获取成绩列表
-const fetchScoreList = async () => {
+const fetchScores = async () => {
   // 如果没有选择学生或考试类型，不调用API
   if (!selectedStudent.value || !selectedExamType.value) {
     scoreList.value = []
@@ -350,19 +364,25 @@ const fetchScoreList = async () => {
       examType: selectedExamType.value
     }
     
-    const response = await getScoreList(params)
+    const response = await getScoreList(params) // Returns ApiResponse<ScoreDetail[]>
     console.log('成绩列表API响应:', response)
     
-    if (response && response.data && response.data.code === 200 && Array.isArray(response.data.data)) {
-      scoreList.value = response.data.data
+    if (response && response.code === 200 && Array.isArray(response.data)) {
+      scoreList.value = response.data
       console.log('成绩列表:', scoreList.value)
+      pagination.total = response.data.length; 
+      if (response.data.length === 0) {
+          ElMessage.info('未查询到相关成绩记录。');
+      }
     } else {
-      console.warn('成绩列表API响应格式不正确或 code !== 200')
+      console.warn('成绩列表API响应格式不正确或 code !== 200:', response);
       scoreList.value = []
+      pagination.total = 0;
     }
   } catch (error) {
     console.error('获取成绩列表异常:', error)
     scoreList.value = []
+    pagination.total = 0;
   }
 }
 
@@ -491,29 +511,47 @@ const fetchStudentScores = async (studentId: number, examId: number) => {
   resetScoreForm(); // Resets scoreForm, originalScores, and activeSubjects
 
   try {
-    // Assuming getStudentScoreByExamId now returns { subjects: string[], scores: {...} }
+    // API returns ApiResponse<ScoreData> where ScoreData = { subjects: string[], scores: {...} }
     const res = await scoreApi.getStudentScoreByExamId(studentId, examId);
     console.log('获取学生成绩响应:', res);
 
-    if (res && Array.isArray(res.subjects) && typeof res.scores === 'object') {
+    // Corrected: Check res.code and access res.data for subjects and scores
+    if (res && res.code === 200 && res.data && Array.isArray(res.data.subjects) && typeof res.data.scores === 'object') {
+      const scoreData = res.data as ScoreData; // Assert type ScoreData
+      
       // 1. Update active subjects
-      activeSubjects.value = res.subjects;
-      console.log('Active subjects set to:', activeSubjects.value);
+      if (Array.isArray(scoreData.subjects)) {
+         activeSubjects.value = scoreData.subjects;
+         console.log('Active subjects set to:', activeSubjects.value);
+      } else {
+         activeSubjects.value = []; // Fallback to empty array
+         console.warn('scoreData.subjects is not an array');
+      }
 
       // 2. Initialize scoreForm and originalScores based on active subjects
       const newScoreForm: Record<string, number | null> = {};
       activeSubjects.value.forEach(subject => {
-        const scoreValue = res.scores[subject];
-        if (scoreValue !== undefined && scoreValue !== null) {
-            const numericScore = parseFloat(scoreValue);
-            if (!isNaN(numericScore)) {
-                newScoreForm[subject] = numericScore;
-            } else {
-                newScoreForm[subject] = null; // Assign null if conversion fails
-                console.warn(`Received non-numeric score value for ${subject}:`, scoreValue);
-            }
+        // Corrected: Remove assertion, add safer access and type checks
+        const scoresObject = scoreData.scores;
+        if (scoresObject && typeof scoresObject === 'object' && scoresObject.hasOwnProperty(subject)) {
+          const scoreValue = scoresObject[subject as keyof typeof scoresObject]; // Access using keyof
+          if (scoreValue !== undefined && scoreValue !== null) {
+              // Try parsing after converting to string for robustness
+              const numericScore = parseFloat(String(scoreValue)); 
+              if (!isNaN(numericScore)) {
+                  newScoreForm[subject] = numericScore;
+              } else {
+                  newScoreForm[subject] = null;
+                  console.warn(`Received non-numeric score value for ${subject}:`, scoreValue);
+              }
+          } else {
+              // Value is null or undefined
+              newScoreForm[subject] = null;
+          }
         } else {
-            newScoreForm[subject] = null; // Assign null if subject is missing in scores but present in exam subjects
+            // Subject key doesn't exist in the scores object
+            newScoreForm[subject] = null;
+            console.warn(`Subject ${subject} not found in scores object`);
         }
       });
       
@@ -685,12 +723,11 @@ const generateMockClassData = () => {
 // 页面初始化
 onMounted(async () => {
   try {
-    const apiTestResult = await testScoreApi()
-    if (apiTestResult) {
+    // Corrected: Call scoreApi.testConnection()
+    const apiTestResult = await scoreApi.testConnection()
+    if (apiTestResult) { // testConnection returns boolean
       await fetchClassList() // Fetches class names
-      // Don't fetch all students initially, wait for class selection
       await fetchExamTypes()
-      // fetchScoreList is likely unnecessary here as no student/exam selected
     } else {
       ElMessage.error('成绩API连接失败，请检查网络连接')
     }

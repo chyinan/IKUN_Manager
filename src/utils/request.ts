@@ -57,56 +57,54 @@ service.interceptors.response.use(
     // Hide loading indicator (optional)
     // NProgress.done()
 
-    const res = response.data
+    const res = response.data // res should be our { code, message, data } structure
     
-    // Check if it's a blob response (e.g., file download)
+    // Check if it's a blob response (e.g., file download) FIRST
     if (response.request?.responseType === 'blob') {
-      return response; // Return the full response for blobs
+      // For blob responses, return the raw AxiosResponse data directly
+      // because the caller (e.g., export function) needs the Blob object.
+      console.log('[Response Interceptor] Blob response detected. Returning response.data.');
+      return response.data; // Return the Blob directly
     }
 
-    // Check for standard success code (adjust if your backend uses different codes)
-    if (res.code === 200 || res.code === 201) {
-      // Directly return the response data if successful
-      // The store/component should handle the actual data structure
-      return response; // Return the full response object
+    // For regular JSON responses, check the business code inside res
+    // Check if 'res' itself is valid and has a 'code' property
+    if (res && typeof res === 'object' && res.hasOwnProperty('code')) {
+        if (res.code === 200 || res.code === 201) {
+          // Success case: Return the business data directly
+          console.log(`[Response Interceptor] Success code ${res.code}. Returning res (response.data):`, res);
+          return res; // <-- CORRECTED: Return the business response data
+        } else {
+          // Business error case (e.g., code 400, 401, 403, 500 from backend API logic)
+          console.warn(`[Response Interceptor] Business error code ${res.code}. Rejecting promise.`);
+          let errorMessage = res.message || '未知后端业务错误';
+          // Handle specific codes like 401 for logout prompt (keep existing logic)
+          if (res.code === 401) {
+             ElMessageBox.confirm(
+               '您的登录已过期或无效，请重新登录。',
+               '认证失败',
+               {
+                 confirmButtonText: '重新登录',
+                 cancelButtonText: '取消',
+                 type: 'warning',
+               }
+             ).then(() => {
+               localStorage.removeItem('token'); 
+               window.location.href = '/login';
+             })
+             // Return a rejected promise with the specific error for 401
+             return Promise.reject(Object.assign(new Error(errorMessage), { code: res.code }));
+          }
+          // For other business errors, show message and reject
+          ElMessage({ message: errorMessage, type: 'error', duration: 5 * 1000 });
+          // Reject with an error object containing the code for potential handling
+          return Promise.reject(Object.assign(new Error(errorMessage), { code: res.code }));
+        }
     } else {
-      // Handle specific error codes from backend
-      let errorMessage = res.message || '未知错误';
-      if (res.code === 401) {
-        // Unauthorized (e.g., invalid token, not logged in)
-        errorMessage = '认证失败或登录已过期，请重新登录';
-        // Optionally trigger logout action here
-        // const userStore = useUserStore(); // Be cautious using stores outside components
-        // userStore.logout();
-         ElMessageBox.confirm(
-           '您的登录已过期或无效，请重新登录。',
-           '认证失败',
-           {
-             confirmButtonText: '重新登录',
-             cancelButtonText: '取消',
-             type: 'warning',
-           }
-         ).then(() => {
-           // Clear local token and redirect to login
-           localStorage.removeItem('token'); 
-           window.location.href = '/login'; // Force reload to clear state
-         })
-        return Promise.reject(new Error(errorMessage)); 
-      } else if (res.code === 403) {
-        // Forbidden (e.g., insufficient permissions)
-        errorMessage = '您没有权限执行此操作';
-      } else if (res.code === 400) {
-        // Bad Request (e.g., validation error)
-        errorMessage = `请求错误: ${res.message}`;
-      } else if (res.code === 500) {
-        errorMessage = `服务器内部错误: ${res.message || '请稍后重试'}`;
-      }
-      
-      // Display error message
-      ElMessage({ message: errorMessage, type: 'error', duration: 5 * 1000 })
-      
-      // Reject the promise so .catch() can handle it in the component/API call
-      return Promise.reject(new Error(errorMessage))
+        // Handle cases where response.data is not in the expected { code, message, ... } format
+        console.error('[Response Interceptor] Invalid response data structure:', res);
+        ElMessage({ message: '收到了无效的服务器响应格式', type: 'error', duration: 5 * 1000 });
+        return Promise.reject(new Error('无效的服务器响应格式'));
     }
   },
   (error) => {
@@ -127,8 +125,8 @@ service.interceptors.response.use(
           const userStore = useUserStore(); // 获取 user store 实例
           // 检查后端返回的消息是否明确指示 Token 问题
           const message = error.response.data?.message || '';
-          if (message.includes('过期') || message.includes('无效') || message.includes('未认证')) {
-            console.warn('[Response Interceptor] Token expired or invalid. Redirecting to login...');
+          if (message.includes('过期') || message.includes('无效') || message.includes('未认证') || error.response.status === 401) {
+            console.warn('[Response Interceptor] Token expired or invalid (HTTP 401/403). Redirecting to login...');
             // 避免重复弹窗
             if (!window.location.pathname.includes('/login')) {
               ElMessage.error(message || '登录状态已失效，请重新登录');
@@ -141,20 +139,23 @@ service.interceptors.response.use(
         }
         
         // 显示通用错误消息 (如果不是 Token 问题)
-        ElMessage.error(error.response.data.message || '请求失败，请稍后重试');
+        errorMessage = error.response.data?.message || `请求失败，状态码：${error.response.status}`;
+        ElMessage.error(errorMessage);
         
     } else if (error.request) {
         // The request was made but no response was received
         console.error(' [Response Interceptor] No response received:', error.request);
         errorMessage = '无法连接到服务器，请检查网络连接';
+        ElMessage.error(errorMessage);
     } else {
         // Something happened in setting up the request that triggered an Error
         console.error(' [Response Interceptor] Request setup error:', error.message);
         errorMessage = error.message || '请求发送失败';
+        ElMessage.error(errorMessage);
     }
 
-    ElMessage({ message: errorMessage, type: 'error', duration: 5 * 1000 })
-    return Promise.reject(error)
+    // Reject with the original Axios error object for more context
+    return Promise.reject(error);
   }
 )
 
@@ -564,4 +565,45 @@ service.delete = function <T = any, R = AxiosResponse<T>, D = any>(url: string, 
   return originalDelete.call(this, url, config) as Promise<R>
 }
 
-export default service
+// Define the type for our enhanced request function/object
+interface RequestFunction {
+  // Call signature for using request(config)
+  <T = any>(config: AxiosRequestConfig): Promise<T>;
+  // Method signatures for using request.get(), request.post(), etc.
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  post<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T>;
+  put<T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T>;
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  // Add other methods like head, options, patch if needed by your project
+}
+
+// Create the base request function
+const baseRequest = <T = any>(config: AxiosRequestConfig): Promise<T> => {
+  // We expect the interceptors on 'service' to correctly resolve
+  // with the business data (T) or reject with an appropriate error.
+  // The type assertion here tells TypeScript to trust our interceptor logic.
+  // The interceptors handle the unwrapping of response.data or returning blobs.
+  return service(config) as Promise<T>; 
+};
+
+// Create the final request object that satisfies the interface
+// Cast the base function to the RequestFunction type
+const request: RequestFunction = baseRequest as RequestFunction;
+
+// Attach the convenience methods to the request object
+// These methods call the underlying service methods and apply the type assertion
+
+request.get = <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+  service.get(url, config) as Promise<T>;
+
+request.post = <T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T> =>
+  service.post(url, data, config) as Promise<T>;
+
+request.put = <T = any, D = any>(url: string, data?: D, config?: AxiosRequestConfig<D>): Promise<T> =>
+  service.put(url, data, config) as Promise<T>;
+
+request.delete = <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+  service.delete(url, config) as Promise<T>;
+
+// Export the enhanced function object
+export default request;

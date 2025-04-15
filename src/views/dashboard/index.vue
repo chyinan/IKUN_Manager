@@ -80,10 +80,24 @@ import { getEmployeeStats } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
 import { getClassList } from '@/api/class'
 import { getExamStats } from '@/api/exam'
-import type { ApiResponse } from '@/types/common'
+import type { ApiResponse, ExamStats } from '@/types/common'
+
+// Define interface for Chart.js dataset (adjust if using different chart library)
+interface ChartDataset {
+  label: string;
+  backgroundColor: string[];
+  data: number[];
+  // Add other properties if needed, e.g., borderColor, fill
+}
 
 const router = useRouter()
 const loading = ref(true)
+
+// Corrected: Define examTypeDistribution ref with explicit dataset type
+const examTypeDistribution = ref<{ labels: string[], datasets: ChartDataset[] }>({ 
+  labels: [], 
+  datasets: [] 
+});
 
 // 当前日期
 const currentDate = computed(() => {
@@ -245,13 +259,34 @@ const fetchClassCount = async () => {
 const fetchExamStats = async () => {
   try {
     const response = await getExamStats()
-    if (response?.data?.code === 200 && response.data?.data) {
-      const statsData = response.data.data
+    console.log('Exam Stats Response:', response)
+    if (response?.code === 200 && response.data) {
+      // Corrected: Assert type for statsData
+      const statsData: ExamStats = response.data;
       statCards.value[3].value = statsData.total?.toString() || '0'
+
+      // Update chart data if typeDistribution exists
+      if (Array.isArray(statsData.typeDistribution)) {
+          // Explicitly type the new dataset object
+          const newDataset: ChartDataset = {
+            label: '考试类型分布',
+            backgroundColor: ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399'],
+            data: statsData.typeDistribution.map((item: { count: number }) => item.count)
+          };
+          examTypeDistribution.value = {
+            labels: statsData.typeDistribution.map((item: { type: string }) => item.type),
+            datasets: [newDataset] // Assign the typed dataset
+          };
+          console.log('Updated examTypeDistribution:', examTypeDistribution.value);
+      } else {
+          console.warn('typeDistribution is missing or not an array in exam stats response');
+      }
+    } else {
+      console.error('获取考试统计失败:', response?.message || '未知错误')
     }
-  } catch (error) {
-    console.error('获取考试统计数据异常:', error)
-    statCards.value[3].value = '0'
+  } catch (error: any) {
+    console.error('获取考试统计时出错:', error)
+    ElMessage.error(error.message || '加载考试统计数据失败')
   }
 }
 

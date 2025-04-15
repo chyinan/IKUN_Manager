@@ -448,16 +448,30 @@ const handleSubmit = async () => {
           joinDate: formData.joinDate ? new Date(formData.joinDate).toISOString().split('T')[0] : ''
         }
         
+        let response
         if (dialogType.value === 'add') {
-          await addEmployee(submitData)
-          ElMessage.success('添加成功')
+          response = await addEmployee(submitData)
+          console.log('添加员工响应:', response)
         } else {
-          await updateEmployee(submitData)
-          ElMessage.success('修改成功')
+          // Ensured: Pass formData.id! and submitData
+          if (!formData.id) {
+            console.error('Update failed: formData.id is missing!');
+            ElMessage.error('更新员工失败：缺少员工ID');
+            loading.value = false;
+            return; 
+          }
+          response = await updateEmployee(formData.id!, submitData)
+          console.log('更新员工响应:', response)
         }
         
-        dialogVisible.value = false
-        await fetchData()
+        if (response.code === 200) {
+          dialogVisible.value = false
+          await fetchData()
+          ElMessage.success('操作成功')
+        } else {
+          console.error('操作失败:', response)
+          ElMessage.error(`操作失败: ${response.message || '未知错误'}`)
+        }
       }
     })
   } catch (error: any) {

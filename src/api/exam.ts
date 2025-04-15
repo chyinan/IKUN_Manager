@@ -10,7 +10,6 @@ import type { AxiosResponse } from 'axios'
 export function getExamList(params?: any): Promise<ApiResponse<ExamListResponse>> {
   console.log('调用getExamList API, 参数:', params);
   return request.get<ApiResponse<ExamListResponse>>('/exam/list', { params })
-    .then(response => response.data)
     .catch(error => {
       console.error('考试列表API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -30,7 +29,6 @@ export function getExamList(params?: any): Promise<ApiResponse<ExamListResponse>
 export function getExamDetail(id: number): Promise<ApiResponse<ExamInfo>> {
   console.log('调用getExamDetail API, ID:', id);
   return request.get<ApiResponse<ExamInfo>>(`/exam/${id}`)
-    .then(response => response.data)
     .catch(error => {
       console.error('考试详情API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -51,7 +49,6 @@ export function getExamDetail(id: number): Promise<ApiResponse<ExamInfo>> {
 export function addExam(data: Partial<ExamItem>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用addExam API, 数据:', data);
   return request.post<ApiResponse<ExamInfo>>('/exam/add', data)
-    .then(response => response.data)
     .catch(error => {
       console.error('添加考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -73,7 +70,6 @@ export function addExam(data: Partial<ExamItem>): Promise<ApiResponse<ExamInfo>>
 export function updateExam(id: number, data: Partial<ExamItem>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用updateExam API, ID:', id, '数据:', data);
   return request.put<ApiResponse<ExamInfo>>(`/exam/${id}`, data)
-    .then(response => response.data)
     .catch(error => {
       console.error('更新考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -94,7 +90,6 @@ export function updateExam(id: number, data: Partial<ExamItem>): Promise<ApiResp
 export function deleteExam(id: number): Promise<ApiResponse<void>> {
   console.log('调用deleteExam API, ID:', id);
   return request.delete<ApiResponse<void>>(`/exam/${id}`)
-    .then(response => response.data)
     .catch(error => {
       console.error('删除考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -114,16 +109,6 @@ export function deleteExam(id: number): Promise<ApiResponse<void>> {
 export function batchDeleteExam(ids: number[]): Promise<ApiResponse<void>> {
   console.log('调用batchDeleteExam API, IDs:', ids);
   return request.delete<ApiResponse<void>>('/exam/batch', { data: { ids } })
-    .then((response: AxiosResponse<ApiResponse<void>>) => {
-      console.log('批量删除考试API响应成功 (AxiosResponse):', response);
-      const apiResponse = response.data;
-      if (apiResponse && typeof apiResponse.code === 'number') {
-        return apiResponse;
-      } else {
-        console.error('批量删除考试API响应数据格式不符合预期 (Data):', apiResponse);
-        return Promise.reject(apiResponse || new Error('API响应数据格式不正确'));
-      }
-    })
     .catch(error => {
       console.error('批量删除考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -186,20 +171,6 @@ export function getClassOptions(): Promise<ApiResponse<{ id: number; class_name:
   console.log('调用getClassOptions API');
   // 假设后端或 mock 返回 ApiResponse<{ id: number; class_name: string }[]>
   return request.get<ApiResponse<{ id: number; class_name: string }[]>>('/class/options')
-    .then((response: AxiosResponse<ApiResponse<{ id: number; class_name: string }[]>>) => {
-      console.log('班级选项API响应成功 (AxiosResponse):', response);
-      const apiResponse = response.data; // 提取 data
-
-      // 检查 apiResponse.data 是否为数组
-      if (apiResponse && apiResponse.code === 200 && Array.isArray(apiResponse.data)) {
-        // 数据格式符合预期，直接返回 ApiResponse
-        // 注意：这里返回的是原始数据结构，调用方需要自行映射为 { value, label }
-        return apiResponse;
-      } else {
-        console.error('班级选项API响应数据格式不符合预期 (Data):', apiResponse);
-        return Promise.reject(apiResponse || new Error('API响应数据格式不正确或数据字段非数组'));
-      }
-    })
     .catch(error => {
       console.error('班级选项API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -219,17 +190,6 @@ export function getClassOptions(): Promise<ApiResponse<{ id: number; class_name:
 export function getExamTypeOptions(): Promise<ApiResponse<string[]>> {
   console.log('调用getExamTypeOptions API');
   return request.get<ApiResponse<string[]>>('/exam/types')
-    .then((response: AxiosResponse<ApiResponse<string[]>>) => {
-      console.log('考试类型选项API响应成功 (AxiosResponse):', response);
-      const apiResponse = response.data;
-      // 检查 code 和 data 是否为数组
-      if (apiResponse && apiResponse.code === 200 && Array.isArray(apiResponse.data)) {
-        return apiResponse;
-      } else {
-        console.error('考试类型选项API响应数据格式不符合预期 (Data):', apiResponse);
-        return Promise.reject(apiResponse || new Error('API响应数据格式不正确或数据字段非数组'));
-      }
-    })
     .catch(error => {
       console.error('考试类型选项API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -248,16 +208,6 @@ export function getExamTypeOptions(): Promise<ApiResponse<string[]>> {
 export function getSubjectOptions(): Promise<ApiResponse<string[]>> {
   console.log('调用getSubjectOptions API');
   return request.get<ApiResponse<string[]>>('/exam/subjects')
-    .then((response: AxiosResponse<ApiResponse<string[]>>) => {
-      console.log('获取科目选项API响应成功 (AxiosResponse):', response);
-      const apiResponse = response.data;
-      if (apiResponse && typeof apiResponse.code === 'number' && Array.isArray(apiResponse.data)) {
-        return apiResponse;
-      } else {
-        console.error('获取科目选项API响应数据格式不符合预期 (Data):', apiResponse);
-        return Promise.reject(apiResponse || new Error('API响应数据格式不正确'));
-      }
-    })
     .catch(error => {
       console.error('获取科目选项API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -278,16 +228,6 @@ export function getSubjectOptions(): Promise<ApiResponse<string[]>> {
 export function publishExam(id: number): Promise<ApiResponse<null>> {
   console.log('调用publishExam API, ID:', id);
   return request.put<ApiResponse<null>>(`/exam/publish/${id}`)
-    .then((response: AxiosResponse<ApiResponse<null>>) => {
-      console.log('发布考试API响应成功 (AxiosResponse):', response);
-      const apiResponse = response.data;
-      if (apiResponse && typeof apiResponse.code === 'number') {
-        return apiResponse;
-      } else {
-        console.error('发布考试API响应数据格式不符合预期 (Data):', apiResponse);
-        return Promise.reject(apiResponse || new Error('API响应数据格式不正确'));
-      }
-    })
     .catch(error => {
       console.error('发布考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -308,16 +248,6 @@ export function publishExam(id: number): Promise<ApiResponse<null>> {
 export function unpublishExam(id: number): Promise<ApiResponse<null>> {
   console.log('调用unpublishExam API, ID:', id);
   return request.put<ApiResponse<null>>(`/exam/unpublish/${id}`)
-    .then((response: AxiosResponse<ApiResponse<null>>) => {
-      console.log('取消发布考试API响应成功 (AxiosResponse):', response);
-      const apiResponse = response.data;
-      if (apiResponse && typeof apiResponse.code === 'number') {
-        return apiResponse;
-      } else {
-        console.error('取消发布考试API响应数据格式不符合预期 (Data):', apiResponse);
-        return Promise.reject(apiResponse || new Error('API响应数据格式不正确'));
-      }
-    })
     .catch(error => {
       console.error('取消发布考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -338,7 +268,6 @@ export function unpublishExam(id: number): Promise<ApiResponse<null>> {
 export function updateExamStatus(id: number, status: number): Promise<ApiResponse<void>> {
   console.log('调用updateExamStatus API, ID:', id, '状态:', status);
   return request.put<ApiResponse<void>>(`/exam/${id}/status`, { status })
-    .then(response => response.data)
     .catch(error => {
       console.error('更新考试状态API响应失败:', error);
       throw error;
@@ -349,7 +278,6 @@ export function updateExamStatus(id: number, status: number): Promise<ApiRespons
 export function createExamIfNotExists(data: Partial<ExamItem>): Promise<ApiResponse<ExamItemResponse>> {
   console.log('调用 createExamIfNotExists API, 数据:', data);
   return request.post<ApiResponse<ExamItemResponse>>('/exam/find-or-create', data)
-    .then(response => response.data)
     .catch(error => {
       console.error('createExamIfNotExists API catch block:', error);
       throw error;
@@ -360,7 +288,6 @@ export function createExamIfNotExists(data: Partial<ExamItem>): Promise<ApiRespo
 export function getExamListByType(examType: string): Promise<ApiResponse<ExamItemResponse[]>> {
   console.log('调用 getExamListByType API, 类型:', examType);
   return request.get<ApiResponse<ExamItemResponse[]>>('/exam/list-by-type', { params: { examType } })
-    .then(response => response.data)
     .catch(error => {
       console.error('getExamListByType API catch block:', error);
       throw error;
@@ -371,7 +298,6 @@ export function getExamListByType(examType: string): Promise<ApiResponse<ExamIte
 export function getExamTypes(): Promise<ApiResponse<string[]>> {
   console.log('调用getExamTypes API');
   return request.get<ApiResponse<string[]>>('/exam/types')
-    .then(response => response.data) 
     .catch(error => {
         console.error('getExamTypes API catch block:', error);
         throw error; 
@@ -382,7 +308,6 @@ export function getExamTypes(): Promise<ApiResponse<string[]>> {
 export function getExamStatuses(): Promise<ApiResponse<string[]>> {
   console.log('调用getExamStatuses API');
   return request.get<ApiResponse<string[]>>('/exam/statuses') // Assuming endpoint exists
-    .then(response => response.data) 
     .catch(error => {
         console.error('getExamStatuses API catch block:', error);
         throw error; 
@@ -393,7 +318,6 @@ export function getExamStatuses(): Promise<ApiResponse<string[]>> {
 export function getExamSubjects(): Promise<ApiResponse<Subject[]>> { // <<< Ensure this export exists
   console.log('调用getExamSubjects API');
   return request.get<ApiResponse<Subject[]>>('/subject/list') // Assuming endpoint is /subject/list
-    .then(response => response.data) 
     .catch(error => {
         console.error('getExamSubjects API catch block:', error);
         throw error; 
@@ -404,7 +328,6 @@ export function getExamSubjects(): Promise<ApiResponse<Subject[]>> { // <<< Ensu
 export function checkExamCanDelete(id: number): Promise<ApiResponse<{ canDelete: boolean; message?: string }>> {
   console.log('调用checkExamCanDelete API, ID:', id);
   return request.get<ApiResponse<{ canDelete: boolean; message?: string }>>(`/exam/${id}/check-delete`)
-    .then(response => response.data) 
     .catch(error => {
         console.error('checkExamCanDelete API catch block:', error);
         throw error; 

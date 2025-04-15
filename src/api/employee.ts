@@ -43,79 +43,72 @@ export interface EmployeeResponse {
 }
 
 // 获取员工列表
-export function getEmployeeList(params?: any): Promise<ApiResponse<EmployeeItemResponse[]>> {
+export const getEmployeeList = (params?: any): Promise<ApiResponse<EmployeeItemResponse[]>> => {
   console.log('调用getEmployeeList API, 参数:', params);
   return request.get<ApiResponse<EmployeeItemResponse[]>>('/employee/list', { params })
-    .then(response => response.data)
     .catch(error => {
-        console.error('getEmployeeList API catch block:', error);
-        throw error; 
+        console.error('[API employee.ts] Error fetching employee list:', error);
+        throw error;
     });
 }
 
 // 获取员工详情
-export function getEmployeeDetail(id: number): Promise<ApiResponse<EmployeeItemResponse>> {
+export const getEmployeeDetail = (id: number): Promise<ApiResponse<EmployeeItemResponse>> => {
   console.log('调用getEmployeeDetail API, ID:', id);
   return request.get<ApiResponse<EmployeeItemResponse>>(`/employee/${id}`)
-    .then(response => response.data)
     .catch(error => {
-        console.error('getEmployeeDetail API catch block:', error);
-        throw error; 
+        console.error(`[API employee.ts] Error fetching employee detail for ID ${id}:`, error);
+        throw error;
     });
 }
 
 // 添加员工
-export function addEmployee(data: EmployeeFormData): Promise<ApiResponse<EmployeeItemResponse>> {
+export const addEmployee = (data: EmployeeFormData): Promise<ApiResponse<EmployeeItemResponse>> => {
   console.log('调用addEmployee API, 数据:', data);
   return request.post<ApiResponse<EmployeeItemResponse>>('/employee/add', data)
-    .then(response => response.data)
     .catch(error => {
-        console.error('addEmployee API catch block:', error);
-        throw error; 
+        console.error('[API employee.ts] Error adding employee:', error);
+        throw error;
     });
 }
 
 // 更新员工
-export function updateEmployee(data: EmployeeFormData): Promise<ApiResponse<EmployeeItemResponse>> {
+export const updateEmployee = (id: number, data: EmployeeFormData): Promise<ApiResponse<EmployeeItemResponse>> => {
   console.log('调用updateEmployee API, 数据:', data);
-  return request.put<ApiResponse<EmployeeItemResponse>>(`/employee/${data.id}`, data)
-    .then(response => response.data)
+  return request.put<ApiResponse<EmployeeItemResponse>>(`/employee/${id}`, data)
     .catch(error => {
-        console.error('updateEmployee API catch block:', error);
-        throw error; 
+        console.error(`[API employee.ts] Error updating employee ID ${id}:`, error);
+        throw error;
     });
 }
 
 // 删除员工
-export function deleteEmployee(id: number): Promise<ApiResponse<void>> {
+export const deleteEmployee = (id: number): Promise<ApiResponse<void>> => {
   console.log('调用deleteEmployee API, ID:', id);
   return request.delete<ApiResponse<void>>(`/employee/${id}`)
-    .then(response => response.data)
     .catch(error => {
-        console.error('deleteEmployee API catch block:', error);
-        throw error; 
+        console.error(`[API employee.ts] Error deleting employee ID ${id}:`, error);
+        throw error;
     });
 }
 
 // 批量删除员工
-export function batchDeleteEmployee(ids: number[]): Promise<ApiResponse<void>> {
+export const batchDeleteEmployee = (ids: number[]): Promise<ApiResponse<void>> => {
   console.log('调用batchDeleteEmployee API, IDs:', ids);
   return request.delete<ApiResponse<void>>('/employee/batch', { data: { ids } })
-    .then(response => response.data)
     .catch(error => {
-        console.error('batchDeleteEmployee API catch block:', error);
-        throw error; 
+        console.error('[API employee.ts] Error batch deleting employees:', error);
+        throw error;
     });
 }
 
 // 获取员工统计数据
-export function getEmployeeStats(): Promise<ApiResponse<any>> {
+export const getEmployeeStats = (): Promise<ApiResponse<any>> => {
   console.log('调用getEmployeeStats API');
   return request.get<ApiResponse<any>>('/employee/stats')
-    .then(response => response.data)
     .catch(error => {
-        console.error('getEmployeeStats API catch block:', error);
-        throw error; 
+        console.error('[API employee.ts] Error fetching employee stats:', error);
+        throw error;
     });
 }
 
@@ -138,16 +131,16 @@ export function importEmployees(file: File): Promise<ApiResponse<any>> {
 }
 
 // 导出员工数据
-export function exportEmployees(params?: any): Promise<Blob> {
+export const exportEmployees = (params?: any): Promise<Blob> => {
   console.log('调用exportEmployees API, 参数:', params);
   return request.get<Blob>('/employee/export', {
     params,
     responseType: 'blob'
-  }).then(response => response.data)
-   .catch(error => {
-        console.error('exportEmployees API catch block:', error);
-        throw error; 
-    });
+  })
+  .catch(error => {
+    console.error('[API employee.ts] Export employees failed:', error);
+    throw error;
+  });
 }
 
 // 获取部门列表

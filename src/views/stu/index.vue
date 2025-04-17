@@ -1,7 +1,7 @@
 <template>
   <div class="student-container">
     <!-- 头部搜索和操作区 -->
-    <div class="operation-header">
+    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
       <el-input
         v-model="searchKey"
         placeholder="搜索学号/姓名..."
@@ -80,7 +80,8 @@
       :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
-      class="pagination" />
+      class="pagination"
+      :class="{ 'dark-component-bg': isDark }" />
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -138,6 +139,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId, importStudents } from '@/api/student'
 import { Delete, Edit, Plus, Search, Download, Male, Female, Upload } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
@@ -146,6 +148,9 @@ import { getClassList } from '@/api/class'
 import type { StudentItem, StudentItemResponse, StudentSubmitData, ClassItemResponse, ApiResponse } from '@/types/common'
 import type { Pagination } from '@/types/response'
 import dayjs from 'dayjs'
+
+// Dark mode state for conditional class binding
+const isDark = useDark()
 
 // 新增：班级选项列表
 const classList = ref<string[]>([])
@@ -238,13 +243,13 @@ const fetchData = async () => {
         }
 
         return {
-          id: item.id,
-          studentId: item.student_id,
-          name: item.name,
-          gender: item.gender,
+        id: item.id,
+        studentId: item.student_id,
+        name: item.name,
+        gender: item.gender,
           className: item.class_name,
-          phone: item.phone || '',
-          email: item.email || '',
+        phone: item.phone || '',
+        email: item.email || '',
           joinDate: joinDateDisplay,
           createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '未知'
         }
@@ -498,7 +503,7 @@ const generateMockData = () => {
     const className = classOptions[i % classOptions.length];
     const joinDate = dayjs().subtract(Math.floor(Math.random() * 365), 'day').format('YYYY-MM-DD');
     const createTime = dayjs().subtract(Math.floor(Math.random() * 10), 'day').format('YYYY-MM-DD HH:mm:ss');
-
+    
     mockStudents.push({
       id: 1000 + i,
       studentId: `S${2024000 + i}`,
@@ -697,8 +702,8 @@ onMounted(async () => {
 <style scoped>
 .student-container {
   padding: 20px;
-  background: #f5f7fa;
   min-height: calc(100vh - 84px);
+  transition: background-color 0.3s;
 }
 
 .operation-header {
@@ -709,6 +714,7 @@ onMounted(async () => {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .search-input {
@@ -737,6 +743,7 @@ onMounted(async () => {
   background: white;
   padding: 15px;
   border-radius: 8px;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 :deep(.el-table) {
@@ -750,4 +757,79 @@ onMounted(async () => {
 :deep(.el-table th.el-table__cell > .cell) {
   text-align: center;
 }
+
+/* --- Dark Mode Styles using Conditional Class --- */
+
+.operation-header.dark-component-bg {
+  background-color: #1f2937;
+  box-shadow: var(--el-box-shadow-light);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.pagination.dark-component-bg {
+  background-color: #1f2937;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+/* Style internal elements when the dark class is applied */
+.dark-component-bg :deep(.el-input__wrapper) {
+  background-color: var(--el-fill-color-blank) !important;
+  box-shadow: none !important;
+}
+
+.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+
+.dark-component-bg :deep(.el-input__inner::placeholder) {
+    color: var(--el-text-color-placeholder) !important;
+}
+
+.dark-component-bg :deep(.el-button) {
+   background-color: var(--el-button-bg-color);
+   color: var(--el-button-text-color);
+   border-color: var(--el-button-border-color);
+}
+.dark-component-bg :deep(.el-button:hover),
+.dark-component-bg :deep(.el-button:focus) {
+   background-color: var(--el-button-hover-bg-color);
+   color: var(--el-button-hover-text-color);
+   border-color: var(--el-button-hover-border-color);
+}
+
+/* Pagination internal elements in dark mode */
+.pagination.dark-component-bg :deep(button),
+.pagination.dark-component-bg :deep(.el-input__wrapper) {
+   background-color: var(--el-fill-color-blank) !important;
+   color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-pager li) {
+  background-color: transparent !important;
+  color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-pager li.is-active) {
+    background-color: var(--el-color-primary) !important;
+    color: var(--el-color-white) !important;
+}
+.pagination.dark-component-bg :deep(span:not([class])),
+.pagination.dark-component-bg :deep(.el-pagination__jump) {
+    color: var(--el-text-color-primary) !important;
+    background-color: transparent !important;
+}
+.pagination.dark-component-bg :deep(button:disabled) {
+    color: var(--el-text-color-disabled) !important;
+    background-color: transparent !important;
+}
+.pagination.dark-component-bg :deep(.btn-prev),
+.pagination.dark-component-bg :deep(.btn-next) {
+     background-color: transparent !important;
+}
+
+:deep(.app-wrapper.dark) .student-container {
+   background-color: var(--el-bg-color-page);
+}
+
 </style>

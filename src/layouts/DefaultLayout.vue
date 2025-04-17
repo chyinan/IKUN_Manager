@@ -1,5 +1,5 @@
 <template>
-  <div class="app-wrapper" :class="{ 'is-collapse': isCollapse }">
+  <div class="app-wrapper" :class="{ 'is-collapse': isCollapse, 'dark': isDark }">
     <!-- 侧边栏 -->
     <div class="sidebar-container">
       <div class="logo-container">
@@ -41,6 +41,18 @@
         </div>
         
         <div class="right-menu">
+          <!-- Dark Mode Switch -->
+          <el-switch
+            v-model="isDark"
+            inline-prompt
+            :active-icon="Moon"
+            :inactive-icon="Sunny"
+            class="dark-mode-switch"
+            style="--el-switch-on-color: #2c2c2c; --el-switch-off-color: #f2f2f2;"
+            @change="logSwitchChange"
+          />
+          
+          <!-- User Avatar Dropdown -->
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="avatar-container">
               <el-avatar :size="32" :src="userStore.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
@@ -85,6 +97,16 @@ import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import SidebarItem from '@/components/SidebarItem.vue'
 import Breadcrumb from '@/components/Breadcrumb.vue'
+import { useDark, useToggle } from '@vueuse/core'
+import { 
+  Expand, 
+  Fold, 
+  User, 
+  SwitchButton, 
+  CaretBottom,
+  Moon,
+  Sunny
+} from '@element-plus/icons-vue'
 
 // 路由
 const route = useRoute()
@@ -95,6 +117,17 @@ const userStore = useUserStore()
 
 // 侧边栏折叠状态
 const isCollapse = ref(false)
+
+// Dark mode setup
+const isDark = useDark()
+
+// New function to log switch changes
+const logSwitchChange = (newValue: boolean) => {
+  console.log('[DEBUG] Dark mode switch changed. New value:', newValue);
+  // Manually toggle the isDark ref to see if useDark reacts
+  // Note: v-model should theoretically handle this, but we add manual toggle for testing
+  isDark.value = newValue;
+};
 
 // 切换侧边栏
 const toggleSidebar = () => {
@@ -139,14 +172,18 @@ const handleCommand = (command: string) => {
   height: 100vh;
   width: 100%;
   display: flex;
+  background-color: #fff; /* Default light background */
+  color: #303133; /* Default light text */
+  transition: background-color 0.3s ease, color 0.3s ease; /* 保留这里的过渡 */
 }
 
 .sidebar-container {
   width: 210px;
   height: 100%;
-  background-color: #304156;
-  transition: width 0.28s;
+  background-color: #304156; /* Default sidebar background */
+  transition: width 0.28s ease, background-color 0.3s ease; /* 恢复过渡 */
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .is-collapse .sidebar-container {
@@ -159,7 +196,8 @@ const handleCommand = (command: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #2b3649;
+  background-color: #2b3649; /* Default logo area background */
+  transition: background-color 0.3s ease; /* 恢复过渡 */
 }
 
 .logo {
@@ -169,7 +207,7 @@ const handleCommand = (command: string) => {
 }
 
 .title {
-  color: #fff;
+  color: #fff; /* Default title color */
   font-size: 16px;
   font-weight: bold;
   white-space: nowrap;
@@ -179,13 +217,15 @@ const handleCommand = (command: string) => {
 .sidebar-menu {
   border-right: none !important;
   height: calc(100% - 60px);
+  /* Keep default colors from el-menu props */
 }
 
-.sidebar-menu :deep(.el-menu-item) {
+/* Remove specific background override for items to allow el-menu props to work */
+/* .sidebar-menu :deep(.el-menu-item) {
   background-color: #304156 !important;
   border: none !important;
   overflow: hidden;
-}
+} */
 
 .main-container {
   flex: 1;
@@ -201,7 +241,8 @@ const handleCommand = (command: string) => {
   align-items: center;
   padding: 0 20px;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
-  background-color: #fff;
+  background-color: #fff; /* Default navbar background */
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease; /* 恢复过渡 */
 }
 
 .left-menu {
@@ -222,6 +263,7 @@ const handleCommand = (command: string) => {
 .right-menu {
   display: flex;
   align-items: center;
+  gap: 20px; /* Add gap for spacing */
 }
 
 .avatar-container {
@@ -238,9 +280,96 @@ const handleCommand = (command: string) => {
 .app-main {
   flex: 1;
   overflow: auto;
-  padding: 0;
-  background-color: #f0f2f5;
+  padding: 20px; /* Added padding */
+  background-color: #f0f2f5; /* Default main area background */
+  transition: background-color 0.3s ease; /* 恢复过渡 */
 }
+
+.dark-mode-switch {
+  /* Adjust vertical alignment if needed */
+  vertical-align: middle;
+}
+
+/* --- Dark Mode Styles --- */
+.app-wrapper.dark {
+  background-color: #141414; /* Dark overall background */
+  color: #e0e0e0; /* Lighter default text */
+}
+
+.app-wrapper.dark .sidebar-container {
+  background-color: #1f2937; /* Darker sidebar */
+}
+
+.app-wrapper.dark .logo-container {
+  background-color: #111827; /* Even darker logo area */
+}
+
+.app-wrapper.dark .navbar {
+  background-color: #1f2937; /* Dark navbar */
+  box-shadow: 0 1px 4px rgba(255, 255, 255, 0.08);
+  color: #e0e0e0; /* Light text for navbar items */
+}
+
+.app-wrapper.dark .navbar .fold-icon,
+.app-wrapper.dark .navbar .breadcrumb :deep(a),
+.app-wrapper.dark .navbar .breadcrumb :deep(.el-breadcrumb__inner),
+.app-wrapper.dark .navbar .breadcrumb :deep(.el-breadcrumb__separator) {
+  color: #e0e0e0; /* Light text for navbar left items */
+}
+
+.app-wrapper.dark .navbar .username {
+   color: #e0e0e0; /* Light text for username */
+}
+
+/* Ensure dropdown menu is dark */
+:global(.el-popper.is-dark) {
+    background: #1f2937 !important;
+    border: 1px solid #4b5563 !important;
+}
+:global(.el-popper.is-dark .el-dropdown-menu__item),
+:global(.el-popper.is-dark .el-dropdown-menu__item .el-icon) {
+    color: #e0e0e0 !important;
+}
+:global(.el-popper.is-dark .el-dropdown-menu__item:hover) {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+}
+:global(.el-popper.is-dark .el-dropdown-menu__item--divided::before) {
+    background-color: #4b5563 !important;
+}
+
+.app-wrapper.dark .app-main {
+  background-color: #18181b; /* Dark main content area */
+}
+
+/* Optional: Adjust specific Element Plus components in dark mode if needed */
+/* Example: Darker background for Table Header */
+.app-wrapper.dark :deep(.el-table__header-wrapper th) {
+  background-color: #2a2a2e !important;
+}
+.app-wrapper.dark :deep(.el-table th.el-table__cell) {
+   background-color: #2a2a2e !important; /* Ensure header background consistency */
+}
+
+/* Example: Ensure dialogs have dark background */
+:global(.el-overlay-dialog .el-dialog.is-draggable) {
+    background-color: var(--el-bg-color);
+}
+:global(html.dark .el-overlay-dialog .el-dialog.is-draggable) {
+    background-color: #1f2937 !important; /* Dark background for dialog */
+    color: #e0e0e0;
+}
+:global(html.dark .el-dialog__header) {
+    color: #e0e0e0 !important;
+}
+:global(html.dark .el-dialog__body) {
+    color: #e0e0e0 !important;
+}
+:global(html.dark .el-dialog__footer) {
+     border-top: 1px solid #4b5563; /* Optional: Add separator */
+}
+
+/* --- End Dark Mode Styles --- */
 
 /* 过渡动画 */
 .fade-transform-enter-active,
@@ -256,5 +385,15 @@ const handleCommand = (command: string) => {
 .fade-transform-leave-to {
   opacity: 0;
   transform: translateX(-30px);
+}
+
+/* --- Specific style for light mode switch icon --- */
+/* Target the switch when it is NOT checked (light mode) */
+.dark-mode-switch:not(.is-checked) {
+  /* Find the icon SVG within it and set its color */
+  :deep(.el-icon svg) {
+    color: black !important; /* Set icon color to black */
+    fill: black !important;  /* Also set fill for SVG */
+  }
 }
 </style> 

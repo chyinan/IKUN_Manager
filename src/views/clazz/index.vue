@@ -1,7 +1,7 @@
 <template>
   <div class="class-container">
     <!-- 头部搜索和操作区 -->
-    <div class="operation-header">
+    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
       <el-input
         v-model="searchKey"
         placeholder="搜索班级名称..."
@@ -72,7 +72,8 @@
       :total="total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
-      class="pagination" />
+      class="pagination"
+      :class="{ 'dark-component-bg': isDark }" />
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -200,12 +201,16 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { Delete, Edit, Plus, Search, View, Download, Male, Female, Upload } from '@element-plus/icons-vue'
 import { getClassList, addClass, updateClass, deleteClass, importClasses } from '@/api/class'
 import type { ClassItem, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
+
+// Dark mode state for conditional class binding
+const isDark = useDark()
 
 // 表单数据类型
 interface ClassFormData {
@@ -661,8 +666,8 @@ onMounted(() => {
 <style scoped>
 .class-container {
   padding: 20px;
-  background: #f5f7fa;
   min-height: calc(100vh - 84px);
+  transition: background-color 0.3s;
 }
 
 .operation-header {
@@ -673,6 +678,7 @@ onMounted(() => {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .search-input {
@@ -702,6 +708,7 @@ onMounted(() => {
   background: white;
   padding: 15px;
   border-radius: 8px;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 :deep(.el-table) {
@@ -783,4 +790,79 @@ onMounted(() => {
 :deep(.el-table th.el-table__cell > .cell) {
   text-align: center;
 }
+
+/* --- Dark Mode Styles using Conditional Class --- */
+
+.operation-header.dark-component-bg {
+  background-color: #1f2937;
+  box-shadow: var(--el-box-shadow-light);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.pagination.dark-component-bg {
+  background-color: #1f2937;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+/* Style internal elements when the dark class is applied */
+.dark-component-bg :deep(.el-input__wrapper) {
+  background-color: var(--el-fill-color-blank) !important;
+  box-shadow: none !important;
+}
+
+.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+
+.dark-component-bg :deep(.el-input__inner::placeholder) {
+    color: var(--el-text-color-placeholder) !important;
+}
+
+.dark-component-bg :deep(.el-button) {
+   background-color: var(--el-button-bg-color);
+   color: var(--el-button-text-color);
+   border-color: var(--el-button-border-color);
+}
+.dark-component-bg :deep(.el-button:hover),
+.dark-component-bg :deep(.el-button:focus) {
+   background-color: var(--el-button-hover-bg-color);
+   color: var(--el-button-hover-text-color);
+   border-color: var(--el-button-hover-border-color);
+}
+
+/* Pagination internal elements in dark mode */
+.pagination.dark-component-bg :deep(button),
+.pagination.dark-component-bg :deep(.el-input__wrapper) {
+   background-color: var(--el-fill-color-blank) !important;
+   color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-pager li) {
+  background-color: transparent !important;
+  color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-pager li.is-active) {
+    background-color: var(--el-color-primary) !important;
+    color: var(--el-color-white) !important;
+}
+.pagination.dark-component-bg :deep(span:not([class])),
+.pagination.dark-component-bg :deep(.el-pagination__jump) {
+    color: var(--el-text-color-primary) !important;
+    background-color: transparent !important;
+}
+.pagination.dark-component-bg :deep(button:disabled) {
+    color: var(--el-text-color-disabled) !important;
+    background-color: transparent !important;
+}
+.pagination.dark-component-bg :deep(.btn-prev),
+.pagination.dark-component-bg :deep(.btn-next) {
+     background-color: transparent !important;
+}
+
+:deep(.app-wrapper.dark) .class-container {
+   background-color: var(--el-bg-color-page);
+}
+
 </style>

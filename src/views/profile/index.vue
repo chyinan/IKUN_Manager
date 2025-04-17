@@ -1,6 +1,6 @@
 <template>
   <div class="profile-container">
-    <el-card class="profile-card">
+    <el-card class="profile-card" :class="{ 'dark-component-bg': isDark }">
       <template #header>
         <div class="card-header">
           <span>个人中心</span>
@@ -58,7 +58,7 @@
         <h3 class="section-title">账户安全</h3>
         
         <div class="security-options">
-          <div class="security-item" @click="passwordDialogVisible = true">
+          <div class="security-item" :class="{ 'dark-component-bg': isDark }" @click="passwordDialogVisible = true">
             <el-icon class="security-icon"><Lock /></el-icon>
             <div class="security-info">
               <h4>修改密码</h4>
@@ -67,7 +67,7 @@
             <el-icon><ArrowRight /></el-icon>
           </div>
           
-          <div class="security-item" @click="confirmLogout">
+          <div class="security-item" :class="{ 'dark-component-bg': isDark }" @click="confirmLogout">
             <el-icon class="security-icon"><SwitchButton /></el-icon>
             <div class="security-info">
               <h4>退出登录</h4>
@@ -76,7 +76,7 @@
             <el-icon><ArrowRight /></el-icon>
           </div>
           
-          <div class="security-item danger" @click="confirmDeactivate">
+          <div class="security-item danger" :class="{ 'dark-component-bg': isDark }" @click="confirmDeactivate">
             <el-icon class="security-icon"><Delete /></el-icon>
             <div class="security-info">
               <h4>注销账户</h4>
@@ -145,6 +145,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import { useUserStore } from '@/stores/user'
 import { updatePassword, uploadAvatar, updateUserInfo } from '@/api/user'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -366,6 +367,9 @@ const confirmDeactivate = () => {
   })
 }
 
+// Dark mode state
+const isDark = useDark()
+
 // 初始化数据
 onMounted(() => {
   if (userStore.username) {
@@ -383,13 +387,15 @@ onMounted(() => {
 <style scoped>
 .profile-container {
   padding: 20px;
-  background: #f5f7fa;
   min-height: calc(100vh - 84px);
+  transition: background-color 0.3s;
 }
 
 .profile-card {
   max-width: 800px;
   margin: 0 auto;
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .card-header {
@@ -401,6 +407,8 @@ onMounted(() => {
 .card-header span {
   font-size: 18px;
   font-weight: bold;
+  color: #303133;
+  transition: color 0.3s;
 }
 
 .profile-content {
@@ -430,6 +438,8 @@ onMounted(() => {
   margin-bottom: 20px;
   border-bottom: 1px solid #eee;
   padding-bottom: 10px;
+  color: #303133;
+  transition: color 0.3s, border-color 0.3s;
 }
 
 .security-container {
@@ -460,6 +470,7 @@ onMounted(() => {
   font-size: 24px;
   color: #409EFF;
   margin-right: 15px;
+  transition: color 0.3s;
 }
 
 .security-info {
@@ -469,12 +480,15 @@ onMounted(() => {
 .security-info h4 {
   margin: 0 0 5px 0;
   font-size: 16px;
+  color: #303133;
+  transition: color 0.3s;
 }
 
 .security-info p {
   margin: 0;
   color: #909399;
   font-size: 14px;
+  transition: color 0.3s;
 }
 
 .danger .security-icon {
@@ -496,4 +510,89 @@ onMounted(() => {
     width: 100%;
   }
 }
+
+/* --- Dark Mode Styles --- */
+
+.dark-component-bg {
+  background-color: #1f2937 !important;
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+
+/* Container background */
+:deep(.app-wrapper.dark) .profile-container {
+   background-color: var(--el-bg-color-page);
+}
+
+/* Profile Card */
+.profile-card.dark-component-bg .card-header span {
+  color: #e0e0e0;
+}
+
+.profile-card.dark-component-bg :deep(.el-form-item__label) {
+   color: #a0a0a0 !important;
+}
+.profile-card.dark-component-bg :deep(.el-input__wrapper) {
+  background-color: var(--el-fill-color-blank) !important;
+  box-shadow: none !important;
+}
+.profile-card.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+/* Style disabled input */
+.profile-card.dark-component-bg :deep(.el-input.is-disabled .el-input__wrapper) {
+   background-color: var(--el-disabled-bg-color) !important;
+   cursor: not-allowed;
+}
+.profile-card.dark-component-bg :deep(.el-input.is-disabled .el-input__inner) {
+   color: var(--el-disabled-text-color) !important;
+   cursor: not-allowed;
+}
+/* Save button styling */
+.profile-card.dark-component-bg :deep(.el-form-item .el-button) {
+   background-color: var(--el-button-bg-color);
+   color: var(--el-button-text-color);
+   border-color: var(--el-button-border-color);
+}
+.profile-card.dark-component-bg :deep(.el-form-item .el-button:hover),
+.profile-card.dark-component-bg :deep(.el-form-item .el-button:focus) {
+   background-color: var(--el-button-hover-bg-color);
+   color: var(--el-button-hover-text-color);
+   border-color: var(--el-button-hover-border-color);
+}
+
+/* Security Section */
+.profile-card.dark-component-bg .section-title {
+  color: #e0e0e0;
+  border-bottom-color: #4b5563;
+}
+
+.security-item.dark-component-bg {
+  background-color: #263445 !important;
+}
+
+.security-item.dark-component-bg:hover {
+  background-color: #374151 !important;
+}
+
+.dark-component-bg .security-icon {
+  color: #66b1ff;
+}
+
+.dark-component-bg .security-info h4 {
+  color: #e0e0e0;
+}
+
+.dark-component-bg .security-info p {
+  color: #a0a0a0;
+}
+
+.dark-component-bg.danger .security-icon {
+  color: #ff7875;
+}
+
+.dark-component-bg.danger:hover {
+  background-color: #4d2d2d !important;
+}
+
 </style> 

@@ -1,7 +1,7 @@
 <template>
   <div class="exam-container">
     <!-- 页面标题区域 -->
-    <div class="page-header-area">
+    <div class="page-header-area" :class="{ 'dark-component-bg': isDark }">
       <div class="page-header">
         <el-icon :size="24"><Calendar /></el-icon>
         <div class="header-content">
@@ -17,7 +17,7 @@
     </div>
     
     <!-- 搜索和筛选区域 -->
-    <el-card class="filter-card">
+    <el-card class="filter-card" :class="{ 'dark-component-bg': isDark }">
       <template #header>
         <div class="filter-header">
           <span>搜索与筛选</span>
@@ -152,7 +152,7 @@
     </el-card>
     
     <!-- 考试列表 -->
-    <el-card class="exam-list-card">
+    <el-card class="exam-list-card" :class="{ 'dark-component-bg': isDark }">
       <template #header>
         <div class="list-header">
           <span>考试列表</span>
@@ -249,7 +249,7 @@
       </el-table>
       
       <!-- 分页 -->
-      <div class="pagination-container">
+      <div class="pagination-container" :class="{ 'dark-component-bg': isDark }">
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
@@ -342,6 +342,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import type { FormInstance } from 'element-plus'
 import { 
   Calendar, Search, Plus, Edit, Delete, Refresh,
@@ -364,6 +365,9 @@ import type { ExamInfo, ExamQueryParams } from '@/types/exam'
 import type { ExamItem, ExamItemResponse, Subject, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
+
+// Dark mode state
+const isDark = useDark()
 
 // 考试类型选项
 const dynamicExamTypeOptions = ref<string[]>([])
@@ -847,11 +851,11 @@ onMounted(async () => {
 <style scoped>
 .exam-container {
   padding: 20px;
-  background: #f5f7fa;
   min-height: calc(100vh - 84px);
   display: flex;
   flex-direction: column;
   gap: 20px;
+  transition: background-color 0.3s;
 }
 
 /* 页面标题区域样式 */
@@ -863,6 +867,7 @@ onMounted(async () => {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .page-header {
@@ -881,12 +886,14 @@ onMounted(async () => {
   font-weight: bold;
   margin: 0;
   color: #303133;
+  transition: color 0.3s;
 }
 
 .header-desc {
   color: #909399;
   font-size: 14px;
   margin-top: 2px;
+  transition: color 0.3s;
 }
 
 .header-actions {
@@ -897,6 +904,8 @@ onMounted(async () => {
 /* 筛选卡片样式 */
 .filter-card {
   margin-bottom: 0;
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .filter-header {
@@ -904,6 +913,8 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   font-weight: bold;
+  color: #303133;
+  transition: color 0.3s;
 }
 
 .filter-content {
@@ -919,6 +930,7 @@ onMounted(async () => {
   margin-bottom: 10px;
   color: #606266;
   font-weight: 500;
+  transition: color 0.3s;
 }
 
 .filter-options {
@@ -941,6 +953,7 @@ onMounted(async () => {
   margin-top: 20px;
   padding-top: 15px;
   border-top: 1px dashed #e0e0e0;
+  transition: border-color 0.3s;
 }
 
 .results-info {
@@ -966,17 +979,22 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: #303133;
+  transition: color 0.3s;
 }
 
 .data-count {
   font-size: 14px;
   color: #909399;
   font-weight: normal;
+  transition: color 0.3s;
 }
 
 .exam-list-card {
   margin-bottom: 0;
   flex: 1;
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 /* 其他样式保持不变 */
@@ -984,6 +1002,10 @@ onMounted(async () => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  padding: 15px 0;
+  background: white;
+  border-radius: 0 0 8px 8px;
+  transition: background-color 0.3s;
 }
 
 .exam-name {
@@ -1081,4 +1103,160 @@ onMounted(async () => {
 :deep(.el-table th.el-table__cell > .cell) {
   text-align: center;
 }
+
+/* --- Dark Mode Styles using Conditional Class --- */
+
+.dark-component-bg {
+  background-color: #1f2937 !important;
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+
+/* Container background */
+:deep(.app-wrapper.dark) .exam-container {
+   background-color: var(--el-bg-color-page);
+}
+
+/* Header Area */
+.page-header-area.dark-component-bg .header-title {
+  color: #e0e0e0;
+}
+.page-header-area.dark-component-bg .header-desc {
+  color: #a0a0a0;
+}
+.page-header-area.dark-component-bg :deep(.el-button:not(.el-button--primary)) { /* Style non-primary buttons */
+  background-color: var(--el-button-bg-color);
+  color: var(--el-button-text-color);
+  border-color: var(--el-button-border-color);
+}
+
+/* Filter Card */
+.filter-card.dark-component-bg .filter-header {
+  color: #e0e0e0;
+}
+.filter-card.dark-component-bg .section-title {
+  color: #a0a0a0;
+}
+.filter-card.dark-component-bg .filter-results {
+  border-top-color: #4b5563;
+}
+.filter-card.dark-component-bg .results-info {
+  color: #66b1ff; /* Lighter blue */
+}
+.filter-card.dark-component-bg :deep(.el-input__wrapper),
+.filter-card.dark-component-bg :deep(.el-select .el-input__wrapper),
+.filter-card.dark-component-bg :deep(.el-date-editor .el-input__wrapper) {
+  background-color: var(--el-fill-color-blank) !important;
+  box-shadow: none !important;
+}
+.filter-card.dark-component-bg :deep(.el-input__inner),
+.filter-card.dark-component-bg :deep(.el-range-input),
+.filter-card.dark-component-bg :deep(.el-input-group__append .el-button) {
+   color: var(--el-text-color-primary) !important;
+}
+.filter-card.dark-component-bg :deep(.el-input__inner::placeholder),
+.filter-card.dark-component-bg :deep(.el-range-input::placeholder) {
+    color: var(--el-text-color-placeholder) !important;
+}
+.filter-card.dark-component-bg :deep(.el-input-group__append) {
+   background-color: transparent;
+   box-shadow: none;
+}
+.filter-card.dark-component-bg :deep(.el-button--text) { /* Clear filter button */
+   color: var(--el-color-primary-light-3);
+}
+/* Adjust tag colors for dark mode if needed */
+.dark-component-bg :deep(.el-tag) {
+   background-color: #374151;
+   color: #a0a0a0;
+   border-color: #4b5563;
+}
+.dark-component-bg :deep(.el-tag .el-tag__close) {
+    color: #a0a0a0;
+}
+.dark-component-bg :deep(.el-tag .el-tag__close:hover) {
+    background-color: #4b5563;
+}
+
+
+/* List Card */
+.exam-list-card.dark-component-bg .list-header {
+  color: #e0e0e0;
+}
+.exam-list-card.dark-component-bg .data-count {
+  color: #a0a0a0;
+}
+.exam-list-card.dark-component-bg :deep(.el-table__header-wrapper th) {
+  color: #e0e0e0;
+}
+.exam-list-card.dark-component-bg :deep(.el-table) {
+  --el-table-border-color: #4b5563;
+  --el-table-header-bg-color: #263445;
+  --el-table-tr-bg-color: #1f2937;
+  --el-table-row-hover-bg-color: #263445;
+}
+.exam-list-card.dark-component-bg :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: #222e3e; /* Slightly different dark striped background */
+}
+.exam-list-card.dark-component-bg :deep(.el-table td),
+.exam-list-card.dark-component-bg :deep(.el-table th) {
+  color: #c0c4cc; /* Lighter text for table content */
+}
+.exam-list-card.dark-component-bg :deep(.el-table__empty-text) {
+  color: #a0a0a0;
+}
+/* Adjust table tags */
+.dark-component-bg :deep(.el-table .el-tag) {
+   background-color: #374151;
+   color: #a0a0a0;
+   border-color: #4b5563;
+}
+/* Example: Make dark mode status tags more distinct */
+.dark-component-bg :deep(.el-table .el-tag--success) { /* 已结束 */
+   background-color: #1e4620;
+   color: #a7f3d0;
+   border-color: #2f6f49;
+}
+.dark-component-bg :deep(.el-table .el-tag--primary) { /* 进行中 */
+   background-color: #1e3a8a;
+   color: #bfdbfe;
+   border-color: #3b82f6;
+}
+.dark-component-bg :deep(.el-table .el-tag--info) { /* 未开始 */
+   background-color: #374151;
+   color: #a0a0a0;
+   border-color: #4b5563;
+}
+
+
+.pagination-container.dark-component-bg :deep(button),
+.pagination-container.dark-component-bg :deep(.el-input__wrapper) {
+   background-color: var(--el-fill-color-blank) !important;
+   color: var(--el-text-color-primary) !important;
+}
+.pagination-container.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+.pagination-container.dark-component-bg :deep(.el-pager li) {
+  background-color: transparent !important;
+  color: var(--el-text-color-primary) !important;
+}
+.pagination-container.dark-component-bg :deep(.el-pager li.is-active) {
+    background-color: var(--el-color-primary) !important;
+    color: var(--el-color-white) !important;
+}
+.pagination-container.dark-component-bg :deep(span:not([class])),
+.pagination-container.dark-component-bg :deep(.el-pagination__jump) {
+    color: var(--el-text-color-primary) !important;
+    background-color: transparent !important;
+}
+.pagination-container.dark-component-bg :deep(button:disabled) {
+    color: var(--el-text-color-disabled) !important;
+    background-color: transparent !important;
+}
+.pagination-container.dark-component-bg :deep(.btn-prev),
+.pagination-container.dark-component-bg :deep(.btn-next) {
+     background-color: transparent !important;
+}
+
 </style> 

@@ -2,17 +2,17 @@
   <div class="report-container">
     <!-- 顶部数据卡片 -->
     <div class="data-cards">
-      <el-card v-for="(item, index) in summaryData" :key="index" shadow="hover">
+      <el-card v-for="(item, index) in summaryData" :key="index" shadow="hover" :class="{ 'dark-component-bg': isDark }">
         <template #header>
           <div class="card-header">
-            <el-icon :size="24" :color="item.color">
+            <el-icon :size="24" :color="isDark ? '#cccccc' : item.color">
               <component :is="item.icon" />
             </el-icon>
             <span>{{ item.title }}</span>
           </div>
         </template>
         <div class="card-content">
-          <div class="card-value" :style="{color: item.color}">
+          <div class="card-value" :style="{color: isDark ? '#ffffff' : item.color}">
             {{ item.value }}<span class="card-unit">{{ item.unit }}</span>
           </div>
           <div class="card-description">{{ item.description }}</div>
@@ -23,23 +23,23 @@
     <!-- 图表区域 -->
     <div class="charts-container">
       <!-- 左侧部门分布图 -->
-      <el-card class="chart-card">
+      <el-card class="chart-card" :class="{ 'dark-component-bg': isDark }">
         <template #header>
           <div class="chart-header">
             <span>部门人员分布</span>
           </div>
         </template>
-        <v-chart ref="deptChartRef" class="chart" :option="deptDistOption" />
+        <v-chart ref="deptChartRef" class="chart" :option="deptDistOption" autoresize />
       </el-card>
 
       <!-- 右侧薪资分布图 -->
-      <el-card class="chart-card">
+      <el-card class="chart-card" :class="{ 'dark-component-bg': isDark }">
         <template #header>
           <div class="chart-header">
             <span>部门平均薪资</span>
           </div>
         </template>
-        <v-chart ref="salaryChartRef" class="chart" :option="salaryOption" />
+        <v-chart ref="salaryChartRef" class="chart" :option="salaryOption" autoresize />
       </el-card>
     </div>
   </div>
@@ -57,7 +57,9 @@ import {
   LegendComponent,
   GridComponent
 } from 'echarts/components'
-import VChart from 'vue-echarts'
+import VChart, { THEME_KEY } from 'vue-echarts'
+import { provide } from 'vue'
+import { useDark } from '@vueuse/core'
 import { UserFilled, Briefcase, Money, TrendCharts } from '@element-plus/icons-vue'
 import { getEmployeeList } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
@@ -92,6 +94,12 @@ use([
   LegendComponent,
   GridComponent
 ])
+
+// Dark mode state
+const isDark = useDark()
+
+// Provide ECharts theme based on dark mode
+provide(THEME_KEY, computed(() => isDark.value ? 'dark' : 'light'))
 
 // 数据状态
 const employeeData = ref<ExtendedEmployeeItem[]>([])
@@ -157,13 +165,13 @@ const calculateActiveRate = () => {
   return ((activeCount / employeeData.value.length) * 100).toFixed(1)
 }
 
-// 多彩颜色配置
-const pieColors = [
-  '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
-  '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#ff9a7d'
-];
+// 多彩颜色配置 - Use brighter colors for better contrast in dark mode potentially
+const lightPieColors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
+const darkPieColors = ['#85a5ff', '#a0d911', '#ffd666', '#ff7875', '#adc6ff', '#5cdbd3', '#ff9c6e', '#d3adf7', '#ffadd2'];
 
-// 修改部门薪资分布图的配置
+const pieColors = computed(() => isDark.value ? darkPieColors : lightPieColors);
+
+// 修改部门薪资分布图的配置 to react to theme change
 const salaryOption = computed(() => {
   // 先计算每个部门的平均薪资
   const deptSalaries = deptData.value.map((dept, index) => {
@@ -183,7 +191,7 @@ const salaryOption = computed(() => {
         value: randomSalary,
         // 使用与饼图相同的颜色
         itemStyle: {
-          color: pieColors[index % pieColors.length]
+          color: pieColors.value[index % pieColors.value.length]
         }
       }
     }
@@ -203,7 +211,7 @@ const salaryOption = computed(() => {
       value: avgSalary,
       // 使用与饼图相同的颜色
       itemStyle: {
-        color: pieColors[index % pieColors.length]
+        color: pieColors.value[index % pieColors.value.length]
       }
     }
   })
@@ -211,27 +219,31 @@ const salaryOption = computed(() => {
   // 确保与饼图使用相同排序
   deptSalaries.sort((a, b) => b.value - a.value);
 
+  const textColor = isDark.value ? '#ccc' : '#606266';
+  const axisLineColor = isDark.value ? '#555' : '#E0E0E0';
+  const splitLineColor = isDark.value ? '#333' : '#E0E0E0';
+
   return {
-  title: {
+    backgroundColor: 'transparent', // Ensure chart background is transparent
+    title: {
       text: '部门平均薪资',
       left: 'center',
-      textStyle: {
-        fontFamily: "'Noto Sans SC', sans-serif"
-      }
-  },
-  tooltip: {
-    trigger: 'axis',
+      textStyle: { fontFamily: "'Noto Sans SC', sans-serif", color: textColor }
+    },
+    tooltip: {
+      trigger: 'axis',
       formatter: (params: any) => {
         const data = params[0]
         return `<strong>${data.name}</strong><br/>平均薪资: <span style="color:#FF9800;font-weight:bold">¥${data.value.toFixed(2)}</span>`
       },
-    axisPointer: {
-      type: 'shadow'
+      axisPointer: {
+        type: 'shadow'
+      },
+      textStyle: {
+        fontFamily: "'Noto Sans SC', sans-serif",
+        color: textColor
+      }
     },
-    textStyle: {
-      fontFamily: "'Noto Sans SC', sans-serif"
-    }
-  },
     grid: {
       left: '5%',
       right: '5%',
@@ -239,46 +251,44 @@ const salaryOption = computed(() => {
       top: '15%',
       containLabel: true
     },
-  xAxis: {
-    type: 'category',
+    xAxis: {
+      type: 'category',
       data: deptSalaries.map(item => item.name),
       axisLabel: {
         interval: 0,
         rotate: 30,
         fontSize: 12,
-        color: '#606266',
+        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       axisLine: {
-        lineStyle: {
-          color: '#E0E0E0'
-        }
+        lineStyle: { color: axisLineColor }
       }
-  },
-  yAxis: {
+    },
+    yAxis: {
       type: 'value',
       name: '平均薪资(元)',
       nameTextStyle: {
         padding: [0, 0, 0, 40],
-        color: '#606266',
+        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       axisLabel: {
         formatter: (value: number) => `¥${value.toLocaleString('zh-CN')}`,
-        color: '#606266',
+        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       splitLine: {
         lineStyle: {
           type: 'dashed',
-          color: '#E0E0E0'
+          color: splitLineColor
         }
       }
-  },
-  series: [{
+    },
+    series: [{
       name: '部门平均薪资',
       data: deptSalaries,
-    type: 'bar',
+      type: 'bar',
       barWidth: '50%',
       label: {
         show: true,
@@ -286,7 +296,7 @@ const salaryOption = computed(() => {
         formatter: (params: any) => `¥${params.value.toLocaleString('zh-CN')}`,
         fontSize: 12,
         fontWeight: 'bold',
-        color: '#606266',
+        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       itemStyle: {
@@ -303,14 +313,14 @@ const salaryOption = computed(() => {
   }
 })
 
-// 修改部门分布图配置，确保每次数据变化都会重新计算
+// 修改部门分布图配置 to react to theme change
 const deptDistOption = computed(() => {
   // 确保部门数据存在且被正确映射
   const pieData = deptData.value.map((dept, index) => ({
     name: dept.deptName || `部门${index + 1}`, // 改为使用编号而非"未命名部门"
     value: dept.memberCount || Math.floor(Math.random() * 30 + 10), // 确保值不为0
     itemStyle: {
-      color: pieColors[index % pieColors.length] // 为每个部门设置不同颜色
+      color: pieColors.value[index % pieColors.value.length] // Use computed colors
     }
   }));
   
@@ -319,22 +329,24 @@ const deptDistOption = computed(() => {
   // 明确排序，确保最大的部门在前面
   pieData.sort((a, b) => b.value - a.value);
   
+  const textColor = isDark.value ? '#ccc' : '#606266';
+
   return {
-  title: {
+    backgroundColor: 'transparent', // Ensure chart background is transparent
+    title: {
       text: '部门人员分布',
       left: 'center',
-      textStyle: {
-        fontFamily: "'Noto Sans SC', sans-serif"
-      }
-  },
-  tooltip: {
+      textStyle: { fontFamily: "'Noto Sans SC', sans-serif", color: textColor }
+    },
+    tooltip: {
       trigger: 'item',
       formatter: '<strong>{b}</strong>: {c} 人 ({d}%)',  // 增强提示格式
       textStyle: {
-        fontFamily: "'Noto Sans SC', sans-serif"
+        fontFamily: "'Noto Sans SC', sans-serif",
+        color: textColor
       }
-  },
-  legend: {
+    },
+    legend: {
       orient: 'vertical',
       right: '5%',
       top: 'middle',
@@ -342,18 +354,19 @@ const deptDistOption = computed(() => {
       itemHeight: 14,
       textStyle: {
         fontSize: 12,
-        fontFamily: "'Noto Sans SC', sans-serif"
+        fontFamily: "'Noto Sans SC', sans-serif",
+        color: textColor
       }
-  },
-  series: [{
+    },
+    series: [{
       name: '部门分布',
-    type: 'pie',
+      type: 'pie',
       radius: ['40%', '70%'], // 创建环形图
       center: ['49%', '50%'], // Change from 40% to 50%
       avoidLabelOverlap: true,
       itemStyle: {
         borderRadius: 6, // 添加圆角
-        borderColor: '#fff',
+        borderColor: isDark.value ? '#1f2937' : '#fff', // Adjust border color for theme
         borderWidth: 2
       },
       label: {
@@ -361,7 +374,8 @@ const deptDistOption = computed(() => {
         formatter: '{b}: {c}人',
         fontSize: 12,
         fontWeight: 'bold',
-        fontFamily: "'Noto Sans SC', sans-serif"
+        fontFamily: "'Noto Sans SC', sans-serif",
+        color: textColor
       },
       labelLine: {
         length: 10,
@@ -371,7 +385,8 @@ const deptDistOption = computed(() => {
       emphasis: {
         label: {
           fontSize: 14,
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          color: textColor
         },
         itemStyle: {
           shadowBlur: 10,
@@ -549,15 +564,20 @@ onDeactivated(() => {
 <style scoped>
 .report-container {
   padding: 20px;
-  background: #f5f7fa;
   min-height: calc(100vh - 84px);
+  transition: background-color 0.3s;
 }
 
 .data-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
   margin-bottom: 20px;
+}
+
+.data-cards .el-card {
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .card-header {
@@ -566,6 +586,7 @@ onDeactivated(() => {
   gap: 10px;
   font-size: 16px;
   color: #606266;
+  transition: color 0.3s;
 }
 
 .card-content {
@@ -593,6 +614,7 @@ onDeactivated(() => {
   font-size: 14px;
   color: #909399;
   margin-top: 5px;
+  transition: color 0.3s;
 }
 
 .card-compare {
@@ -610,7 +632,7 @@ onDeactivated(() => {
 
 .charts-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 20px;
   margin-bottom: 20px;
 }
@@ -620,21 +642,44 @@ onDeactivated(() => {
   border-radius: 8px;
   font-size: 16px;
   color: #606266;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
 }
 
 .chart-header {
   display: flex;
-  justify-content: flex-start;  /* 修改为左对齐 */
+  justify-content: flex-start;
   align-items: center;
-  font-family: 'Noto Sans SC', sans-serif !important; 
+  font-family: 'Noto Sans SC', sans-serif !important;
 }
 
 .chart {
-  /* Increase chart height */
-  height: 400px; 
+  height: 400px;
+  width: 100%;
 }
 
 :deep(.el-card) {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  border: none;
+}
+
+/* --- Dark Mode Styles using Conditional Class --- */
+
+.dark-component-bg {
+  background-color: #1f2937 !important;
+  border: 1px solid var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+
+.dark-component-bg .card-header,
+.dark-component-bg .chart-header {
+  color: #e0e0e0;
+}
+
+.dark-component-bg .card-description {
+  color: #a0a0a0;
+}
+
+.dark-component-bg .chart {
+  background-color: transparent !important;
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div class="log-container">
     <!-- 顶部操作栏 -->
-    <div class="operation-header">
+    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
       <div class="log-title">
         <el-icon><Monitor /></el-icon>
         <span>系统日志监控</span>
@@ -38,7 +38,7 @@
     </div>
 
     <!-- 统计信息 -->
-    <div class="log-stats">
+    <div class="log-stats" :class="{ 'dark-component-bg': isDark }">
       <el-tag type="info">总日志数: {{ logs.length }}</el-tag>
       <el-tag type="success">系统: {{ systemCount }}</el-tag>
       <el-tag type="warning">数据库: {{ dbCount }}</el-tag>
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import { Monitor, Delete, Download } from '@element-plus/icons-vue'
 import { io, Socket } from 'socket.io-client'
 import type { LogEntry, LogType, LogResponse } from '@/types/log'
@@ -64,6 +65,9 @@ let socket: Socket
 const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length)
 const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length)
 const vueCount = computed(() => logs.value.filter(log => log.type === 'vue').length)
+
+// Dark mode state
+const isDark = useDark()
 
 // 格式化时间显示
 const formatTime = (timeStr: string | undefined) => {
@@ -114,15 +118,15 @@ const loadHistoryLogs = async () => {
     const response = await getLogList({ pageSize: 30, page: 1 });
 
     if (response && response.code === 200 && Array.isArray(response.data)) {
-      const logEntries: LogEntry[] = response.data;
+      const logEntries: LogEntry[] = response.data; 
 
       const historyLogs = logEntries
-        .sort((a: LogEntry, b: LogEntry) => {
+        .sort((a, b) => {
           const dateA = a.createTime ? new Date(a.createTime).getTime() : 0;
           const dateB = b.createTime ? new Date(b.createTime).getTime() : 0;
-          return dateB - dateA;
+          return dateA - dateB; 
         })
-        .map((log: LogEntry) => {
+        .map(log => {
           return {
             ...log,
             createTime: log.createTime || new Date().toLocaleString()
@@ -139,7 +143,7 @@ const loadHistoryLogs = async () => {
       ElMessage.warning(response?.message || '加载历史日志失败，请检查后端服务或API响应');
     }
   } catch (error) {
-    console.error('加载历史日志失败:', error);
+    console.error('加载历史日志失败 (catch):', error);
     ElMessage.error('加载历史日志时发生网络或处理错误');
   }
 }
@@ -248,6 +252,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  transition: background-color 0.3s;
 }
 
 .operation-header {
@@ -258,6 +263,7 @@ onUnmounted(() => {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .log-title {
@@ -266,6 +272,8 @@ onUnmounted(() => {
   gap: 10px;
   font-size: 18px;
   font-weight: bold;
+  color: #303133;
+  transition: color 0.3s;
 }
 
 .operation-buttons {
@@ -282,11 +290,13 @@ onUnmounted(() => {
   font-family: Consolas, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', monospace, sans-serif;
   font-size: 14px;
   line-height: 1.5;
+  border: 1px solid #333;
+  transition: border-color 0.3s;
 }
 
 .log-line {
   margin: 4px 0;
-  color: #ffffff;
+  color: #d4d4d4;
   display: flex;
   align-items: flex-start;
 }
@@ -308,7 +318,7 @@ onUnmounted(() => {
 }
 
 .log-operator {
-  color: #64B5F6;
+  color: #9cdcfe;
   font-weight: bold;
 }
 
@@ -351,6 +361,7 @@ onUnmounted(() => {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 :deep(.el-tag) {
@@ -386,5 +397,67 @@ onUnmounted(() => {
 
 .log-line[data-operation="删除"] .log-content {
   color: #F44336;
+}
+
+/* --- Dark Mode Styles using Conditional Class --- */
+
+.dark-component-bg {
+  background-color: #1f2937 !important;
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+
+/* Container background */
+:deep(.app-wrapper.dark) .log-container {
+   background-color: var(--el-bg-color-page);
+}
+
+/* Header */
+.operation-header.dark-component-bg .log-title {
+  color: #e0e0e0;
+}
+.operation-header.dark-component-bg :deep(.el-button) {
+   background-color: var(--el-button-bg-color);
+   color: var(--el-button-text-color);
+   border-color: var(--el-button-border-color);
+}
+.operation-header.dark-component-bg :deep(.el-button:hover),
+.operation-header.dark-component-bg :deep(.el-button:focus) {
+   background-color: var(--el-button-hover-bg-color);
+   color: var(--el-button-hover-text-color);
+   border-color: var(--el-button-hover-border-color);
+}
+
+/* Terminal (adjust border) */
+:deep(.app-wrapper.dark) .log-terminal {
+   border-color: #4b5563;
+}
+
+/* Stats */
+.log-stats.dark-component-bg :deep(.el-tag) {
+   background-color: #374151;
+   color: #a0a0a0;
+   border-color: #4b5563;
+}
+/* Optional: Adjust specific tag colors for better contrast if needed */
+.log-stats.dark-component-bg :deep(.el-tag--success) {
+   background-color: #1e4620;
+   color: #a7f3d0;
+   border-color: #2f6f49;
+}
+.log-stats.dark-component-bg :deep(.el-tag--warning) {
+   background-color: #573a00;
+   color: #fde047;
+   border-color: #8c6c00;
+}
+.log-stats.dark-component-bg :deep(.el-tag--danger) {
+   background-color: #5c1e1e;
+   color: #fecaca;
+   border-color: #992d2d;
+}
+.log-stats.dark-component-bg :deep(.el-tag--info) {
+   background-color: #374151;
+   color: #a0a0a0;
+   border-color: #4b5563;
 }
 </style>

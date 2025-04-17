@@ -1,7 +1,7 @@
 <template>
   <div class="emp-container">
     <!-- 头部搜索和操作区 -->
-    <div class="operation-header">
+    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
       <div class="search-group">
         <el-input
           v-model="searchKey"
@@ -109,7 +109,8 @@
       :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
-      class="pagination" />
+      class="pagination"
+      :class="{ 'dark-component-bg': isDark }" />
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -204,6 +205,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, ElTable, ElForm } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import {
   Search, Plus, Edit, Delete, Download, UploadFilled, Refresh, CircleCloseFilled, Picture, Upload
 } from '@element-plus/icons-vue'
@@ -224,6 +226,9 @@ import type { DeptResponseData, ApiDeptResponse } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
 import dayjs from 'dayjs'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
+
+// Dark mode state for conditional class binding
+const isDark = useDark()
 
 // 初始化部门数据
 const initDeptOptions = () => {
@@ -957,18 +962,19 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
 <style scoped>
 .emp-container {
   padding: 20px;
-  background: #f5f7fa;
   min-height: calc(100vh - 84px);
+  transition: background-color 0.3s; /* Optional: Added transition */
 }
 
 .operation-header {
   display: flex;
   justify-content: space-between;
   margin-bottom: 20px;
-  background: white;
+  background: #ffffff; /* Base/Light Mode: White background */
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s; /* Add transitions */
 }
 
 .search-group {
@@ -995,9 +1001,10 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
-  background: white;
+  background: #ffffff; /* Base/Light Mode: White background */
   padding: 15px;
   border-radius: 8px;
+  transition: background-color 0.3s, border-color 0.3s; /* Add transitions */
 }
 
 :deep(.el-table) {
@@ -1005,4 +1012,91 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
   overflow: hidden;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
+
+/* 居中表格内容 */
+:deep(.el-table .el-table__cell),
+:deep(.el-table th.el-table__cell > .cell) {
+  text-align: center;
+}
+
+/* --- New Dark Mode Styles using Conditional Class --- */
+
+.operation-header.dark-component-bg {
+  background-color: #1f2937; /* Explicit dark background color */
+  box-shadow: var(--el-box-shadow-light); /* Use EP variable for shadow */
+  border: 1px solid var(--el-border-color-lighter); /* Use EP variable */
+}
+
+.pagination.dark-component-bg {
+  background-color: #1f2937; /* Explicit dark background color */
+  border: 1px solid var(--el-border-color-lighter); /* Use EP variable */
+}
+
+/* Style internal elements when the dark class is applied */
+.dark-component-bg :deep(.el-input__wrapper),
+.dark-component-bg :deep(.el-select .el-input__wrapper) {
+  background-color: var(--el-fill-color-blank) !important; /* Use EP variable, keep important if needed */
+  box-shadow: none !important;
+}
+
+.dark-component-bg :deep(.el-input__inner),
+.dark-component-bg :deep(.el-select .el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+
+.dark-component-bg :deep(.el-input__inner::placeholder) {
+    color: var(--el-text-color-placeholder) !important;
+}
+
+.dark-component-bg :deep(.el-button) {
+   /* Rely on Element Plus default dark mode for buttons or add specific vars */
+   background-color: var(--el-button-bg-color);
+   color: var(--el-button-text-color);
+   border-color: var(--el-button-border-color);
+}
+/* Fix button hover/focus if needed */
+.dark-component-bg :deep(.el-button:hover),
+.dark-component-bg :deep(.el-button:focus) {
+   background-color: var(--el-button-hover-bg-color);
+   color: var(--el-button-hover-text-color);
+   border-color: var(--el-button-hover-border-color);
+}
+
+
+/* Pagination internal elements in dark mode */
+.pagination.dark-component-bg :deep(button),
+.pagination.dark-component-bg :deep(.el-input__wrapper),
+.pagination.dark-component-bg :deep(.el-select .el-input__wrapper) {
+  /* Buttons and inputs might need specific backgrounds */
+   background-color: var(--el-fill-color-blank) !important;
+   color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-input__inner) {
+   color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-pager li) {
+  background-color: transparent !important;
+  color: var(--el-text-color-primary) !important;
+}
+.pagination.dark-component-bg :deep(.el-pager li.is-active) {
+    background-color: var(--el-color-primary) !important;
+    color: var(--el-color-white) !important;
+}
+.pagination.dark-component-bg :deep(span:not([class])),
+.pagination.dark-component-bg :deep(.el-pagination__jump) {
+    color: var(--el-text-color-primary) !important;
+    background-color: transparent !important;
+}
+.pagination.dark-component-bg :deep(button:disabled) {
+    color: var(--el-text-color-disabled) !important;
+    background-color: transparent !important;
+}
+.pagination.dark-component-bg :deep(.btn-prev),
+.pagination.dark-component-bg :deep(.btn-next) {
+     background-color: transparent !important;
+}
+
+/* Remove old :deep rules */
+/* :deep(.app-wrapper.dark) ... rules are removed */
+
 </style>

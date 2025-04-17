@@ -3,7 +3,7 @@
     <el-row :gutter="20">
       <!-- 欢迎卡片 -->
       <el-col :span="24">
-        <el-card class="welcome-card">
+        <el-card class="welcome-card" :class="{ 'dark-component-bg': isDark }">
           <div class="welcome-content">
             <div class="welcome-text">
               <h2>欢迎使用高校人事管理系统</h2>
@@ -20,9 +20,9 @@
     <!-- 数据卡片 -->
     <el-row :gutter="20" class="data-row">
       <el-col :xs="24" :sm="12" :md="6" v-for="(item, index) in statCards" :key="index">
-        <el-card class="data-card" :body-style="{ padding: '20px' }">
+        <el-card class="data-card" :body-style="{ padding: '20px' }" :class="{ 'dark-component-bg': isDark }">
           <div class="card-content">
-            <el-icon :size="40" :color="item.color">
+            <el-icon :size="40" :color="isDark ? '#cccccc' : item.color">
               <component :is="item.icon" />
             </el-icon>
             <div class="card-info">
@@ -37,7 +37,7 @@
     <!-- 快捷入口 -->
     <el-row :gutter="20" class="shortcut-row">
       <el-col :span="24">
-        <el-card>
+        <el-card :class="{ 'dark-component-bg': isDark }">
           <template #header>
             <div class="card-header">
               <span>快捷入口</span>
@@ -50,7 +50,7 @@
               class="shortcut-item"
               @click="navigateTo(item.path)"
             >
-              <el-icon :size="30" :color="item.color">
+              <el-icon :size="30" :color="isDark ? '#cccccc' : item.color">
                 <component :is="item.icon" />
               </el-icon>
               <span>{{ item.title }}</span>
@@ -66,6 +66,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useDark } from '@vueuse/core'
 import { 
   User, 
   OfficeBuilding, 
@@ -92,6 +93,7 @@ interface ChartDataset {
 
 const router = useRouter()
 const loading = ref(true)
+const isDark = useDark()
 
 // Corrected: Define examTypeDistribution ref with explicit dataset type
 const examTypeDistribution = ref<{ labels: string[], datasets: ChartDataset[] }>({ 
@@ -317,10 +319,14 @@ onMounted(() => {
 <style scoped>
 .dashboard-container {
   padding: 20px;
+  min-height: calc(100vh - 84px);
+  transition: background-color 0.3s;
 }
 
 .welcome-card {
   margin-bottom: 20px;
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .welcome-content {
@@ -338,11 +344,13 @@ onMounted(() => {
   'PingFang SC', 'Hiragino Sans GB',
   'Helvetica Neue', Helvetica,
   'Microsoft YaHei', Arial, sans-serif;
+  transition: color 0.3s;
 }
 
 .welcome-text p {
   font-size: 16px;
   color: #606266;
+  transition: color 0.3s;
 }
 
 .welcome-image img {
@@ -357,6 +365,7 @@ onMounted(() => {
 .data-card {
   height: 100%;
   transition: all 0.3s;
+  background: white;
 }
 
 .data-card:hover {
@@ -378,22 +387,31 @@ onMounted(() => {
   font-size: 14px;
   color: #909399;
   margin-bottom: 5px;
+  transition: color 0.3s;
 }
 
 .card-value {
   font-size: 24px;
   font-weight: bold;
   color: #303133;
+  transition: color 0.3s;
 }
 
 .card-header {
   font-size: 18px;
   font-weight: bold;
+  color: #303133;
+  transition: color 0.3s;
+}
+
+.shortcut-row .el-card {
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
 .shortcut-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 20px;
 }
 
@@ -407,6 +425,7 @@ onMounted(() => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
+  color: #606266;
 }
 
 .shortcut-item:hover {
@@ -433,5 +452,47 @@ onMounted(() => {
   .shortcut-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.dark-component-bg {
+  background-color: #1f2937 !important;
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+
+:deep(.app-wrapper.dark) .dashboard-container {
+   background-color: var(--el-bg-color-page);
+}
+
+.welcome-card.dark-component-bg .welcome-text h2 {
+  color: #e0e0e0;
+}
+.welcome-card.dark-component-bg .welcome-text p {
+  color: #a0a0a0;
+}
+.welcome-card.dark-component-bg .welcome-image img {
+  filter: brightness(0.8) contrast(1.2);
+}
+
+.data-card.dark-component-bg .card-title {
+  color: #a0a0a0;
+}
+.data-card.dark-component-bg .card-value {
+  color: #e0e0e0;
+}
+
+.shortcut-row .el-card.dark-component-bg .card-header {
+  color: #e0e0e0;
+}
+
+.dark-component-bg .shortcut-item {
+  background-color: #263445;
+  color: #a0a0a0;
+}
+
+.dark-component-bg .shortcut-item:hover {
+  background-color: #374151;
+  box-shadow: 0 5px 15px rgba(255, 255, 255, 0.05);
+  color: #ffffff;
 }
 </style> 

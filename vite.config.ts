@@ -31,5 +31,8 @@ export default defineConfig({
       }
     }
   },
-  assetsInclude: ['**/*.jpg']
+  assetsInclude: ['**/*.jpg'],
+  define: {
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true'
+  }
 })

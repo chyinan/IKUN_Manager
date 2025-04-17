@@ -1054,14 +1054,34 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
    color: var(--el-button-text-color);
    border-color: var(--el-button-border-color);
 }
-/* Fix button hover/focus if needed */
-.dark-component-bg :deep(.el-button:hover),
-.dark-component-bg :deep(.el-button:focus) {
-   background-color: var(--el-button-hover-bg-color);
-   color: var(--el-button-hover-text-color);
-   border-color: var(--el-button-hover-border-color);
-}
 
+/* --- NEW: Specific styles for operation buttons in dark mode --- */
+/* Override primary button variables moved to global dark-overrides.css */
+/*
+.operation-header.dark-component-bg .operation-buttons .el-button--primary {
+  --el-button-text-color: var(--el-color-white) !important; 
+  --el-button-bg-color: #263445 !important; 
+  --el-button-border-color: #909399 !important; 
+}
+*/
+
+/* Optional: Add overrides for warning/success if needed */
+/*
+.operation-header.dark-component-bg .operation-buttons .el-button--warning {
+  --el-button-text-color: var(--el-color-white) !important; 
+  --el-button-bg-color: #some_dark_warning_bg !important; 
+  --el-button-border-color: #some_dark_warning_border !important; 
+}
+.operation-header.dark-component-bg .operation-buttons .el-button--success {
+  --el-button-text-color: var(--el-color-white) !important; 
+  --el-button-bg-color: #some_dark_success_bg !important; 
+  --el-button-border-color: #some_dark_success_border !important; 
+}
+*/
+
+/* REMOVED previous button override attempts */
+
+/* --- END NEW --- */
 
 /* Pagination internal elements in dark mode */
 .pagination.dark-component-bg :deep(button),

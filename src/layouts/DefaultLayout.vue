@@ -172,22 +172,30 @@ const handleCommand = (command: string) => {
   height: 100vh;
   width: 100%;
   display: flex;
-  background-color: #fff; /* Default light background */
+  /* Match sidebar background color to hide rendering gaps */
+  background-color: #304156; /* Default light background (matches sidebar) */
   color: #303133; /* Default light text */
-  transition: background-color 0.3s ease, color 0.3s ease; /* 保留这里的过渡 */
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .sidebar-container {
   width: 210px;
   height: 100%;
   background-color: #304156; /* Default sidebar background */
-  transition: width 0.28s ease, background-color 0.3s ease; /* 恢复过渡 */
+  transition: width 0.28s ease, background-color 0.3s ease;
   overflow: hidden;
   flex-shrink: 0;
 }
 
+/* Force active AND hover menu item background to match sidebar bg */
+.sidebar-menu .el-menu-item.is-active,
+.sidebar-menu .el-menu-item:hover {
+  background-color: #304156 !important; /* Match light sidebar bg */
+}
+
 .is-collapse .sidebar-container {
   width: 64px;
+  background-color: #1f2937; /* Darker sidebar */
 }
 
 .logo-container {
@@ -292,12 +300,19 @@ const handleCommand = (command: string) => {
 
 /* --- Dark Mode Styles --- */
 .app-wrapper.dark {
-  background-color: #141414; /* Dark overall background */
+  /* Match dark sidebar background color */
+  background-color: #1f2937; /* Dark overall background (matches dark sidebar) */
   color: #e0e0e0; /* Lighter default text */
 }
 
 .app-wrapper.dark .sidebar-container {
   background-color: #1f2937; /* Darker sidebar */
+}
+
+/* Force active AND hover menu item background to match dark sidebar bg */
+.app-wrapper.dark .sidebar-menu .el-menu-item.is-active,
+.app-wrapper.dark .sidebar-menu .el-menu-item:hover {
+  background-color: #1f2937 !important; /* Match dark sidebar bg */
 }
 
 .app-wrapper.dark .logo-container {

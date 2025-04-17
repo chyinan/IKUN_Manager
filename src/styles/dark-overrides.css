@@ -1,0 +1,39 @@
+/* src/styles/dark-overrides.css */
+
+/* Override specific component variables in dark mode globally */
+
+/* Primary Button Overrides */
+html.dark .el-button--primary {
+  --el-button-text-color: var(--el-color-white) !important;
+  --el-button-bg-color: #263445 !important;
+  --el-button-border-color: #909399 !important;
+}
+
+/* Warning Button Overrides (Import) */
+html.dark .el-button--warning {
+  --el-button-text-color: var(--el-color-white) !important;
+  --el-button-bg-color: #4d3d26 !important; /* Dark brownish-orange */
+  --el-button-border-color: #a68a64 !important; /* Muted gold/brown border */
+}
+
+/* Success Button Overrides (Export) */
+html.dark .el-button--success {
+  --el-button-text-color: var(--el-color-white) !important;
+  --el-button-bg-color: #2a4538 !important; /* Dark desaturated green */
+  --el-button-border-color: #6a9955 !important; /* Muted green border */
+}
+
+/* Danger Button Overrides (Delete) */
+html.dark .el-button--danger {
+  --el-button-text-color: var(--el-color-white) !important;
+  --el-button-bg-color: #984a4a !important; /* Dark red background */
+  --el-button-border-color: #c55050 !important; /* Muted red border */
+}
+
+/* Pagination Active Number Override */
+html.dark .el-pagination .el-pager li.is-active.number {
+  background-color: #374151 !important; /* Your desired dark active background */
+  color: var(--el-color-white) !important; /* Ensure text is light */
+}
+
+/* Add other global dark mode overrides here if needed */ 

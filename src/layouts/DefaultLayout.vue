@@ -371,29 +371,53 @@ const handleCommand = (command: string) => {
 
 /* --- End Dark Mode Styles --- */
 
-/* 过渡动画 */
+/* 路由视图过渡动画 (纯淡入淡出，稍延长) */
 .fade-transform-enter-active,
 .fade-transform-leave-active {
-  transition: all 0.3s;
+  /* 明确指定只过渡 opacity */
+  transition: opacity 0.5s ease; /* 延长至 0.5s 方便观察 */
 }
 
-.fade-transform-enter-from {
+.fade-transform-enter-from,
+.fade-transform-leave-to {
+  opacity: 0;
+  /* 确保没有其他 transform 或属性干扰 */
+}
+
+/* 主题切换过渡 (保持不变) */
+.theme-fade-enter-active,
+.theme-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.theme-fade-enter-from,
+.theme-fade-leave-to {
   opacity: 0;
   transform: translateX(30px);
 }
 
-.fade-transform-leave-to {
-  opacity: 0;
-  transform: translateX(-30px);
+/* --- Specific style for light mode switch icon --- */
+/* Final attempt: Use high specificity to directly set color/fill */
+.dark-mode-switch:not(.is-checked) :deep(.el-switch__core .el-switch__inner .is-icon) {
+  /* Ensure the container itself doesn't force a color */
+  color: inherit !important; 
 }
 
-/* --- Specific style for light mode switch icon --- */
-/* Target the switch when it is NOT checked (light mode) */
-.dark-mode-switch:not(.is-checked) {
-  /* Find the icon SVG within it and set its color */
-  :deep(.el-icon svg) {
-    color: black !important; /* Set icon color to black */
-    fill: black !important;  /* Also set fill for SVG */
-  }
+.dark-mode-switch:not(.is-checked) :deep(.el-switch__core .el-switch__inner .is-icon svg) {
+  color: black !important; /* Force SVG color */
+  fill: black !important;  /* Force SVG fill */
 }
+
+/* Keep the commented-out dark mode recovery rules */
+/* 
+.dark-mode-switch.is-checked { 
+  // ... (recovery rules if needed) ...
+}
+*/
+
+/* Ensure the switch action (the circle) has a smooth transition */
+.dark-mode-switch :deep(.el-switch__action) {
+  transition: transform 0.3s ease, left 0.3s ease !important; /* Adjust duration/easing if needed */
+}
+
 </style> 

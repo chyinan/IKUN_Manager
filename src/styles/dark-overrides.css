@@ -36,4 +36,64 @@ html.dark .el-pagination .el-pager li.is-active.number {
   color: var(--el-color-white) !important; /* Ensure text is light */
 }
 
+/* 输入框边框相关变量设置 */
+html.dark {
+  /* 输入框边框相关变量 */
+  --el-input-border-color: #4b5563 !important;
+  --el-input-hover-border-color: #6b7280 !important;
+  --el-input-focus-border-color: var(--el-color-primary) !important;
+  
+  /* 修改box-shadow相关变量，使用更细的边框 */
+  --el-box-shadow-light: 0 0 0 1px rgba(75, 85, 99, 0.5) !important;
+  --el-input-border: 1px solid var(--el-input-border-color) !important;
+  --el-input-hover-border: 1px solid var(--el-input-hover-border-color) !important;
+  --el-input-focus-border: 1px solid var(--el-input-focus-border-color) !important;
+}
+
+/* 直接为暗黑模式下的输入框添加边框，使用更细的边框 */
+html.dark .el-input .el-input__wrapper {
+  /* 只使用一种边框样式，避免双重边框 */
+  box-shadow: 0 0 0 1px rgba(75, 85, 99, 0.5) !important; 
+  border: none !important; /* 移除额外的border */
+}
+
+html.dark .el-input .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px rgba(107, 114, 128, 0.6) !important;
+  border: none !important;
+}
+
+html.dark .el-input .el-input__wrapper.is-focus,
+html.dark .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 1px var(--el-color-primary) !important;
+  border: none !important;
+}
+
+/* 覆盖更多输入相关组件 */
+html.dark .el-textarea .el-textarea__inner {
+  border: 1px solid rgba(75, 85, 99, 0.5) !important;
+}
+
+html.dark .el-textarea .el-textarea__inner:hover {
+  border-color: rgba(107, 114, 128, 0.6) !important;
+}
+
+html.dark .el-textarea .el-textarea__inner:focus {
+  border-color: var(--el-color-primary) !important;
+}
+
+html.dark .el-select .el-input__wrapper {
+  box-shadow: 0 0 0 1px rgba(75, 85, 99, 0.5) !important;
+  border: none !important;
+}
+
+html.dark .el-select .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px rgba(107, 114, 128, 0.6) !important;
+  border: none !important;
+}
+
+html.dark .el-select.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 1px var(--el-color-primary) !important;
+  border: none !important;
+}
+
 /* Add other global dark mode overrides here if needed */ 

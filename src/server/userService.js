@@ -1,6 +1,15 @@
 const db = require('./db');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken'); // 导入 JWT
+const config = require('./config'); // 导入配置以获取JWT密钥和过期时间
 const saltRounds = 10; // Consistent salt rounds
+
+// --- JWT Secret (copied from server.js for consistency) ---
+const JWT_SECRET = process.env.JWT_SECRET || config.jwt.secret || 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME'; 
+if (JWT_SECRET === 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME') {
+    console.warn('[UserService] WARNING: Using default JWT secret.');
+}
+const JWT_EXPIRES_IN = config.jwt.expiresIn || '24h';
 
 /**
  * 根据用户名查找用户
@@ -221,10 +230,61 @@ async function updateUser(userId, updateData) {
   }
 }
 
+/**
+ * 用户登录逻辑
+ * @param {string} username 用户名
+ * @param {string} password 密码
+ * @returns {Promise<object>} 包含 token 和用户信息的对象
+ * @throws {Error} 如果用户不存在或密码错误
+ */
+async function loginUser(username, password) {
+  console.log(`[UserService] Attempting login for username: ${username}`);
+  const user = await findUserByUsername(username);
+
+  if (!user) {
+    console.log(`[UserService] Login failed: User not found (${username})`);
+    throw new Error('用户不存在');
+  }
+  console.log(`[UserService] User found, comparing password for ${username}`);
+  const isPasswordValid = await comparePassword(password, user.password);
+
+  if (!isPasswordValid) {
+    console.log(`[UserService] Login failed: Invalid password for ${username}`);
+    throw new Error('密码错误');
+  }
+
+  // 密码验证成功，生成 JWT
+  console.log(`[UserService] Password valid for ${username}, generating token...`);
+  const payload = {
+    id: user.id,
+    username: user.username
+    // 可以根据需要添加更多信息到 payload，但不建议包含敏感信息
+  };
+
+  try {
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    console.log(`[UserService] Token generated successfully for ${username}`);
+    // 返回 Token 和用户信息（不包括密码）
+    return {
+      token,
+      userInfo: {
+        id: user.id,
+        username: user.username,
+        email: user.email // 假设 findUserByUsername 返回了 email
+        // avatar 可以在获取用户详情时再获取
+      }
+    };
+  } catch (error) {
+      console.error(`[UserService] Error generating token for ${username}:`, error);
+      throw new Error('生成认证令牌失败');
+  }
+}
+
 module.exports = {
   findUserByUsername,
   comparePassword,
   findUserById,
+  loginUser,
   hashPassword,
   updateUserPassword,
   updateUserEmail,

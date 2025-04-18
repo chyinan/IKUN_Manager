@@ -2,6 +2,20 @@ const db = require('./db');
 const dayjs = require('dayjs'); // Import dayjs
 const logService = require('./logService'); // Import logService
 
+// 在服务启动时加载配置
+let configCache = {};
+async function loadConfig() {
+  try {
+    configCache = await db.getAllConfig();
+    console.log('Student Service: Loaded config:', configCache);
+  } catch (error) {
+    console.error('Student Service: Failed to load config:', error);
+    // Fallback or default regex can be set here if needed
+    configCache.studentIdRegex = '^S\\d{8}$'; // Example fallback
+  }
+}
+loadConfig(); // Load config when the service initializes
+
 /**
  * 获取学生列表
  * @param {Object} params 查询参数
@@ -117,6 +131,20 @@ async function getStudentDetail(id) {
  * @returns {Promise<Object>} 添加的学生
  */
 async function addStudent(studentData) {
+  console.log('准备添加学生数据:', studentData);
+  
+  // 使用缓存的配置进行验证
+  const regexPattern = configCache.studentIdRegex;
+  if (!regexPattern) {
+     console.warn('Student Service: studentIdRegex not found in config cache, using default.');
+  }
+  const studentIdRegex = new RegExp(regexPattern || '^S\\d{8}$'); // Use loaded or fallback
+
+  if (!studentIdRegex.test(studentData.student_id)) {
+    console.log(`学号 ${studentData.student_id} 格式无效 (规则: ${regexPattern})`);
+    throw new Error('学号格式无效');
+  }
+
   try {
     // 先获取班级ID
     let classId = null;
@@ -132,9 +160,9 @@ async function addStudent(studentData) {
 
     // 检查学号是否已存在
     const checkQuery = 'SELECT id FROM student WHERE student_id = ?';
-    const exists = await db.query(checkQuery, [studentData.studentId]);
+    const exists = await db.query(checkQuery, [studentData.student_id]);
     if (exists.length > 0) {
-      throw new Error(`学号 "${studentData.studentId}" 已存在`);
+      throw new Error(`学号 "${studentData.student_id}" 已存在`);
     }
 
     // 插入学生记录
@@ -146,19 +174,21 @@ async function addStudent(studentData) {
     `;
     
     const result = await db.query(insertQuery, [
-      studentData.studentId,
+      studentData.student_id,
       studentData.name,
       studentData.gender,
       classId,
       studentData.phone || null,
       studentData.email || null,
-      studentData.joinDate
+      studentData.join_date
     ]);
     
     // 返回新添加的学生信息
+    await logService.addLogEntry('database', 'create', `添加学生 ${studentData.name} (ID: ${result.insertId})`, 'System');
     return await getStudentDetail(result.insertId);
   } catch (error) {
     console.error('添加学生失败:', error);
+    await logService.addLogEntry('database', 'error', `添加学生失败: ${error.message}`, 'System');
     throw error;
   }
 }
@@ -170,6 +200,21 @@ async function addStudent(studentData) {
  * @returns {Promise<Object>} 更新后的学生
  */
 async function updateStudent(id, studentData) {
+  console.log(`准备更新学生 ID ${id} 的数据:`, studentData);
+  
+  // 使用缓存的配置进行验证 (如果允许更新学号)
+  if (studentData.student_id) { // Only validate if student_id is part of the update
+      const regexPattern = configCache.studentIdRegex;
+      if (!regexPattern) {
+         console.warn('Student Service: studentIdRegex not found in config cache, using default.');
+      }
+      const studentIdRegex = new RegExp(regexPattern || '^S\\d{8}$'); // Use loaded or fallback
+      if (!studentIdRegex.test(studentData.student_id)) {
+        console.log(`学号 ${studentData.student_id} 格式无效 (规则: ${regexPattern})`);
+        throw new Error('学号格式无效');
+      }
+  }
+
   try {
     // 获取新班级ID
     let newClassId = null; // Default to null or handle as needed
@@ -184,33 +229,34 @@ async function updateStudent(id, studentData) {
     }
 
     // 更新学生记录
-    const updateQuery = `
-      UPDATE student 
-      SET 
-        name = ?, 
-        gender = ?, 
-        class_id = ?, 
-        phone = ?, 
-        email = ?, 
-        join_date = ?
-      WHERE 
-        id = ?
-    `;
-    
-    await db.query(updateQuery, [
-      studentData.name,
-      studentData.gender,
-      newClassId, // Use the potentially new class ID
-      studentData.phone || null,
-      studentData.email || null,
-      studentData.joinDate,
-      id
-    ]);
-    
-    // 返回更新后的学生信息
+    const fields = [];
+    const values = [];
+    const allowedFields = ['student_id', 'name', 'gender', 'class_id', 'phone', 'email', 'join_date'];
+
+    for (const field of allowedFields) {
+      if (studentData[field] !== undefined) {
+        fields.push(`${field} = ?`);
+        values.push(studentData[field]);
+      }
+    }
+
+    if (fields.length === 0) {
+      throw new Error('没有提供需要更新的字段');
+    }
+
+    const sql = `UPDATE student SET ${fields.join(', ')} WHERE id = ?`;
+    values.push(id);
+
+    const result = await db.query(sql, values);
+    if (result.affectedRows === 0) {
+      throw new Error('未找到要更新的学生');
+    }
+    console.log(`学生 ID ${id} 更新成功`);
+    await logService.addLogEntry('database', 'update', `更新学生 ID ${id} 的信息`, 'System');
     return await getStudentDetail(id);
   } catch (error) {
     console.error(`更新学生失败 (ID: ${id}):`, error);
+    await logService.addLogEntry('database', 'error', `更新学生 ID ${id} 失败: ${error.message}`, 'System');
     throw error;
   }
 }

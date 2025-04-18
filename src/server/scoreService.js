@@ -707,6 +707,72 @@ async function getClassScoreStats(params = {}) {
   }
 }
 
+/**
+ * 根据学生ID和考试ID获取该学生在该次考试的成绩及考试科目信息
+ * @param {number} studentId 学生ID
+ * @param {number} examId 考试ID
+ * @returns {Promise<Object|null>} 返回包含考试信息、完整科目列表和学生成绩的对象，或在找不到时返回 null
+ *  例: { exam_id: 4, exam_name: '月考1', subjects: ['语文', '数学', '英语'], scores: { '数学': 95.0, '英语': 88.0 } }
+ */
+async function getScoresByStudentAndExam(studentId, examId) {
+  try {
+    console.log(`[ScoreService] 获取学生 ${studentId} 在考试 ${examId} 的成绩和科目信息`);
+    if (!studentId || !examId) {
+      console.warn('[ScoreService] 学生ID或考试ID无效');
+      throw new Error('学生ID和考试ID不能为空');
+    }
+
+    // 1. 获取考试信息 (包括科目列表字符串)
+    const examQuery = 'SELECT id, exam_name, exam_type, exam_date, subjects FROM exam WHERE id = ?';
+    const exams = await db.query(examQuery, [examId]);
+
+    if (!exams || exams.length === 0) {
+      console.warn(`[ScoreService] 找不到考试 ID: ${examId}`);
+      return null; // 明确返回 null 表示未找到考试
+    }
+    const exam = exams[0];
+    // 解析科目列表，确保处理空字符串或null的情况
+    const subjectList = exam.subjects ? exam.subjects.split(',').map(s => s.trim()).filter(s => s) : [];
+    console.log(`[ScoreService] 考试 ${examId} 的科目列表:`, subjectList);
+
+    // 2. 获取该学生在该考试的已有成绩
+    const scoresQuery = `
+      SELECT subject, score 
+      FROM student_score 
+      WHERE student_id = ? AND exam_id = ?
+    `;
+    const existingScores = await db.query(scoresQuery, [studentId, examId]);
+    console.log(`[ScoreService] 查询到学生 ${studentId} 在考试 ${examId} 的 ${existingScores.length} 条成绩记录`);
+
+    // 3. 格式化成绩为 { subject: score } 的对象
+    const scoresMap = existingScores.reduce((acc, item) => {
+      // 确保分数是数字，如果数据库存的是字符串
+      const scoreValue = parseFloat(item.score);
+      acc[item.subject] = isNaN(scoreValue) ? null : scoreValue; // 无效分数记为 null
+      return acc;
+    }, {});
+
+    // 4. 构建最终返回结果
+    const result = {
+      exam_id: exam.id,
+      exam_name: exam.exam_name,
+      exam_type: exam.exam_type,
+      exam_date: exam.exam_date, // 可能前端需要
+      subjects: subjectList,      // 完整的科目列表
+      scores: scoresMap           // 学生已有的成绩
+    };
+
+    console.log(`[ScoreService] 返回给路由的数据:`, result);
+    return result;
+
+  } catch (error) {
+    console.error(`[ScoreService] 获取学生成绩及科目失败 (Student: ${studentId}, Exam: ${examId}):`, error);
+    // 避免在这里记录日志，让路由处理器决定如何处理和记录
+    // await logService.addLogEntry('database', 'error', `获取学生成绩失败...`);
+    throw error; // 将错误抛给路由处理器
+  }
+}
+
 module.exports = {
   getScoreList,
   getScoreDetail,
@@ -720,5 +786,6 @@ module.exports = {
   testApi,
   getStudentScoreStats,
   getStudentScoreSummary,
-  getClassScoreStats
+  getClassScoreStats,
+  getScoresByStudentAndExam
 }; 

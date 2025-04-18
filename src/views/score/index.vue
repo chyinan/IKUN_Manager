@@ -730,13 +730,14 @@ const generateMockClassData = () => {
 onMounted(async () => {
   try {
     // Corrected: Call scoreApi.testConnection()
-    const apiTestResult = await scoreApi.testConnection()
-    if (apiTestResult) { // testConnection returns boolean
-      await fetchClassList() // Fetches class names
-      await fetchExamTypes()
-    } else {
-      ElMessage.error('成绩API连接失败，请检查网络连接')
-    }
+    // const apiTestResult = await scoreApi.testConnection() // 注释掉这行
+    // if (apiTestResult) { // testConnection returns boolean
+    // 默认加载数据，不再依赖 testConnection
+    await fetchClassList() // Fetches class names
+    await fetchExamTypes()
+    // } else {
+    //   ElMessage.error('成绩API连接失败，请检查网络连接')
+    // }
   } catch (error) {
     console.error('页面初始化失败:', error)
     ElMessage.error('页面初始化失败，请刷新重试')

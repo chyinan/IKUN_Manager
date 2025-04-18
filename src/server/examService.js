@@ -336,29 +336,21 @@ async function getSubjectOptions() {
 }
 
 /**
- * 获取不重复的考试类型
- * @returns {Promise<Array<string>>} 考试类型字符串数组
+ * 获取所有不同的考试类型
+ * @returns {Promise<Array<string>>} 包含所有不同考试类型的数组
  */
 async function getDistinctExamTypes() {
   try {
-    const sql = `
-      SELECT DISTINCT exam_type 
-      FROM exam 
-      WHERE exam_type IS NOT NULL AND exam_type <> '' 
-      ORDER BY exam_type ASC
-    `;
-    // Use the exported db.query function
-    const rows = await db.query(sql); 
-    // Ensure rows is an array before mapping
-    if (!Array.isArray(rows)) {
-        console.error('Database query for distinct exam types did not return an array:', rows);
-        return []; // Return empty array or throw error
-    }
-    // Map the array of result objects to an array of strings
-    return rows.map(row => row.exam_type);
+    const query = 'SELECT DISTINCT exam_type FROM exam WHERE exam_type IS NOT NULL ORDER BY exam_type ASC';
+    const results = await db.query(query);
+    // 从结果对象数组中提取 exam_type 字符串
+    const types = results.map(row => row.exam_type);
+    console.log('获取到不同的考试类型:', types);
+    return types;
   } catch (error) {
-    console.error('获取不重复考试类型失败:', error);
-    throw new Error('数据库查询失败'); // Re-throw error for the route handler
+    console.error('获取不同考试类型失败:', error);
+    await logService.addLogEntry('database', 'error', `获取不同考试类型失败: ${error.message}`, 'System');
+    throw error; // Re-throw the error to be caught by the route handler
   }
 }
 

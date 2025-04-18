@@ -203,5 +203,5 @@ module.exports = {
   deleteLog,
   batchDeleteLog,
   clearLogs,
-  addLog
+  addLogEntry: addLog
 }; 

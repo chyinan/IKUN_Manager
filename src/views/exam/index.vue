@@ -12,7 +12,6 @@
       
       <div class="header-actions">
         <el-button type="primary" @click="handleAddExam" :icon="Plus">新增考试</el-button>
-        <el-button @click="fetchExamList" :icon="Refresh">刷新数据</el-button>
       </div>
     </div>
     
@@ -43,60 +42,65 @@
             v-model="searchKeyword"
             placeholder="输入考试名称搜索"
             clearable
+            class="filter-item keyword-search-input"
             @clear="handleSearch"
             @keyup.enter="handleSearch"
           >
-            <template #append>
-              <el-button @click="handleSearch">搜索</el-button>
-            </template>
           </el-input>
         </div>
         
-        <!-- 筛选区域 -->
+        <!-- 筛选条件 -->
         <div class="filter-section">
           <div class="section-title">
             <el-icon><Filter /></el-icon>
             <span>筛选条件</span>
           </div>
-          <div class="filter-options">
-            <el-select
-              v-model="filterExamType"
-              placeholder="考试类型"
-              clearable
-              @change="handleFilterChange"
-              class="filter-item"
-            >
-              <el-option
-                v-for="item in dynamicExamTypeOptions"
-                :key="item"
-                :label="item"
-                :value="item"
+          <!-- 使用嵌套 div 进行布局 -->
+          <div class="filter-layout">
+            <!-- 第一行：考试类型和状态 -->
+            <div class="filter-row">
+              <el-select
+                v-model="filterExamType"
+                placeholder="考试类型"
+                clearable
+                @change="handleFilterChange"
+                class="filter-item"
+              >
+                <el-option
+                  v-for="item in dynamicExamTypeOptions"
+                  :key="item"
+                  :label="item"
+                  :value="item"
+                />
+              </el-select>
+              
+              <el-select
+                v-model="statusFilter"
+                placeholder="考试状态"
+                clearable
+                @change="handleFilterChange"
+                class="filter-item"
+              >
+                <el-option label="未开始" :value="0" />
+                <el-option label="进行中" :value="1" />
+                <el-option label="已结束" :value="2" />
+              </el-select>
+            </div>
+            
+            <!-- 第二行：日期范围 -->
+            <div class="filter-row">
+              <el-date-picker
+                v-model="dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                format="YYYY/MM/DD"
+                value-format="YYYY-MM-DD"
+                @change="handleFilterChange"
+                class="filter-item date-picker-full-width"
               />
-            </el-select>
-            
-            <el-date-picker
-              v-model="dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              format="YYYY/MM/DD"
-              value-format="YYYY-MM-DD"
-              @change="handleFilterChange"
-              class="filter-item date-picker"
-            />
-            
-            <el-select
-              v-model="statusFilter"
-              placeholder="考试状态"
-              clearable
-              @change="handleFilterChange"
-              class="filter-item"
-            >
-              <el-option label="未开始" :value="0" />
-              <el-option label="进行中" :value="1" />
-              <el-option label="已结束" :value="2" />
-            </el-select>
+            </div>
           </div>
         </div>
       </div>
@@ -933,19 +937,26 @@ onMounted(async () => {
   transition: color 0.3s;
 }
 
-.filter-options {
+.filter-layout {
   display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  align-items: center;
+  flex-direction: column; /* 确保行是垂直排列的 */
+  gap: 15px; /* 行之间的间距 */
 }
 
-.filter-item {
-  min-width: 180px;
+.filter-row {
+  display: flex;
+  flex-wrap: wrap; /* 允许内容换行 */
+  gap: 15px; /* 行内元素之间的间距 */
 }
 
-.date-picker {
-  width: 350px;
+.filter-item { 
+  flex-grow: 1; /* 允许项目在行内扩展 */
+  min-width: 180px; /* 保留最小宽度 */
+}
+
+.date-picker-full-width {
+  width: 100%; /* 让日期选择器占满整行 */
+  min-width: 350px; /* 保留一个合理的最小宽度 */
 }
 
 /* 筛选结果显示 */
@@ -1259,4 +1270,47 @@ onMounted(async () => {
      background-color: transparent !important;
 }
 
+/* 为关键词搜索输入框在暗黑模式下添加边框 */
+.dark .keyword-search-input :deep(.el-input__wrapper) {
+  border: 1px solid #4b5563 !important;
+  background-color: var(--el-fill-color-blank) !important;
+  box-shadow: none !important;
+}
+
+.dark .keyword-search-input :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--el-color-primary) !important;
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+}
+
+/* 为日期范围选择器在暗黑模式下添加可见边框 - 终极尝试 */
+.dark .date-picker :deep(.el-range-editor.el-input__wrapper) { 
+  background-color: transparent !important; /* 尝试透明背景 */
+  border: 1px solid #4b5563 !important; /* 再次尝试 border */
+  box-shadow: none !important; /* 清除可能干扰的 shadow */
+}
+
+/* 定位到内部的 input 元素 */
+.dark .date-picker :deep(.el-range-input) { 
+  color: var(--el-text-color-primary) !important; /* 确保文字颜色可见 */
+  /* 这里不需要设置边框，边框应该在 wrapper 上 */
+  background-color: transparent !important; /* 确保输入框本身背景透明 */
+}
+
+/* 处理日期选择器焦点状态 */
+.dark .date-picker :deep(.el-range-editor.el-input__wrapper.is-focus),
+.dark .date-picker :deep(.el-range-editor.el-input__wrapper:focus-within) { 
+  border-color: var(--el-color-primary) !important; /* 尝试改变 border 颜色 */
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important; /* 保留焦点阴影 */
+}
+
+/* 移除之前尝试的 box-shadow 规则 */
+/* 
+.dark .date-picker :deep(.el-range-editor.el-input__wrapper) { 
+  box-shadow: 0 0 0 1px #4b5563 inset !important; 
+}
+.dark .date-picker :deep(.el-range-editor.el-input__wrapper.is-focus),
+.dark .date-picker :deep(.el-range-editor.el-input__wrapper:focus-within) { 
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important; 
+}
+*/
 </style> 

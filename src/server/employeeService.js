@@ -3,6 +3,21 @@ const db = require('./db');
 const xlsx = require('xlsx'); // 引入 xlsx
 const papaparse = require('papaparse'); // 引入 papaparse
 const fs = require('fs'); // 引入 fs 用于文件操作
+const logService = require('./logService');
+
+// 在服务启动时加载配置
+let configCache = {};
+async function loadConfig() {
+  try {
+    configCache = await db.getAllConfig();
+    console.log('Employee Service: Loaded config:', configCache);
+  } catch (error) {
+    console.error('Employee Service: Failed to load config:', error);
+    // Fallback or default regex can be set here if needed
+    configCache.employeeIdRegex = '^E\\d{5}$'; // Example fallback
+  }
+}
+loadConfig(); // Load config when the service initializes
 
 /**
  * 获取员工列表
@@ -119,6 +134,22 @@ async function getEmployeeDetail(id) {
  * @returns {Promise<Object>} 添加结果
  */
 async function addEmployee(employeeData) {
+  console.log('准备添加员工数据:', employeeData);
+  
+  // 使用缓存的配置进行验证
+  const regexPattern = configCache.employeeIdRegex;
+  if (!regexPattern) {
+     console.warn('Employee Service: employeeIdRegex not found in config cache, using default.');
+     // Provide a default regex if loading failed, or throw an error
+     // throw new Error('无法加载员工号验证规则'); 
+  }
+  const employeeIdRegex = new RegExp(regexPattern || '^E\\d{5}$'); // Use loaded or fallback
+
+  if (!employeeIdRegex.test(employeeData.emp_id)) {
+    console.log(`工号 ${employeeData.emp_id} 格式无效 (规则: ${regexPattern})`);
+    throw new Error('工号格式无效');
+  }
+
   try {
     // 先查询部门ID
     let deptId = null;
@@ -184,6 +215,21 @@ async function addEmployee(employeeData) {
  * @returns {Promise<Object>} 更新结果
  */
 async function updateEmployee(id, employeeData) {
+  console.log(`准备更新员工 ID ${id} 的数据:`, employeeData);
+  
+  // 使用缓存的配置进行验证 (如果允许更新工号)
+  if (employeeData.emp_id) { // Only validate if emp_id is part of the update
+      const regexPattern = configCache.employeeIdRegex;
+      if (!regexPattern) {
+         console.warn('Employee Service: employeeIdRegex not found in config cache, using default.');
+      }
+      const employeeIdRegex = new RegExp(regexPattern || '^E\\d{5}$'); // Use loaded or fallback
+      if (!employeeIdRegex.test(employeeData.emp_id)) {
+        console.log(`工号 ${employeeData.emp_id} 格式无效 (规则: ${regexPattern})`);
+        throw new Error('工号格式无效');
+      }
+  }
+
   try {
     // 先查询部门ID
     let deptId = null;

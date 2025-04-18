@@ -54,8 +54,39 @@ async function getConnection() {
   }
 }
 
+// 获取所有系统配置
+async function getAllConfig() {
+  const sql = 'SELECT config_key, config_value FROM system_config';
+  try {
+    const [rows] = await pool.query(sql);
+    // 将结果转换为 key-value 对象
+    const config = rows.reduce((acc, row) => {
+      acc[row.config_key] = row.config_value;
+      return acc;
+    }, {});
+    return config;
+  } catch (error) {
+    console.error('Error fetching config:', error);
+    throw error;
+  }
+}
+
+// 更新单个系统配置项
+async function updateConfig(key, value) {
+  const sql = 'INSERT INTO system_config (config_key, config_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)';
+  try {
+    const [result] = await pool.query(sql, [key, value]);
+    return result;
+  } catch (error) {
+    console.error(`Error updating config key ${key}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   query,
   testConnection,
-  getConnection
+  getConnection,
+  getAllConfig,
+  updateConfig
 }; 

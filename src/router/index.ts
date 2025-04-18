@@ -14,6 +14,7 @@ import Score from '@/views/score/index.vue'
 import Exam from '@/views/exam/index.vue'
 import Log from '@/views/log/log.vue'
 import Profile from '@/views/profile/index.vue'
+import Settings from '@/views/settings/index.vue'
 import Login from '@/views/login/index.vue'
 import NotFound from '@/views/error/404.vue'
 
@@ -81,6 +82,12 @@ const router = createRouter({
           meta: { title: '系统日志', icon: 'List' }
         },
         {
+          path: 'settings',
+          name: 'Settings',
+          component: Settings,
+          meta: { title: '系统设置', icon: 'Setting', requiresAdmin: true }
+        },
+        {
           path: 'profile',
           name: 'Profile',
           component: Profile,
@@ -140,25 +147,55 @@ router.beforeEach(async (to, from, next) => {
   }
   
   // 如果有token但没有用户信息，获取用户信息
-  if (token && !userStore.username) {
+  let userInfoFetched = !!userStore.username; // Check if username already exists
+  if (token && !userInfoFetched) {
     try {
-      const hasUserInfo = await userStore.getUserInfo()
-      if (hasUserInfo) {
-        next()
-      } else {
+      userInfoFetched = await userStore.getUserInfo()
+      if (!userInfoFetched) {
         // 获取用户信息失败，可能是token过期
+        console.log('getUserInfo failed, resetting state.')
         userStore.resetState()
         ElMessage.error('获取用户信息失败，请重新登录')
         next(`/login?redirect=${to.path}`)
+        return;
       }
     } catch (error) {
+      console.error('Error fetching user info:', error);
       userStore.resetState()
-      ElMessage.error('获取用户信息失败，请重新登录')
+      ElMessage.error('获取用户信息异常，请重新登录')
       next(`/login?redirect=${to.path}`)
+      return;
     }
-  } else {
-    next()
   }
+  
+  // 检查Admin权限
+  if (to.meta.requiresAdmin) {
+    console.log('Checking admin requirement for route:', to.path);
+    // Make sure user info is loaded before checking isAdmin
+    if (!userStore.username) {
+       // This case should ideally be handled by the previous block, but as a safeguard:
+       console.error('Attempting to access Admin page, but user info not loaded yet.');
+       // It might be a race condition, try fetching again or redirect
+       // For now, redirect to login as a safe measure
+       userStore.resetState()
+       ElMessage.error('用户信息加载失败，请重新登录');
+       next(`/login?redirect=${to.path}`)
+       return;
+    }
+
+    // Check if the user is admin 
+    const isAdminUser = userStore.username === 'admin'; // Direct check for simplicity
+    console.log(`Is user admin? (${userStore.username}): ${isAdminUser}`);
+    if (!isAdminUser) {
+      ElMessage.error('您没有权限访问此页面');
+      next('/404'); // Or redirect to a specific 'forbidden' page
+      return;
+    }
+  }
+  
+  // 如果一切正常，允许导航
+  console.log('Navigation guard passed, allowing navigation to:', to.path);
+  next()
 })
 
 export default router

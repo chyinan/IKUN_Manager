@@ -134,9 +134,23 @@ const toggleSidebar = () => {
   isCollapse.value = !isCollapse.value
 }
 
-// 获取路由
+// 获取路由 (添加权限过滤)
 const routes = computed(() => {
-  return router.options.routes.find(route => route.path === '/')?.children || []
+  const allRoutes = router.options.routes.find(route => route.path === '/')?.children || [];
+  const isAdmin = userStore.username === 'admin'; // 直接检查用户名
+  console.log('Filtering routes, isAdmin:', isAdmin);
+  
+  return allRoutes.filter(r => {
+    // 如果路由没有meta或没有requiresAdmin，则显示
+    if (!r.meta || r.meta.hidden) return false; // Hide routes marked as hidden
+    if (r.meta.requiresAdmin) {
+      // 如果需要admin权限，则只有admin用户能看到
+      return isAdmin;
+    } else {
+      // 不需要admin权限的路由都显示
+      return true;
+    }
+  });
 })
 
 // 当前激活的菜单
@@ -159,6 +173,7 @@ const handleCommand = (command: string) => {
       type: 'warning'
     }).then(() => {
       userStore.logout()
+      // router.push('/login'); // logout action in store should handle redirect
     }).catch(() => {
       // 取消操作
     })
@@ -204,7 +219,7 @@ const handleCommand = (command: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #2b3649; /* Default logo area background */
+  background-color: #1f2937 !important; /* Default logo area background */
   transition: background-color 0.3s ease; /* 恢复过渡 */
 }
 

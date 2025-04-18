@@ -14,6 +14,9 @@ import '@/styles/dark-overrides.css'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
+// 导入 Store
+import { useConfigStore } from '@/stores/config'; // 导入 Config Store
+
 // 全局错误处理
 window.addEventListener('error', (event) => {
   console.error('全局错误:', event.error)
@@ -32,7 +35,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 // 使用插件
-app.use(createPinia())
+const pinia = createPinia(); // 创建 Pinia 实例
+app.use(pinia) // 先使用 Pinia
 app.use(router)
 app.use(ElementPlus, {
   locale: zhCn
@@ -44,5 +48,13 @@ app.config.errorHandler = (err, instance, info) => {
   console.error('错误信息:', info)
 }
 
-// 挂载应用
-app.mount('#app')
+// 在挂载前加载配置 (确保 Pinia 已初始化)
+const configStore = useConfigStore();
+configStore.fetchAndSetConfig().then(() => {
+  // 配置加载完成后再挂载应用
+  app.mount('#app');
+}).catch(error => {
+  console.error("应用初始化时加载配置失败:", error);
+  // 即使配置加载失败，也尝试挂载应用
+  app.mount('#app'); 
+});

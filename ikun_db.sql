@@ -200,4 +200,22 @@ CREATE TABLE `user`  (
   UNIQUE INDEX `uk_email`(`email` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户表' ROW_FORMAT = Dynamic;
 
+-- ----------------------------
+-- Table structure for system_config
+-- ----------------------------
+DROP TABLE IF EXISTS `system_config`;
+CREATE TABLE `system_config`  (
+  `config_key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置键',
+  `config_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '配置值',
+  `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '描述',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`config_key`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统配置表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of system_config (Initial Regex Examples)
+-- ----------------------------
+INSERT INTO `system_config` (`config_key`, `config_value`, `description`, `update_time`) VALUES ('employeeIdRegex', '^E\d{5}$', '员工号正则表达式 (示例: E+5位数字)', NOW());
+INSERT INTO `system_config` (`config_key`, `config_value`, `description`, `update_time`) VALUES ('studentIdRegex', '^S\d{8}$', '学号正则表达式 (示例: S+8位数字)', NOW());
+
 SET FOREIGN_KEY_CHECKS = 1;

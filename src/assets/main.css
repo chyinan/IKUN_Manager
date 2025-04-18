@@ -14,6 +14,7 @@ html, body {
   font-size: 14px;
   color: #333; /* 默认颜色，可能被 EP 变量覆盖 */
   background-color: #f5f7fa; /* 默认背景，可能被 EP 变量覆盖 */
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #app {
@@ -247,3 +248,13 @@ a {
 .el-select-dropdown__item {
    font-family: 'Noto Sans SC', sans-serif !important; 
 }
+
+/* 暗黑模式下的输入框边框颜色 */
+html.dark {
+  /* 为输入框设置更明显的边框颜色 */
+  --el-input-border-color: #4b5563 !important;
+  --el-input-hover-border-color: #6b7280 !important;
+  --el-input-focus-border-color: var(--el-color-primary) !important;
+}
+
+/* 注意：详细的输入框边框样式已移至 styles/dark-overrides.css */

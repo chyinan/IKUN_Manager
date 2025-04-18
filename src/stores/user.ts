@@ -29,31 +29,31 @@ export const useUserStore = defineStore('user', () => {
       
       console.log('[userStore loginAction] Received API response:', res);
 
-      // 检查 res.code 和 res.data 是否存在
-      if (res.code === 200 && res.data?.token && res.data?.user) {
-        // 从 res.data 中提取 token 和 user
+      // 检查 res.code 和 res.data 是否存在，并检查 userInfo 而不是 user
+      if (res.code === 200 && res.data?.token && res.data?.userInfo) { 
+        // 从 res.data 中提取 token 和 userInfo
         const receivedToken = res.data.token;
-        const receivedUser = res.data.user; 
+        const receivedUserInfo = res.data.userInfo; // <-- 修改这里
         
         console.log('[userStore loginAction] Login successful, token received:', receivedToken);
-        console.log('[userStore loginAction] Received user info:', receivedUser);
+        console.log('[userStore loginAction] Received user info:', receivedUserInfo);
 
         // Update store state
         token.value = receivedToken;
         userInfo.value = {
-          id: receivedUser.id,
-          username: receivedUser.username,
-          email: receivedUser.email || undefined,
-          avatar: receivedUser.avatar,
-          roles: receivedUser.roles || [], 
-          permissions: receivedUser.permissions || [],
-          createTime: receivedUser.createTime || new Date().toISOString()
+          id: receivedUserInfo.id, // <-- 使用 receivedUserInfo
+          username: receivedUserInfo.username, // <-- 使用 receivedUserInfo
+          email: receivedUserInfo.email || undefined,
+          avatar: receivedUserInfo.avatar, // 假设 userInfo 可能包含 avatar
+          roles: receivedUserInfo.roles || [], 
+          permissions: receivedUserInfo.permissions || [],
+          createTime: receivedUserInfo.createTime || new Date().toISOString()
         };
         // Update derived state
-        username.value = receivedUser.username;
-        avatar.value = receivedUser.avatar || avatar.value || '';
-        roles.value = receivedUser.roles || [];
-        permissions.value = receivedUser.permissions || [];
+        username.value = receivedUserInfo.username; // <-- 使用 receivedUserInfo
+        avatar.value = receivedUserInfo.avatar || avatar.value || '';
+        roles.value = receivedUserInfo.roles || [];
+        permissions.value = receivedUserInfo.permissions || [];
         
         // Save token and avatar to localStorage
         localStorage.setItem('token', receivedToken);

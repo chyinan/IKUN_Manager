@@ -242,16 +242,16 @@ export async function getExamTypes() {
 }
 
 /**
- * 获取考试列表
+ * 获取考试列表 (根据类型，用于成绩录入)
  * @param {string} examType 考试类型
  * @returns {Promise<{id: number, exam_name: string, exam_date: string, status: number}[]>} 考试列表
  */
-export async function getExams(examType: string) {
+export async function getExams(examType: string): Promise<ApiResponse<any[]>> {
   try {
-    const response = await axios.get(`${apiUrl}/score/exams`, {
+    const response = await request.get<ApiResponse<{ list: any[], total: number }>>(`/exam/list`, {
       params: { examType }
     });
-    return response.data.data || [];
+    return response.data?.list || [];
   } catch (error) {
     console.error('获取考试列表失败:', error);
     return [];

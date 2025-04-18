@@ -13,8 +13,12 @@ export function isExternal(path: string): boolean {
  * @returns {boolean}
  */
 export function isValidURL(url: string): boolean {
-  const reg = /^(https?|ftp):\/\/([a-zA-Z0-9.-]+(:[a-zA-Z0-9.&%$-]+)*@)*((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}|([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.(com|edu|gov|int|mil|net|org|biz|arpa|info|name|pro|aero|coop|museum|[a-zA-Z]{2}))(:[0-9]+)*(\/($|[a-zA-Z0-9.,?'\\+&%$#=~_-]+))*$/
-  return reg.test(url)
+  try {
+    new URL(url);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -53,8 +57,8 @@ export function isAlphabets(str: string): boolean {
  * @returns {boolean}
  */
 export function isValidEmail(email: string): boolean {
-  const reg = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-  return reg.test(email)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
 /**
@@ -63,8 +67,8 @@ export function isValidEmail(email: string): boolean {
  * @returns {boolean}
  */
 export function isValidPhone(phone: string): boolean {
-  const reg = /^1[3-9]\d{9}$/
-  return reg.test(phone)
+  const phoneRegex = /^1[3-9]\d{9}$/;
+  return phoneRegex.test(phone);
 }
 
 /**
@@ -73,6 +77,93 @@ export function isValidPhone(phone: string): boolean {
  * @returns {boolean}
  */
 export function isValidIDCard(idCard: string): boolean {
-  const reg = /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/
-  return reg.test(idCard)
+  const idCardRegex = /(^\d{15}$)|(^\d{17}(\d|X|x)$)/;
+  return idCardRegex.test(idCard);
+}
+
+// 非空校验
+export function isNotEmpty(value: any): boolean {
+  if (value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === 'string' && value.trim() === '') {
+    return false;
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return false;
+  }
+  return true;
+}
+
+// 整数校验
+export function isInteger(value: any): boolean {
+  return Number.isInteger(Number(value));
+}
+
+// 正整数校验
+export function isPositiveInteger(value: any): boolean {
+  const num = Number(value);
+  return Number.isInteger(num) && num > 0;
+}
+
+// 数字校验 (包括整数和小数)
+export function isNumber(value: any): boolean {
+  return !isNaN(parseFloat(value)) && isFinite(value);
+}
+
+// 学号校验 (使用配置的正则表达式)
+export function isValidStudentId(studentId: string): boolean {
+  const configStore = useConfigStore();
+  if (!configStore.isLoaded) {
+    console.warn('[validate] Config not loaded yet for student ID validation.');
+    // 首次加载未完成时，暂时使用默认规则或返回true
+    const fallbackRegex = /^S\d{8}$/;
+    return fallbackRegex.test(studentId);
+  }
+  try {
+    const regex = new RegExp(configStore.studentIdRegex);
+    return regex.test(studentId);
+  } catch (error) {
+    console.error('[validate] Invalid student ID regex pattern from config:', configStore.studentIdRegex, error);
+    return false; // 正则表达式无效，认为验证失败
+  }
+}
+
+// 员工号校验 (使用配置的正则表达式)
+export function isValidEmployeeId(employeeId: string): boolean {
+  const configStore = useConfigStore();
+  if (!configStore.isLoaded) {
+    console.warn('[validate] Config not loaded yet for employee ID validation.');
+    // 首次加载未完成时，暂时使用默认规则或返回true
+    const fallbackRegex = /^E\d{5}$/;
+    return fallbackRegex.test(employeeId);
+  }
+   try {
+    const regex = new RegExp(configStore.employeeIdRegex);
+    return regex.test(employeeId);
+  } catch (error) {
+    console.error('[validate] Invalid employee ID regex pattern from config:', configStore.employeeIdRegex, error);
+    return false; // 正则表达式无效，认为验证失败
+  }
+}
+
+/**
+ * 校验密码强度
+ * @param password 密码字符串
+ * @returns 0: 无效, 1: 弱, 2: 中, 3: 强
+ */
+export function checkPasswordStrength(password: string): number {
+  if (!password || password.length < 6) {
+    return 0; // 长度不足，无效
+  }
+  let strength = 0;
+  if (password.length >= 8) strength++; // 长度达标
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++; // 大小写字母
+  if (/[0-9]/.test(password)) strength++; // 数字
+  if (/[^a-zA-Z0-9]/.test(password)) strength++; // 特殊字符
+
+  // 调整强度等级，例如最少需要两种组合才算中
+  if (strength <= 1) return 1; // 弱
+  if (strength <= 3) return 2; // 中
+  return 3; // 强
 }

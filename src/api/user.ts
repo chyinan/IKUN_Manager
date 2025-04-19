@@ -84,10 +84,9 @@ export const updateUserInfo = (data: Partial<UserInfo>): Promise<ApiResponse<any
  */
 export const uploadAvatar = (file: File): Promise<ApiResponse<{ avatarUrl: string }>> => {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('avatar', file);
   return request.post<ApiResponse<{ avatarUrl: string }>>('/user/avatar', formData, {
-    // No need to set Content-Type header manually for FormData,
-    // browser and Axios will handle it.
+    // Content-Type 会由浏览器自动设置，不需要手动指定
   })
     .catch(error => {
         console.error('[API user.ts] Upload avatar failed:', error);

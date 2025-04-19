@@ -3,6 +3,9 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken'); // 导入 JWT
 const config = require('./config'); // 导入配置以获取JWT密钥和过期时间
 const saltRounds = 10; // Consistent salt rounds
+const path = require('path'); // Needed if deleting old avatar
+const fs = require('fs');     // Needed if deleting old avatar
+const logService = require('./logService'); // <-- 添加 logService 导入
 
 // --- JWT Secret (copied from server.js for consistency) ---
 const JWT_SECRET = process.env.JWT_SECRET || config.jwt.secret || 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME'; 
@@ -280,6 +283,51 @@ async function loginUser(username, password) {
   }
 }
 
+/**
+ * 更新用户头像
+ * @param {number} userId 用户ID
+ * @param {string} avatarFilename 头像文件名 (由 Multer 生成)
+ * @returns {Promise<boolean>} 更新是否成功
+ */
+async function updateUserAvatar(userId, avatarFilename) {
+  try {
+    console.log(`[UserService] 准备更新用户 ${userId} 的头像为: ${avatarFilename}`);
+    if (!userId || !avatarFilename) {
+      throw new Error('用户ID或头像文件名不能为空');
+    }
+
+    // 在更新前，可以考虑删除旧头像文件（可选）
+    // const oldUserInfo = await findUserById(userId); 
+    // if (oldUserInfo && oldUserInfo.avatar) { 
+    //   const oldAvatarPath = path.join(__dirname, 'uploads', oldUserInfo.avatar);
+    //   fs.unlink(oldAvatarPath, (err) => { if (err) console.error(`删除旧头像失败: ${oldAvatarPath}`, err); });
+    // }
+
+    const query = 'UPDATE user SET avatar = ?, update_time = CURRENT_TIMESTAMP WHERE id = ?';
+    // 不使用数组解构，直接获取结果对象
+    const result = await db.query(query, [avatarFilename, userId]);
+
+    // 检查 result 对象和 affectedRows
+    if (result && result.affectedRows > 0) { 
+      console.log(`[UserService] 用户 ${userId} 头像更新成功`);
+      await logService.addLogEntry('database', '更新', `用户 ${userId} 更新头像`, `User:${userId}`);
+      return true;
+    } else {
+      console.warn(`[UserService] 更新用户 ${userId} 头像失败，未找到用户或未更改`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`[UserService] 更新用户 ${userId} 头像时出错:`, error);
+    // 确保 logService 在这里可用
+    if (logService && typeof logService.addLogEntry === 'function') {
+         await logService.addLogEntry('database', 'error', `用户 ${userId} 更新头像失败: ${error.message}`, `User:${userId}`);
+    } else {
+         console.error('[UserService] logService is not available in catch block!');
+    }
+    throw error; 
+  }
+}
+
 module.exports = {
   findUserByUsername,
   comparePassword,
@@ -288,5 +336,6 @@ module.exports = {
   hashPassword,
   updateUserPassword,
   updateUserEmail,
-  updateUser
+  updateUser,
+  updateUserAvatar
 }; 

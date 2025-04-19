@@ -71,7 +71,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- Multer Configuration for Import (Moved to Top) ---
+// --- Multer Configuration for General Import (Existing) ---
 const importUpload = multer({
     storage: multer.memoryStorage(), // Store file in memory buffer
     limits: { fileSize: 10 * 1024 * 1024 }, // Limit file size (e.g., 10MB)
@@ -89,7 +89,41 @@ const importUpload = multer({
         }
     }
 });
-// --- End Multer Configuration for Import ---
+
+// --- Multer Configuration for Avatar Upload (New) ---
+const avatarStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(__dirname, 'uploads');
+    // Ensure the uploads directory exists
+    fs.mkdirSync(uploadPath, { recursive: true }); 
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    // Generate a unique filename: userId-timestamp.extension
+    // req.user should be available if authenticateToken runs before this
+    const userId = req.user ? req.user.id : 'unknown'; 
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `avatar-${userId}-${uniqueSuffix}${extension}`);
+  }
+});
+
+const avatarFileFilter = (req, file, cb) => {
+  // Accept only image files
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    console.warn(`[Avatar Upload] Rejected file type: ${file.mimetype}`);
+    cb(new Error('仅支持上传图片文件 (jpeg, png, gif等)'), false);
+  }
+};
+
+const avatarUpload = multer({ 
+  storage: avatarStorage, 
+  fileFilter: avatarFileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 } // Limit avatar size to 2MB
+});
+// --- End Multer Configuration for Avatar Upload ---
 
 // --- JWT Secret (IMPORTANT: Use environment variable in production!) ---
 // 统一 JWT Secret 来源，优先从 config 文件读取
@@ -211,6 +245,52 @@ app.get(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
   } catch (error) {
     console.error(`获取用户 ID ${req.user.id} 信息失败:`, error);
     res.status(500).json({ code: 500, message: '获取用户信息失败' });
+  }
+});
+
+// 新增：上传用户头像 (需要认证，使用 avatarUpload 中间件)
+// 注意：avatarUpload.single('avatar') 必须在 authenticateToken 之后，因为它需要 req.user
+app.post(`${apiPrefix}/user/avatar`, authenticateToken, avatarUpload.single('avatar'), async (req, res) => {
+  // 'avatar' 是前端 FormData 中文件字段的名称，需要与前端匹配
+  try {
+    if (!req.file) {
+      console.log('[Avatar Upload] No file received.');
+      return res.status(400).json({ code: 400, message: '未收到头像文件' });
+    }
+
+    const userId = req.user.id; 
+    const avatarFilename = req.file.filename; // Multer adds file info to req.file
+    console.log(`[Avatar Upload] Received file: ${avatarFilename} for user: ${userId}`);
+
+    // 调用 service 更新数据库
+    const success = await userService.updateUserAvatar(userId, avatarFilename);
+
+    if (success) {
+      // 返回新的头像路径 (相对于服务器根目录的 /uploads/)
+      const newAvatarUrl = `/uploads/${avatarFilename}`; 
+      console.log(`[Avatar Upload] Success. New URL: ${newAvatarUrl}`);
+      res.json({ 
+        code: 200, 
+        message: '头像上传成功', 
+        data: { avatarUrl: newAvatarUrl } 
+      });
+    } else {
+      // 如果 service 返回 false (例如用户不存在)
+      res.status(404).json({ code: 404, message: '更新头像失败，未找到用户' });
+    }
+
+  } catch (error) {
+    console.error('[Avatar Upload] Error handling avatar upload:', error);
+    // Multer 错误可能已经在全局错误处理器中处理
+    // 这里处理 service 抛出的或其他错误
+    if (error.message && error.message.includes('仅支持上传图片文件')) {
+         res.status(400).json({ code: 400, message: error.message });
+    } else {
+        res.status(500).json({ 
+          code: 500, 
+          message: '头像上传失败: ' + error.message 
+        });
+    }
   }
 });
 

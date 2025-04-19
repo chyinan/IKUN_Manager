@@ -42,7 +42,6 @@
       <el-tag type="info">总日志数: {{ logs.length }}</el-tag>
       <el-tag type="success">系统: {{ systemCount }}</el-tag>
       <el-tag type="warning">数据库: {{ dbCount }}</el-tag>
-      <el-tag type="danger">Vue: {{ vueCount }}</el-tag>
     </div>
   </div>
 </template>
@@ -64,27 +63,26 @@ let socket: Socket
 // 统计数据
 const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length)
 const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length)
-const vueCount = computed(() => logs.value.filter(log => log.type === 'vue').length)
 
 // Dark mode state
 const isDark = useDark()
 
 // 格式化时间显示
-const formatTime = (timeStr: string | undefined) => {
+const formatTime = (timeStr: string | undefined | null) => {
   if (!timeStr) {
-    return new Date().toLocaleString()
+    return '---- -- -- --:--:--';
   }
   
   try {
-    // 尝试解析时间字符串
-    const date = new Date(timeStr)
-    // 检查是否为有效日期
+    const date = new Date(timeStr);
     if (isNaN(date.getTime())) {
-      return timeStr // 如果无法解析，则原样返回
+      console.warn('formatTime received invalid date string:', timeStr);
+      return timeStr;
     }
-    return date.toLocaleString()
+    return date.toLocaleString();
   } catch (e) {
-    return timeStr // 出错时原样返回
+    console.error('Error formatting time:', e, 'Input:', timeStr);
+    return timeStr;
   }
 }
 
@@ -115,22 +113,16 @@ const scrollToBottom = () => {
 const loadHistoryLogs = async () => {
   try {
     console.log('调用 API 获取历史日志');
-    const response = await getLogList({ pageSize: 30, page: 1 });
+    const response = await getLogList({ pageSize: 100, page: 1 });
 
     if (response && response.code === 200 && Array.isArray(response.data)) {
       const logEntries: LogEntry[] = response.data; 
 
       const historyLogs = logEntries
         .sort((a, b) => {
-          const dateA = a.createTime ? new Date(a.createTime).getTime() : 0;
-          const dateB = b.createTime ? new Date(b.createTime).getTime() : 0;
-          return dateA - dateB; 
-        })
-        .map(log => {
-          return {
-            ...log,
-            createTime: log.createTime || new Date().toLocaleString()
-          };
+          const timeA = a.createTime || '0';
+          const timeB = b.createTime || '0';
+          return new Date(timeA).getTime() - new Date(timeB).getTime(); 
         });
 
       logs.value = historyLogs;

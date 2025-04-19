@@ -57,9 +57,22 @@ async function getLogs(params = {}) {
 
     // Note: `values` array no longer includes pageSize and offset
     console.log('Executing log query:', query, values);
-    const logs = await db.query(query, values);
-    console.log(`获取到 ${logs.length} 条日志记录`);
-    return logs;
+    const logsFromDb = await db.query(query, values);
+    console.log(`获取到 ${logsFromDb.length} 条原始日志记录`);
+
+    // 将 snake_case 转换为 camelCase 并格式化时间
+    const formattedLogs = logsFromDb.map(log => ({
+      id: log.id,
+      type: log.type,
+      operation: log.operation,
+      content: log.content,
+      operator: log.operator,
+      // 将 create_time 重命名为 createTime，并确保持有有效值
+      createTime: log.create_time ? new Date(log.create_time).toISOString() : null // 返回 ISO 格式字符串
+    }));
+
+    console.log(`返回 ${formattedLogs.length} 条格式化后的日志记录`);
+    return formattedLogs;
   } catch (error) {
     console.error('获取日志列表失败:', error);
     throw error; // Re-throw the error to be caught by the route handler
@@ -173,19 +186,36 @@ async function addLog(logData) {
         const selectQuery = 'SELECT * FROM system_log WHERE id = ?';
         // Correct access to rows
         const [rows] = await connection.query(selectQuery, [newLogId]);
-        const newLogEntry = rows[0];
+        const dbLogEntry = rows[0]; // 从数据库获取的原始条目
 
         await connection.commit(); // Commit transaction
 
-        if (newLogEntry && typeof global.broadcastLog === 'function') {
-             // Format create_time before broadcasting if necessary
-            // newLogEntry.createTime = new Date(newLogEntry.create_time).toLocaleString(); // Example formatting
-            global.broadcastLog(newLogEntry);
+        if (dbLogEntry && typeof global.broadcastLog === 'function') {
+             // 在广播前进行格式化
+            const formattedLogEntry = {
+              id: dbLogEntry.id,
+              type: dbLogEntry.type,
+              operation: dbLogEntry.operation,
+              content: dbLogEntry.content,
+              operator: dbLogEntry.operator,
+              createTime: dbLogEntry.create_time ? new Date(dbLogEntry.create_time).toISOString() : null // 转换
+            };
+            global.broadcastLog(formattedLogEntry); // 广播格式化后的数据
+            console.log('[LogService] Broadcasted formatted log entry:', formattedLogEntry);
         } else {
-            console.warn('新日志条目未找到或 broadcastLog 函数不可用', newLogEntry);
+            console.warn('新日志条目未找到或 broadcastLog 函数不可用', dbLogEntry);
         }
 
-        return newLogEntry; // Return the full log entry
+        // 返回格式化后的完整日志条目给调用者（如果需要）
+        const finalLogEntry = {
+            id: dbLogEntry.id,
+            type: dbLogEntry.type,
+            operation: dbLogEntry.operation,
+            content: dbLogEntry.content,
+            operator: dbLogEntry.operator,
+            createTime: dbLogEntry.create_time ? new Date(dbLogEntry.create_time).toISOString() : null
+        };
+        return finalLogEntry;
 
     } catch (error) {
         if (connection) await connection.rollback(); // Rollback on error

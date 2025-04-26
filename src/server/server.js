@@ -350,6 +350,121 @@ app.get(`${apiPrefix}/class/list`, authenticateToken, async (req, res) => {
   }
 });
 
+// **新增：添加班级 (需要认证)**
+app.post(`${apiPrefix}/class/add`, authenticateToken, async (req, res) => {
+  try {
+    const classData = req.body;
+    console.log('[Server] 收到添加班级请求:', classData);
+
+    // 在这里可以添加数据验证，例如检查 class_name 是否存在且不为空
+    if (!classData.class_name) {
+      return res.status(400).json({ code: 400, message: '班级名称不能为空' });
+    }
+
+    // 调用 service 函数添加
+    const newClass = await classService.addClass(classData); // 确保 classService 有 addClass 方法
+
+    if (newClass) {
+      res.status(201).json({ code: 201, message: '班级添加成功', data: newClass }); // 使用 201 Created 状态码
+    } else {
+      // 如果 service 返回 null 或 false，表示添加失败 (可能是因为唯一性约束等)
+      // Service 层应该处理具体错误，这里返回通用错误
+      res.status(500).json({ code: 500, message: '添加班级失败，请检查日志' }); 
+    }
+
+  } catch (error) {
+    console.error('[Server] 添加班级失败:', error);
+    // 可以根据 service 抛出的具体错误类型进一步细化响应
+    if (error.code === 'ER_DUP_ENTRY') { // 示例：处理唯一键冲突
+      res.status(409).json({ code: 409, message: '添加失败：班级名称已存在' }); 
+    } else if (error.message && error.message.includes('不能为空')) {
+        res.status(400).json({ code: 400, message: error.message });
+    } else {
+      res.status(500).json({
+        code: 500,
+        message: '添加班级时发生服务器内部错误: ' + error.message,
+        data: null
+      });
+    }
+  }
+});
+
+// **新增：更新班级信息 (需要认证)**
+app.put(`${apiPrefix}/class/:id`, authenticateToken, async (req, res) => {
+  try {
+    const classId = parseInt(req.params.id, 10);
+    const classData = req.body;
+
+    console.log(`[Server] 收到更新班级请求: ID=${classId}, 数据:`, classData);
+
+    if (isNaN(classId)) {
+      return res.status(400).json({ code: 400, message: '无效的班级ID' });
+    }
+
+    // 移除 ID，防止尝试更新主键
+    delete classData.id; 
+    // 如果需要，可以在这里添加更多的数据验证
+
+    // 调用 service 函数更新
+    const updatedClass = await classService.updateClass(classId, classData); // 确保 classService 有 updateClass 方法
+
+    if (updatedClass) {
+      res.json({ code: 200, message: '班级信息更新成功', data: updatedClass });
+    } else {
+      // 可能因为 ID 不存在而更新失败
+      res.status(404).json({ code: 404, message: '更新班级失败，未找到指定ID的班级' });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 更新班级失败 (ID: ${req.params.id}):`, error);
+    // 可以根据 service 抛出的具体错误类型进一步细化响应
+     if (error.message && (error.message.includes('格式无效') || error.message.includes('不能为空'))) { // 示例错误处理
+       res.status(400).json({ code: 400, message: error.message });
+     } else {
+       res.status(500).json({
+         code: 500,
+         message: '更新班级信息时发生服务器内部错误: ' + error.message,
+         data: null
+       });
+     }
+  }
+});
+
+// **新增：删除班级 (需要认证)**
+app.delete(`${apiPrefix}/class/:id`, authenticateToken, async (req, res) => {
+  try {
+    const classId = parseInt(req.params.id, 10);
+    console.log(`[Server] 收到删除班级请求: ID=${classId}`);
+
+    if (isNaN(classId)) {
+      return res.status(400).json({ code: 400, message: '无效的班级ID' });
+    }
+
+    // 调用 service 函数删除
+    const success = await classService.deleteClass(classId); // 确保 classService 有 deleteClass 方法
+
+    if (success) {
+      res.json({ code: 200, message: '班级删除成功' }); // 返回 200 OK 或 204 No Content
+    } else {
+      // 可能因为 ID 不存在或有关联数据（如学生）而删除失败
+      res.status(404).json({ code: 404, message: '删除班级失败，未找到指定ID的班级或有关联数据' }); 
+    }
+
+  } catch (error) {
+    console.error(`[Server] 删除班级失败 (ID: ${req.params.id}):`, error);
+    // 处理外键约束等特定数据库错误
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') { // 示例：处理外键约束错误
+       res.status(409).json({ code: 409, message: '删除失败：班级下存在学生，无法删除' }); 
+    } else {
+       res.status(500).json({
+         code: 500,
+         message: '删除班级时发生服务器内部错误: ' + error.message,
+         data: null
+       });
+    }
+  }
+});
+
 // 获取部门列表 (需要认证)
 app.get(`${apiPrefix}/dept/list`, authenticateToken, async (req, res) => {
   try {
@@ -362,6 +477,77 @@ app.get(`${apiPrefix}/dept/list`, authenticateToken, async (req, res) => {
   }
 });
 
+// **新增：添加部门 (需要认证)**
+app.post(`${apiPrefix}/dept/add`, authenticateToken, async (req, res) => {
+  try {
+    const deptData = req.body;
+    console.log('[Server] 收到添加部门请求:', deptData);
+
+    // 可以在这里添加更严格的验证
+    if (!deptData.dept_name || !deptData.manager) {
+      return res.status(400).json({ code: 400, message: '部门名称和主管不能为空' });
+    }
+
+    const newDept = await deptService.addDept(deptData); // 确保 deptService 有 addDept 方法
+
+    if (newDept) {
+      res.status(201).json({ code: 201, message: '部门添加成功', data: newDept });
+    } else {
+      res.status(500).json({ code: 500, message: '添加部门失败，请检查服务日志' });
+    }
+
+  } catch (error) {
+    console.error('[Server] 添加部门失败:', error);
+    if (error.message === '部门名称已存在') {
+      res.status(409).json({ code: 409, message: error.message }); // 409 Conflict
+    } else if (error.message === '部门名称和部门主管不能为空') {
+       res.status(400).json({ code: 400, message: error.message });
+    } else {
+      res.status(500).json({
+        code: 500,
+        message: '添加部门时发生服务器内部错误: ' + error.message,
+        data: null
+      });
+    }
+  }
+});
+
+// **新增：删除部门 (需要认证)**
+app.delete(`${apiPrefix}/dept/:id`, authenticateToken, async (req, res) => {
+  try {
+    const deptId = parseInt(req.params.id, 10);
+    console.log(`[Server] 收到删除部门请求: ID=${deptId}`);
+
+    if (isNaN(deptId)) {
+      return res.status(400).json({ code: 400, message: '无效的部门ID' });
+    }
+
+    // 调用 service 函数删除
+    // deptService.deleteDept 应该返回 { success: boolean, dept_name: string | null }
+    const result = await deptService.deleteDept(deptId); 
+
+    if (result.success) {
+      res.json({ code: 200, message: `部门 '${result.dept_name || deptId}' 删除成功` });
+    } else {
+      // 如果 service 返回 success: false，通常意味着未找到记录
+      res.status(404).json({ code: 404, message: `删除部门失败，未找到ID为 ${deptId} 的部门` });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 删除部门失败 (ID: ${req.params.id}):`, error);
+    // 特别处理外键约束错误
+    if (error.message === '无法删除：该部门下仍有员工') { 
+       res.status(409).json({ code: 409, message: error.message }); // 409 Conflict
+    } else {
+       res.status(500).json({
+         code: 500,
+         message: '删除部门时发生服务器内部错误: ' + error.message,
+         data: null
+       });
+    }
+  }
+});
+
 // 获取员工列表 (需要认证)
 app.get(`${apiPrefix}/employee/list`, authenticateToken, async (req, res) => {
   try {
@@ -371,6 +557,77 @@ app.get(`${apiPrefix}/employee/list`, authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('获取员工列表失败:', error);
     res.status(500).json({ code: 500, message: '获取员工列表失败' });
+  }
+});
+
+// **新增：添加员工 (需要认证)**
+app.post(`${apiPrefix}/employee/add`, authenticateToken, async (req, res) => {
+  try {
+    const employeeData = req.body;
+    console.log('[Server] 收到添加员工请求:', employeeData);
+
+    // 可以在这里添加更严格的验证，例如检查必填字段
+    if (!employeeData.empId || !employeeData.name || !employeeData.gender || !employeeData.age || !employeeData.position || !employeeData.deptName || !employeeData.salary || !employeeData.status || !employeeData.joinDate) {
+      return res.status(400).json({ code: 400, message: '缺少必要的员工信息' });
+    }
+    
+    // 调用 service 函数添加
+    const newEmployee = await employeeService.addEmployee(employeeData); // 确保 employeeService 有 addEmployee 方法
+
+    if (newEmployee) {
+      res.status(201).json({ code: 201, message: '员工添加成功', data: newEmployee });
+    } else {
+      res.status(500).json({ code: 500, message: '添加员工失败，请检查服务日志' });
+    }
+
+  } catch (error) {
+    console.error('[Server] 添加员工失败:', error);
+    // 处理特定错误，如工号格式无效、部门不存在、唯一键冲突等
+    if (error.message === '工号格式无效') {
+      res.status(400).json({ code: 400, message: error.message });
+    } else if (error.message && error.message.includes('部门") && error.message.includes("不存在')) {
+      res.status(400).json({ code: 400, message: error.message });
+    } else if (error.code === 'ER_DUP_ENTRY') {
+        res.status(409).json({ code: 409, message: '添加失败：员工工号已存在' });
+    } else {
+      res.status(500).json({
+        code: 500,
+        message: '添加员工时发生服务器内部错误: ' + error.message,
+        data: null
+      });
+    }
+  }
+});
+
+// **新增：删除员工 (需要认证)**
+app.delete(`${apiPrefix}/employee/:id`, authenticateToken, async (req, res) => {
+  try {
+    const employeeId = parseInt(req.params.id, 10);
+    console.log(`[Server] 收到删除员工请求: ID=${employeeId}`);
+
+    if (isNaN(employeeId)) {
+      return res.status(400).json({ code: 400, message: '无效的员工ID' });
+    }
+
+    // 调用 service 函数删除
+    // employeeService.deleteEmployee 应该返回 { success: boolean, emp_id: string | null }
+    const result = await employeeService.deleteEmployee(employeeId); 
+
+    if (result.success) {
+      res.json({ code: 200, message: `员工 (工号: ${result.emp_id || employeeId}) 删除成功` });
+    } else {
+      // 如果 service 返回 success: false，通常意味着未找到记录
+      res.status(404).json({ code: 404, message: `删除员工失败，未找到ID为 ${employeeId} 的员工` });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 删除员工失败 (ID: ${req.params.id}):`, error);
+    // 这里可以添加更具体的错误处理，例如外键约束等
+    res.status(500).json({
+      code: 500,
+      message: '删除员工时发生服务器内部错误: ' + error.message,
+      data: null
+    });
   }
 });
 
@@ -592,6 +849,50 @@ app.post(`${apiPrefix}/score/save`, authenticateToken, async (req, res) => {
       message: '保存成绩时发生服务器内部错误: ' + error.message,
       data: null
     });
+  }
+});
+
+// 新增：更新考试信息 (需要认证)
+app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
+  try {
+    const examId = parseInt(req.params.id, 10);
+    const examData = req.body;
+
+    console.log(`[Server] 收到更新考试请求: ID=${examId}, 数据:`, examData);
+
+    if (isNaN(examId)) {
+      return res.status(400).json({ code: 400, message: '无效的考试ID' });
+    }
+
+    // 移除 ID，防止尝试更新主键
+    delete examData.id; 
+    // 确保 subjects 是字符串
+    if (Array.isArray(examData.subjects)) {
+       examData.subjects = examData.subjects.join(',');
+    }
+    
+    // 调用 service 函数更新
+    const updatedExam = await examService.updateExam(examId, examData);
+
+    if (updatedExam) {
+      res.json({ code: 200, message: '考试信息更新成功', data: updatedExam });
+    } else {
+      // 可能因为 ID 不存在而更新失败
+      res.status(404).json({ code: 404, message: '更新考试失败，未找到指定ID的考试' });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 更新考试失败 (ID: ${req.params.id}):`, error);
+    // 可以根据 service 抛出的具体错误类型进一步细化响应
+     if (error.message && error.message.includes('格式无效')) {
+       res.status(400).json({ code: 400, message: error.message });
+     } else {
+       res.status(500).json({
+         code: 500,
+         message: '更新考试信息时发生服务器内部错误: ' + error.message,
+         data: null
+       });
+     }
   }
 });
 

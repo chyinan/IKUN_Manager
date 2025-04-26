@@ -145,8 +145,8 @@ async function addEmployee(employeeData) {
   }
   const employeeIdRegex = new RegExp(regexPattern || '^E\\d{5}$'); // Use loaded or fallback
 
-  if (!employeeIdRegex.test(employeeData.emp_id)) {
-    console.log(`工号 ${employeeData.emp_id} 格式无效 (规则: ${regexPattern})`);
+  if (!employeeIdRegex.test(employeeData.empId)) {
+    console.log(`工号 ${employeeData.empId} 格式无效 (规则: ${regexPattern})`);
     throw new Error('工号格式无效');
   }
 

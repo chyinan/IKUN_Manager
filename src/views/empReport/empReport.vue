@@ -182,14 +182,11 @@ const salaryOption = computed(() => {
              emp.deptName === dept.deptName
     })
     
-    // 没有员工返回随机薪资，避免显示0
+    // If no employees, return 0 salary
     if (deptEmployees.length === 0) {
-      // 生成合理的随机薪资范围(6000-12000)
-      const randomSalary = Math.floor(Math.random() * 6000) + 6000;
       return {
         name: dept.deptName,
-        value: randomSalary,
-        // 使用与饼图相同的颜色
+        value: 0, // Return 0 if no employees
         itemStyle: {
           color: pieColors.value[index % pieColors.value.length]
         }
@@ -318,7 +315,8 @@ const deptDistOption = computed(() => {
   // 确保部门数据存在且被正确映射
   const pieData = deptData.value.map((dept, index) => ({
     name: dept.deptName || `部门${index + 1}`, // 改为使用编号而非"未命名部门"
-    value: dept.memberCount || Math.floor(Math.random() * 30 + 10), // 确保值不为0
+    // Use the actual memberCount from backend, defaulting to 0 if undefined/null
+    value: dept.memberCount ?? 0, // Use nullish coalescing operator ??
     itemStyle: {
       color: pieColors.value[index % pieColors.value.length] // Use computed colors
     }

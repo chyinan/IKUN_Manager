@@ -386,12 +386,19 @@ const handleSubmit = async () => {
           res = await updateClass(formData.id!, backendData as any); // Use 'as any' similarly
         }
 
-        if (res && res.code === 200) {
-          ElMessage.success(dialogType.value === 'add' ? '添加成功' : '修改成功');
+        // 检查后端返回的 code
+        // 后端添加成功返回 201, 更新成功返回 200
+        const successAdd = dialogType.value === 'add' && res?.code === 201;
+        const successUpdate = dialogType.value === 'edit' && res?.code === 200;
+
+        if (successAdd || successUpdate) {
+          // 确保使用 ElMessage.success
+          ElMessage.success(dialogType.value === 'add' ? '添加成功' : '修改成功'); 
           dialogVisible.value = false;
           await fetchData(); // Refresh data
         } else {
-          ElMessage.error(res?.message || '操作失败');
+          // 如果 code 不是预期的成功代码，也显示错误
+          ElMessage.error(res?.message || '操作失败，返回码：' + res?.code);
         }
       } catch (error: any) {
         console.error('操作失败:', error);

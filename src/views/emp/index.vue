@@ -122,10 +122,16 @@
       <el-form
         ref="formRef"
         :model="formData"
-        :rules="rules"
+        :rules="dynamicRules"
         label-width="100px">
         <el-form-item label="工号" prop="empId">
           <el-input v-model="formData.empId" :disabled="dialogType === 'edit'" />
+          <div v-if="employeeIdRegexPattern" class="regex-tip">
+            当前工号格式要求: <code>{{ employeeIdRegexPattern }}</code> (管理员可在系统设置中修改)
+          </div>
+          <div v-else class="regex-tip">
+            正在加载工号验证规则...
+          </div>
         </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="formData.name" />
@@ -203,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, nextTick } from 'vue'
+import { ref, computed, reactive, onMounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox, ElTable, ElForm } from 'element-plus'
 import { useDark } from '@vueuse/core'
 import {
@@ -226,9 +232,32 @@ import type { DeptResponseData, ApiDeptResponse } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
 import dayjs from 'dayjs'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
+import { getRegexConfig } from '@/api/config'
 
 // Dark mode state for conditional class binding
 const isDark = useDark()
+
+// --- Regex Config ---
+const employeeIdRegexPattern = ref('')
+
+// Fetch regex config on mount
+const fetchRegexConfig = async () => {
+  try {
+    const res = await getRegexConfig();
+    if (res.code === 200 && res.data) {
+      employeeIdRegexPattern.value = res.data.employeeIdRegex || '^E\\\\d{5}$';
+      console.log('Fetched employeeIdRegex:', employeeIdRegexPattern.value);
+    } else {
+      console.warn('Failed to fetch employeeIdRegex, using default:', res.message);
+      employeeIdRegexPattern.value = '^E\\\\d{5}$';
+    }
+  } catch (error) {
+    console.error('Error fetching regex config:', error);
+    employeeIdRegexPattern.value = '^E\\\\d{5}$';
+  }
+}
+
+// --- End Regex Config ---
 
 // 初始化部门数据
 const initDeptOptions = () => {
@@ -271,11 +300,32 @@ const formData = reactive<EmployeeFormData>({
   joinDate: ''
 })
 
-// 表单验证规则
-const rules = reactive<FormRules>({
+// --- Dynamic Form Validation Rules ---
+const validateEmpId = (rule: any, value: any, callback: any) => {
+  if (!value) {
+    return callback(new Error('请输入工号'));
+  }
+  if (!employeeIdRegexPattern.value) {
+     console.warn('Employee ID validation skipped: Regex pattern not loaded yet.');
+     return callback();
+  }
+  try {
+    const regex = new RegExp(employeeIdRegexPattern.value);
+    if (!regex.test(value)) {
+      return callback(new Error(`工号格式不符合规则: ${employeeIdRegexPattern.value}`));
+    }
+    return callback();
+  } catch (e) {
+      console.error("Invalid regex pattern:", employeeIdRegexPattern.value, e);
+      return callback(new Error('工号验证规则配置错误，请联系管理员'));
+  }
+};
+
+// Use computed for dynamic rules to react to regex pattern changes
+const dynamicRules = computed<FormRules>(() => ({
   empId: [
     { required: true, message: '请输入工号', trigger: 'blur' },
-    { pattern: /^\d{6}$/, message: '工号必须为6位数字', trigger: 'blur' }
+    { validator: validateEmpId, trigger: 'blur' }
   ],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' }
@@ -290,7 +340,8 @@ const rules = reactive<FormRules>({
     { required: true, message: '请输入薪资', trigger: 'blur' },
     { type: 'number', min: 0, message: '薪资不能小于0', trigger: 'blur' }
   ]
-})
+}))
+// --- End Dynamic Form Validation Rules ---
 
 // 格式化薪资
 const formatSalary = (salary: number) => {
@@ -469,7 +520,8 @@ const handleSubmit = async () => {
           console.log('更新员工响应:', response)
         }
         
-        if (response.code === 200) {
+        // Check both 200 (Update OK) and 201 (Add Created) for success
+        if (response.code === 200 || response.code === 201) { 
           dialogVisible.value = false
           await fetchData()
           ElMessage.success('操作成功')
@@ -893,6 +945,9 @@ onMounted(async () => {
   setTimeout(() => {
     checkDataFormat();
   }, 500);
+
+  // Fetch regex config first
+  await fetchRegexConfig(); 
 })
 
 // 默认证件照 URL
@@ -1118,5 +1173,29 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
 
 /* Remove old :deep rules */
 /* :deep(.app-wrapper.dark) ... rules are removed */
+
+/* Add style for the regex tip */
+.regex-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.dark-component-bg .regex-tip {
+  color: #737373; /* Adjust color for dark mode */
+}
+
+/* Style for the code tag inside the tip */
+.regex-tip code {
+  background-color: rgba(100, 100, 100, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+}
+
+.dark-component-bg .regex-tip code {
+   background-color: rgba(200, 200, 200, 0.2);
+}
 
 </style>

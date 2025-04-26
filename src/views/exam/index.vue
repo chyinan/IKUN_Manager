@@ -178,7 +178,7 @@
         <el-table-column type="index" width="60" align="center" label="#" />
         
         <!-- 考试名称列 -->
-        <el-table-column label="考试名称" min-width="180" show-overflow-tooltip>
+        <el-table-column label="考试名称" min-width="180">
           <template #default="{row}">
             <div class="exam-name">
               <el-tag :type="getExamTypeTag(row.examType)" effect="plain" size="small">
@@ -313,11 +313,11 @@
           />
         </el-form-item>
         
-        <el-form-item label="状态" prop="status">
+        <el-form-item label="考试状态">
           <el-radio-group v-model="examForm.status">
-            <el-radio :label="0">未开始</el-radio>
-            <el-radio :label="1">进行中</el-radio>
-            <el-radio :label="2">已结束</el-radio>
+            <el-radio :value="0">未开始</el-radio>
+            <el-radio :value="1">进行中</el-radio>
+            <el-radio :value="2">已结束</el-radio>
           </el-radio-group>
         </el-form-item>
         

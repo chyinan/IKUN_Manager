@@ -123,9 +123,11 @@ export function importEmployees(file: File): Promise<ApiResponse<any>> {
       'Content-Type': 'multipart/form-data'
     }
   })
-    .then(response => response.data)
     .catch(error => {
         console.error('importEmployees API catch block:', error);
+        if (error.response && error.response.data) {
+          throw error.response.data; 
+        }
         throw error; 
     });
 }

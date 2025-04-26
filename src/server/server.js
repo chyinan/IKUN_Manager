@@ -631,6 +631,240 @@ app.delete(`${apiPrefix}/employee/:id`, authenticateToken, async (req, res) => {
   }
 });
 
+// **新增：导出员工数据 (需要认证)**
+app.get(`${apiPrefix}/employee/export`, authenticateToken, async (req, res) => {
+  try {
+    console.log('[Server] 收到导出员工数据请求, 查询参数:', req.query);
+    
+    // 1. 获取要导出的数据 (使用与列表相同的查询参数)
+    const employeesToExport = await employeeService.getEmployeesForExport(req.query); 
+
+    if (!employeesToExport || employeesToExport.length === 0) {
+      return res.status(404).json({ code: 404, message: '没有符合条件的员工数据可导出' });
+    }
+
+    console.log(`[Server] 准备导出 ${employeesToExport.length} 条员工数据`);
+
+    // 2. 准备 Excel 工作簿和工作表
+    const worksheetData = employeesToExport.map(emp => ({
+      '工号': emp.emp_id,
+      '姓名': emp.name,
+      '性别': emp.gender,
+      '年龄': emp.age,
+      '职位': emp.position,
+      '部门': emp.dept_name, 
+      '薪资': emp.salary,
+      '状态': emp.status,
+      '联系电话': emp.phone,
+      '邮箱': emp.email,
+      '入职时间': emp.join_date // 确保 join_date 已经是 'YYYY-MM-DD' 格式
+    }));
+
+    const worksheet = xlsx.utils.json_to_sheet(worksheetData);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, '员工数据');
+
+    // 3. 生成 Excel 文件 buffer
+    const excelBuffer = xlsx.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+    // 4. 设置响应头并发送文件
+    const timestamp = dayjs().format('YYYYMMDDHHmmss');
+    const filename = `员工数据_${timestamp}.xlsx`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(excelBuffer);
+    console.log(`[Server] 成功发送导出的员工数据文件: ${filename}`);
+
+  } catch (error) {
+    console.error('[Server] 导出员工数据失败:', error);
+    // 避免在发送文件后尝试发送 JSON 错误
+    if (!res.headersSent) {
+        res.status(500).json({
+            code: 500,
+            message: '导出员工数据时发生服务器内部错误: ' + error.message,
+            data: null
+        });
+    }
+  }
+});
+
+// **新增：导入员工数据 (需要认证)**
+app.post(`${apiPrefix}/employee/import`, authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[Server] Received request for /api/employee/import');
+  if (!req.file) {
+    console.log('[Server] No file uploaded for employee import.');
+    return res.status(400).json({ code: 400, message: '未上传文件' });
+  }
+
+  console.log(`[Server] Processing uploaded file: ${req.file.originalname}, size: ${req.file.size}, type: ${req.file.mimetype}`);
+
+  try {
+    let employees = [];
+    const buffer = req.file.buffer;
+
+    // --- Load Config for Validation --- 
+    const dbConfig = await db.getAllConfig(); // Fetch config here
+    console.log('[Server Import] Loaded config for validation:', dbConfig);
+
+    // --- Parse file based on type --- 
+    if (req.file.mimetype === 'text/csv') {
+      console.log('[Server] Parsing CSV file...');
+      const csvString = buffer.toString('utf8');
+      const parseResult = papaparse.parse(csvString, {
+        header: true, // Assume first row is header
+        skipEmptyLines: true,
+        dynamicTyping: true, // Automatically convert types where possible
+      });
+      
+      if (parseResult.errors.length > 0) {
+        console.error('[Server] CSV parsing errors:', parseResult.errors);
+        // Return a more specific error about CSV parsing
+        return res.status(400).json({ code: 400, message: 'CSV文件解析失败，请检查格式', data: { errors: parseResult.errors } });
+      }
+      employees = parseResult.data;
+      console.log(`[Server] Parsed ${employees.length} rows from CSV.`);
+
+    } else if (req.file.mimetype.startsWith('application/vnd.openxmlformats-officedocument') || req.file.mimetype === 'application/vnd.ms-excel') {
+        console.log('[Server] Parsing Excel file...');
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0]; // Assume data is in the first sheet
+        const worksheet = workbook.Sheets[sheetName];
+        employees = xlsx.utils.sheet_to_json(worksheet, {
+            // header: 1, // If you want arrays instead of objects
+            // defval: '', // Default value for empty cells
+            raw: false, // Important: format dates, numbers etc.
+             dateNF: 'yyyy-mm-dd' // Attempt to format dates, might need post-processing
+        });
+        console.log(`[Server] Parsed ${employees.length} rows from Excel sheet '${sheetName}'.`);
+    } else {
+        console.log(`[Server] Unsupported file type: ${req.file.mimetype}`);
+        return res.status(400).json({ code: 400, message: '不支持的文件类型' });
+    }
+
+    // --- Data Validation and Transformation --- 
+    const processedEmployees = [];
+    const validationErrors = [];
+    const requiredFields = ['工号', '姓名', '性别', '年龄', '职位', '部门', '薪资', '状态', '入职时间']; // Based on export structure
+    
+    // Load the regex pattern for validation FROM DB CONFIG
+    const regexPattern = dbConfig.employeeIdRegex || '^EMP\\d{3}$'; // Use dbConfig
+    console.log(`[Server Import] Using regex pattern for validation: ${regexPattern}`);
+    const employeeIdRegex = new RegExp(regexPattern);
+
+    for (let i = 0; i < employees.length; i++) {
+        const row = employees[i];
+        const rowNum = i + 2; // Assuming header row is 1, data starts from row 2
+        const rowErrors = [];
+
+        // 1. Check for required fields
+        for (const field of requiredFields) {
+            if (row[field] === undefined || row[field] === null || String(row[field]).trim() === '') {
+                rowErrors.push(`缺少必需字段 '${field}'`);
+            }
+        }
+        
+        // 2. Validate specific fields (example: empId format)
+        const empId = String(row['工号'] || '').trim(); // Normalize empId access
+        if (empId && !employeeIdRegex.test(empId)) {
+            rowErrors.push(`工号 '${empId}' 格式不符合规则 (${regexPattern})`);
+        }
+
+        // 3. Validate data types (example: age, salary are numbers)
+        if (row['年龄'] !== undefined && isNaN(parseInt(row['年龄'], 10))) {
+           rowErrors.push(`年龄 '${row['年龄']}' 必须是数字`);
+        }
+        if (row['薪资'] !== undefined && isNaN(parseFloat(row['薪资']))) {
+            rowErrors.push(`薪资 '${row['薪资']}' 必须是数字`);
+        }
+        
+        // 4. Validate date format (simple check, more robust needed for different formats)
+        const joinDate = row['入职时间'];
+        if (joinDate && !dayjs(joinDate, ['YYYY-MM-DD', 'YYYY/MM/DD'], true).isValid()) { // Check specific formats
+            // Try parsing if it might be an Excel date number
+            if (typeof joinDate === 'number' && joinDate > 1) { 
+                try {
+                    // Attempt to parse Excel date serial number
+                    const parsedDate = xlsx.SSF.parse_date_code(joinDate);
+                    row['入职时间'] = dayjs(new Date(parsedDate.y, parsedDate.m - 1, parsedDate.d)).format('YYYY-MM-DD');
+                } catch (dateParseError) {
+                    rowErrors.push(`入职时间 '${joinDate}' 格式无效 (预期 YYYY-MM-DD 或 YYYY/MM/DD)`);
+                }
+            } else {
+                 rowErrors.push(`入职时间 '${joinDate}' 格式无效 (预期 YYYY-MM-DD 或 YYYY/MM/DD)`);
+            }
+        }
+
+        if (rowErrors.length > 0) {
+            validationErrors.push({ row: rowNum, errors: rowErrors, rowData: row });
+        } else {
+            // Transform keys to match service expectation (camelCase/snake_case as needed)
+             processedEmployees.push({
+                emp_id: empId, // Use validated empId
+                name: String(row['姓名']).trim(),
+                gender: String(row['性别']).trim(),
+                age: parseInt(row['年龄'], 10),
+                position: String(row['职位']).trim(),
+                deptName: String(row['部门']).trim(), // Pass deptName to service
+                salary: parseFloat(row['薪资']),
+                status: String(row['状态']).trim(),
+                phone: row['联系电话'] ? String(row['联系电话']).trim() : null,
+                email: row['邮箱'] ? String(row['邮箱']).trim() : null,
+                join_date: dayjs(row['入职时间']).format('YYYY-MM-DD') // Ensure format
+            });
+        }
+    }
+
+    console.log(`[Server] Validation complete. Valid rows: ${processedEmployees.length}, Invalid rows: ${validationErrors.length}`);
+
+    if (processedEmployees.length === 0 && validationErrors.length > 0) {
+        // Only validation errors, no data to process
+        return res.status(400).json({ 
+            code: 400, 
+            message: '导入失败：文件内容校验未通过', 
+            data: { errors: validationErrors }
+        });
+    }
+
+    // --- Call Service to Batch Add --- 
+    const result = await employeeService.batchAddEmployees(processedEmployees);
+
+    // --- Construct Response --- 
+    const finalErrors = [...validationErrors, ...(result.errors || [])]; // Combine validation and DB errors
+    
+    if (result.success && finalErrors.length === 0) {
+      // All successful
+      res.json({ 
+        code: 200, 
+        message: `导入成功！共处理 ${result.addedCount} 条记录。`, 
+        data: { addedCount: result.addedCount, errors: [] } 
+      });
+    } else if (result.success && finalErrors.length > 0) {
+        // Partial success
+        res.status(207).json({ // 207 Multi-Status might be suitable
+            code: 207,
+            message: `导入完成（部分成功）。成功处理 ${result.addedCount} 条，失败 ${finalErrors.length} 条。`,
+            data: { addedCount: result.addedCount, errors: finalErrors }
+        });
+    } else {
+        // Complete failure (e.g., DB connection issue during batch insert)
+         res.status(500).json({ 
+            code: 500, 
+            message: '导入失败：服务器在处理数据时发生错误', 
+            data: { addedCount: 0, errors: finalErrors } 
+        });
+    }
+
+  } catch (error) {
+    console.error('[Server] Employee import failed:', error);
+    res.status(500).json({ 
+      code: 500, 
+      message: '处理导入文件时发生服务器内部错误: ' + error.message, 
+      data: null 
+    });
+  }
+});
+
 // 获取学生列表 (需要认证)
 app.get(`${apiPrefix}/student/list`, authenticateToken, async (req, res) => {
   try {

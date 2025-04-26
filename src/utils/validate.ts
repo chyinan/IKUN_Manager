@@ -1,3 +1,9 @@
+import { ElMessage } from 'element-plus'
+import dayjs from 'dayjs'
+import isBetween from 'dayjs/plugin/isBetween' // 引入 isBetween 插件
+dayjs.extend(isBetween) // 使用插件
+import { useConfigStore } from '@/stores/config'; // Ensure this import is present
+
 /**
  * 判断是否是外部链接
  * @param {string} path

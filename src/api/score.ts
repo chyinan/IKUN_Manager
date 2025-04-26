@@ -244,17 +244,18 @@ export async function getExamTypes() {
 /**
  * 获取考试列表 (根据类型，用于成绩录入)
  * @param {string} examType 考试类型
- * @returns {Promise<{id: number, exam_name: string, exam_date: string, status: number}[]>} 考试列表
+ * @returns {Promise<any[]>} 考试列表 - 只返回列表本身
  */
-export async function getExams(examType: string): Promise<ApiResponse<any[]>> {
+export async function getExams(examType: string): Promise<any[]> {
   try {
     const response = await request.get<ApiResponse<{ list: any[], total: number }>>(`/exam/list`, {
       params: { examType }
     });
+    console.log('[API score.ts] getExams response:', response);
     return response.data?.list || [];
   } catch (error) {
     console.error('获取考试列表失败:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -296,6 +297,50 @@ export async function saveStudentScoreDirectly(scoreData: any) {
     return false;
   }
 }
+
+export const getScoreReportByClass = (params: { examId: number; classId: number }): Promise<ApiResponse<any[]>> => {
+  return request.get<ApiResponse<any[]>>('/score/report/class', { params })
+    .then(response => {
+        console.log('[API score.ts] getScoreReportByClass response:', response);
+        // Return the entire response object as declared
+        return response; 
+    })
+    .catch(error => {
+        console.error('[API score.ts] Error fetching class score report:', error);
+        // Re-throw the error for the caller to handle
+        throw error; 
+    });
+};
+
+// 获取学生成绩报告 (单个学生的所有考试)
+export const getScoreReportByStudent = (studentId: number): Promise<ApiResponse<any[]>> => {
+  return request.get<ApiResponse<any[]>>(`/score/report/student/${studentId}`)
+    .then(response => {
+      console.log('[API score.ts] getScoreReportByStudent response:', response);
+      // Return the entire response object as declared
+      return response;
+    })
+    .catch(error => {
+      console.error(`[API score.ts] Error fetching score report for student ID ${studentId}:`, error);
+       // Re-throw the error for the caller to handle
+      throw error;
+    });
+};
+
+// 获取特定考试下某个班级所有学生的成绩列表
+export const getScoresByExamAndClass = (examId: number, classId: number): Promise<ApiResponse<any[]>> => {
+  return request.get<ApiResponse<any[]>>('/score/report/class', { params: { examId, classId } })
+    .then(response => {
+        console.log('[API score.ts] getScoresByExamAndClass response:', response);
+        // Return the entire response object as declared
+        return response; 
+    })
+    .catch(error => {
+        console.error('[API score.ts] Error fetching scores by exam and class:', error);
+        // Re-throw the error for the caller to handle
+        throw error; 
+    });
+};
 
 export default {
   testConnection,

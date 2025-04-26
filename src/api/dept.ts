@@ -53,7 +53,6 @@ export const importDepartments = (file: File): Promise<ApiResponse<any>> => {
       'Content-Type': 'multipart/form-data'
     }
   })
-  .then(response => response.data) // 直接返回后端响应体中的 data 部分
   .catch(error => {
     console.error('importDepartments API catch block:', error);
     // 尝试从 Axios 错误中提取后端返回的 data (可能包含错误详情)

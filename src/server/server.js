@@ -465,6 +465,109 @@ app.delete(`${apiPrefix}/class/:id`, authenticateToken, async (req, res) => {
   }
 });
 
+// **新增：导入班级数据 (需要认证)**
+app.post(`${apiPrefix}/class/import`, authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[Server] Received request for /api/class/import');
+  if (!req.file) {
+    console.log('[Server] No file uploaded for class import.');
+    return res.status(400).json({ code: 400, message: '未上传文件' });
+  }
+
+  console.log(`[Server] Processing uploaded file: ${req.file.originalname}, size: ${req.file.size}, type: ${req.file.mimetype}`);
+
+  try {
+    let classes = [];
+    const buffer = req.file.buffer;
+
+    // --- Parse file --- 
+    if (req.file.mimetype === 'text/csv') {
+      console.log('[Server Class Import] Parsing CSV...');
+      const csvString = buffer.toString('utf8');
+      const parseResult = papaparse.parse(csvString, { header: true, skipEmptyLines: true });
+      if (parseResult.errors.length > 0) {
+        console.error('[Server Class Import] CSV parsing errors:', parseResult.errors);
+        return res.status(400).json({ code: 400, message: 'CSV文件解析失败', data: { errors: parseResult.errors } });
+      }
+      classes = parseResult.data;
+    } else if (req.file.mimetype.startsWith('application/vnd.openxmlformats-officedocument') || req.file.mimetype === 'application/vnd.ms-excel') {
+        console.log('[Server Class Import] Parsing Excel...');
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        classes = xlsx.utils.sheet_to_json(worksheet, { raw: true }); // Keep raw values for validation
+    } else {
+        return res.status(400).json({ code: 400, message: '不支持的文件类型' });
+    }
+    console.log(`[Server Class Import] Parsed ${classes.length} rows.`);
+
+    // --- Validate and Transform --- 
+    const processedClasses = [];
+    const validationErrors = [];
+    const requiredFields = ['班级名称', '班主任']; // Headers expected in the file
+
+    for (let i = 0; i < classes.length; i++) {
+        const row = classes[i];
+        const rowNum = i + 2; // Assuming header is row 1
+        const rowErrors = [];
+        
+        for (const field of requiredFields) {
+            if (row[field] === undefined || row[field] === null || String(row[field]).trim() === '') {
+                rowErrors.push(`缺少必需字段 '${field}'`);
+            }
+        }
+
+        if (rowErrors.length > 0) {
+            validationErrors.push({ row: rowNum, errors: rowErrors, rowData: row });
+        } else {
+            // Transform keys to match service expectation (snake_case)
+            processedClasses.push({
+                class_name: String(row['班级名称']).trim(),
+                teacher: String(row['班主任']).trim(),
+                description: row['班级描述'] ? String(row['班级描述']).trim() : null
+            });
+        }
+    }
+    console.log(`[Server Class Import] Validation complete. Valid: ${processedClasses.length}, Invalid: ${validationErrors.length}`);
+
+    if (processedClasses.length === 0 && validationErrors.length > 0) {
+        return res.status(400).json({ code: 400, message: '导入失败：文件内容校验未通过', data: { errors: validationErrors } });
+    }
+
+    // --- Call Service --- 
+    const result = await classService.batchAddClasses(processedClasses);
+
+    // --- Construct Response --- 
+    const finalErrors = [...validationErrors, ...(result.errors || [])]; // Combine validation and DB errors
+    
+    if (result.success && finalErrors.length === 0) {
+      // All successful
+      res.json({ 
+        code: 200, 
+        message: `导入成功！共处理 ${result.processedCount} 条记录。`, 
+        data: { processedCount: result.processedCount, errors: [] } 
+      });
+    } else if (result.success && finalErrors.length > 0) {
+        // Partial success
+        res.status(207).json({ // 207 Multi-Status
+            code: 207,
+            message: `导入完成（部分成功）。处理 ${result.processedCount} 条，失败 ${finalErrors.length} 条。`,
+            data: { processedCount: result.processedCount, errors: finalErrors }
+        });
+    } else {
+        // Complete failure
+         res.status(500).json({ 
+            code: 500, 
+            message: '导入失败：服务器处理数据时发生错误', 
+            data: { processedCount: 0, errors: finalErrors } 
+        });
+    }
+
+  } catch (error) {
+    console.error('[Server Class Import] Import failed:', error);
+    res.status(500).json({ code: 500, message: '处理导入文件时发生服务器内部错误: ' + error.message, data: null });
+  }
+});
+
 // 获取部门列表 (需要认证)
 app.get(`${apiPrefix}/dept/list`, authenticateToken, async (req, res) => {
   try {
@@ -545,6 +648,93 @@ app.delete(`${apiPrefix}/dept/:id`, authenticateToken, async (req, res) => {
          data: null
        });
     }
+  }
+});
+
+// **新增：导入部门数据 (需要认证)**
+app.post(`${apiPrefix}/dept/import`, authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[Server] Received request for /api/dept/import');
+  if (!req.file) {
+    console.log('[Server] No file uploaded for department import.');
+    return res.status(400).json({ code: 400, message: '未上传文件' });
+  }
+
+  console.log(`[Server] Processing uploaded file: ${req.file.originalname}, size: ${req.file.size}, type: ${req.file.mimetype}`);
+
+  try {
+    let departments = [];
+    const buffer = req.file.buffer;
+
+    // --- Parse file --- 
+    if (req.file.mimetype === 'text/csv') {
+      console.log('[Server Dept Import] Parsing CSV...');
+      const csvString = buffer.toString('utf8');
+      const parseResult = papaparse.parse(csvString, { header: true, skipEmptyLines: true });
+      if (parseResult.errors.length > 0) {
+        console.error('[Server Dept Import] CSV parsing errors:', parseResult.errors);
+        return res.status(400).json({ code: 400, message: 'CSV文件解析失败', data: { errors: parseResult.errors } });
+      }
+      departments = parseResult.data;
+    } else if (req.file.mimetype.startsWith('application/vnd.openxmlformats-officedocument') || req.file.mimetype === 'application/vnd.ms-excel') {
+        console.log('[Server Dept Import] Parsing Excel...');
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        departments = xlsx.utils.sheet_to_json(worksheet, { raw: true }); // Keep raw values for validation
+    } else {
+        return res.status(400).json({ code: 400, message: '不支持的文件类型' });
+    }
+    console.log(`[Server Dept Import] Parsed ${departments.length} rows.`);
+
+    // --- Validate and Transform --- 
+    const processedDepts = [];
+    const validationErrors = [];
+    const requiredFields = ['部门名称', '部门主管']; // Headers expected in the file
+
+    for (let i = 0; i < departments.length; i++) {
+        const row = departments[i];
+        const rowNum = i + 2;
+        const rowErrors = [];
+        
+        for (const field of requiredFields) {
+            if (row[field] === undefined || row[field] === null || String(row[field]).trim() === '') {
+                rowErrors.push(`缺少必需字段 '${field}'`);
+            }
+        }
+
+        if (rowErrors.length > 0) {
+            validationErrors.push({ row: rowNum, errors: rowErrors, rowData: row });
+        } else {
+            processedDepts.push({
+                dept_name: String(row['部门名称']).trim(),
+                manager: String(row['部门主管']).trim(),
+                description: row['部门描述'] ? String(row['部门描述']).trim() : null
+            });
+        }
+    }
+    console.log(`[Server Dept Import] Validation complete. Valid: ${processedDepts.length}, Invalid: ${validationErrors.length}`);
+
+    if (processedDepts.length === 0 && validationErrors.length > 0) {
+        return res.status(400).json({ code: 400, message: '导入失败：文件内容校验未通过', data: { errors: validationErrors } });
+    }
+
+    // --- Call Service --- 
+    const result = await deptService.batchAddDepts(processedDepts);
+
+    // --- Construct Response --- 
+    const finalErrors = [...validationErrors, ...(result.errors || [])];
+    
+    if (result.success && finalErrors.length === 0) {
+      res.json({ code: 200, message: `导入成功！共处理 ${result.processedCount} 条记录。`, data: { processedCount: result.processedCount, errors: [] } });
+    } else if (result.success && finalErrors.length > 0) {
+        res.status(207).json({ code: 207, message: `导入完成（部分成功）。处理 ${result.processedCount} 条，失败 ${finalErrors.length} 条。`, data: { processedCount: result.processedCount, errors: finalErrors } });
+    } else {
+         res.status(500).json({ code: 500, message: '导入失败：服务器处理数据时发生错误', data: { processedCount: 0, errors: finalErrors } });
+    }
+
+  } catch (error) {
+    console.error('[Server Dept Import] Import failed:', error);
+    res.status(500).json({ code: 500, message: '处理导入文件时发生服务器内部错误: ' + error.message, data: null });
   }
 });
 

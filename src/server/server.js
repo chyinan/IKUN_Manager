@@ -232,8 +232,8 @@ app.get(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
       return res.status(404).json({ code: 404, message: '用户不存在' });
     }
     // 返回用户信息（不包括密码）
-    res.json({ 
-      code: 200, 
+    res.json({
+      code: 200,
       data: {
         id: userInfo.id,
         username: userInfo.username,
@@ -269,11 +269,11 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, avatarUpload.single('ava
       // 返回新的头像路径 (相对于服务器根目录的 /uploads/)
       const newAvatarUrl = `/uploads/${avatarFilename}`; 
       console.log(`[Avatar Upload] Success. New URL: ${newAvatarUrl}`);
-      res.json({ 
-        code: 200, 
+    res.json({
+      code: 200,
         message: '头像上传成功', 
         data: { avatarUrl: newAvatarUrl } 
-      });
+    });
     } else {
       // 如果 service 返回 false (例如用户不存在)
       res.status(404).json({ code: 404, message: '更新头像失败，未找到用户' });
@@ -286,8 +286,8 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, avatarUpload.single('ava
     if (error.message && error.message.includes('仅支持上传图片文件')) {
          res.status(400).json({ code: 400, message: error.message });
     } else {
-        res.status(500).json({ 
-          code: 500, 
+    res.status(500).json({
+      code: 500,
           message: '头像上传失败: ' + error.message 
         });
     }
@@ -326,13 +326,24 @@ app.put(`${apiPrefix}/config/regex`, authenticateToken, isAdmin, async (req, res
   }
 
   try {
-    await db.updateConfig('studentIdRegex', studentIdRegex);
-    await db.updateConfig('employeeIdRegex', employeeIdRegex);
-    console.log('成功将规则写入数据库');
-    res.json({ code: 200, message: '正则表达式配置更新成功' });
+    // Update sequentially and check results
+    const studentUpdateSuccess = await db.updateConfig('studentIdRegex', studentIdRegex);
+    const employeeUpdateSuccess = await db.updateConfig('employeeIdRegex', employeeIdRegex);
+
+    // Check if both updates were successful according to db.js
+    if (studentUpdateSuccess && employeeUpdateSuccess) {
+        console.log('成功将规则写入数据库 (实际操作结果)');
+        res.json({ code: 200, message: '正则表达式配置更新成功' });
+    } else {
+        // Log which one failed if possible (db.js already logs errors)
+        console.error('至少有一个配置项未能成功更新数据库');
+        res.status(500).json({ code: 500, message: '更新正则表达式配置时数据库操作失败' });
+    }
+
   } catch (error) {
-    console.error('更新正则表达式配置失败:', error);
-    res.status(500).json({ code: 500, message: '更新正则表达式配置失败' });
+    // Catch unexpected errors during the process
+    console.error('更新正则表达式配置路由处理失败:', error);
+    res.status(500).json({ code: 500, message: '更新正则表达式配置时发生服务器内部错误' });
   }
 });
 
@@ -380,11 +391,11 @@ app.post(`${apiPrefix}/class/add`, authenticateToken, async (req, res) => {
     } else if (error.message && error.message.includes('不能为空')) {
         res.status(400).json({ code: 400, message: error.message });
     } else {
-      res.status(500).json({
-        code: 500,
+    res.status(500).json({
+      code: 500,
         message: '添加班级时发生服务器内部错误: ' + error.message,
-        data: null
-      });
+      data: null
+    });
     }
   }
 });
@@ -421,11 +432,11 @@ app.put(`${apiPrefix}/class/:id`, authenticateToken, async (req, res) => {
      if (error.message && (error.message.includes('格式无效') || error.message.includes('不能为空'))) { // 示例错误处理
        res.status(400).json({ code: 400, message: error.message });
      } else {
-       res.status(500).json({
-         code: 500,
+    res.status(500).json({
+      code: 500,
          message: '更新班级信息时发生服务器内部错误: ' + error.message,
-         data: null
-       });
+      data: null
+    });
      }
   }
 });
@@ -456,11 +467,11 @@ app.delete(`${apiPrefix}/class/:id`, authenticateToken, async (req, res) => {
     if (error.code === 'ER_ROW_IS_REFERENCED_2') { // 示例：处理外键约束错误
        res.status(409).json({ code: 409, message: '删除失败：班级下存在学生，无法删除' }); 
     } else {
-       res.status(500).json({
-         code: 500,
+    res.status(500).json({
+      code: 500,
          message: '删除班级时发生服务器内部错误: ' + error.message,
-         data: null
-       });
+      data: null
+    });
     }
   }
 });
@@ -541,8 +552,8 @@ app.post(`${apiPrefix}/class/import`, authenticateToken, importUpload.single('fi
     
     if (result.success && finalErrors.length === 0) {
       // All successful
-      res.json({ 
-        code: 200, 
+    res.json({
+      code: 200,
         message: `导入成功！共处理 ${result.processedCount} 条记录。`, 
         data: { processedCount: result.processedCount, errors: [] } 
       });
@@ -555,8 +566,8 @@ app.post(`${apiPrefix}/class/import`, authenticateToken, importUpload.single('fi
         });
     } else {
         // Complete failure
-         res.status(500).json({ 
-            code: 500, 
+    res.status(500).json({
+      code: 500,
             message: '导入失败：服务器处理数据时发生错误', 
             data: { processedCount: 0, errors: finalErrors } 
         });
@@ -606,11 +617,11 @@ app.post(`${apiPrefix}/dept/add`, authenticateToken, async (req, res) => {
     } else if (error.message === '部门名称和部门主管不能为空') {
        res.status(400).json({ code: 400, message: error.message });
     } else {
-      res.status(500).json({
-        code: 500,
+    res.status(500).json({
+      code: 500,
         message: '添加部门时发生服务器内部错误: ' + error.message,
-        data: null
-      });
+      data: null
+    });
     }
   }
 });
@@ -642,11 +653,11 @@ app.delete(`${apiPrefix}/dept/:id`, authenticateToken, async (req, res) => {
     if (error.message === '无法删除：该部门下仍有员工') { 
        res.status(409).json({ code: 409, message: error.message }); // 409 Conflict
     } else {
-       res.status(500).json({
-         code: 500,
+    res.status(500).json({
+      code: 500,
          message: '删除部门时发生服务器内部错误: ' + error.message,
-         data: null
-       });
+      data: null
+    });
     }
   }
 });
@@ -780,11 +791,11 @@ app.post(`${apiPrefix}/employee/add`, authenticateToken, async (req, res) => {
     } else if (error.code === 'ER_DUP_ENTRY') {
         res.status(409).json({ code: 409, message: '添加失败：员工工号已存在' });
     } else {
-      res.status(500).json({
-        code: 500,
+    res.status(500).json({
+      code: 500,
         message: '添加员工时发生服务器内部错误: ' + error.message,
-        data: null
-      });
+      data: null
+    });
     }
   }
 });
@@ -870,11 +881,11 @@ app.get(`${apiPrefix}/employee/export`, authenticateToken, async (req, res) => {
     console.error('[Server] 导出员工数据失败:', error);
     // 避免在发送文件后尝试发送 JSON 错误
     if (!res.headersSent) {
-        res.status(500).json({
-            code: 500,
+    res.status(500).json({
+      code: 500,
             message: '导出员工数据时发生服务器内部错误: ' + error.message,
-            data: null
-        });
+      data: null
+    });
     }
   }
 });
@@ -1024,8 +1035,8 @@ app.post(`${apiPrefix}/employee/import`, authenticateToken, importUpload.single(
     
     if (result.success && finalErrors.length === 0) {
       // All successful
-      res.json({ 
-        code: 200, 
+    res.json({
+      code: 200,
         message: `导入成功！共处理 ${result.addedCount} 条记录。`, 
         data: { addedCount: result.addedCount, errors: [] } 
       });
@@ -1037,20 +1048,20 @@ app.post(`${apiPrefix}/employee/import`, authenticateToken, importUpload.single(
             data: { addedCount: result.addedCount, errors: finalErrors }
         });
     } else {
-        // Complete failure (e.g., DB connection issue during batch insert)
-         res.status(500).json({ 
-            code: 500, 
+        // Complete failure from service
+        res.status(500).json({
+          code: 500,
             message: '导入失败：服务器在处理数据时发生错误', 
-            data: { addedCount: 0, errors: finalErrors } 
+            data: { addedCount: result.addedCount || 0, errors: finalErrors } 
         });
     }
 
   } catch (error) {
     console.error('[Server] Employee import failed:', error);
-    res.status(500).json({ 
-      code: 500, 
+    res.status(500).json({
+      code: 500,
       message: '处理导入文件时发生服务器内部错误: ' + error.message, 
-      data: null 
+      data: null
     });
   }
 });
@@ -1067,19 +1078,255 @@ app.get(`${apiPrefix}/student/list`, authenticateToken, async (req, res) => {
   }
 });
 
-// 获取考试列表 (需要认证 - 之前已有，确认位置正确)
+// **新增：添加学生 (需要认证)**
+app.post(`${apiPrefix}/student/add`, authenticateToken, async (req, res) => {
+  try {
+    const studentData = req.body;
+    console.log('[Server] 收到添加学生请求:', studentData);
+
+    // 后端也进行基本验证 (Service层会有更详细的验证)
+    // 注意：前端传来的字段是驼峰命名 (studentId, className, joinDate)
+    if (!studentData.studentId || !studentData.name || !studentData.gender || !studentData.className || !studentData.joinDate) {
+      return res.status(400).json({ code: 400, message: '缺少必要的学生信息' });
+    }
+
+    // 准备提交给 Service 的数据 (确保字段名匹配 Service 期望的 snake_case)
+    const serviceData = {
+        student_id: studentData.studentId, // 转换为 snake_case
+        name: studentData.name,
+        gender: studentData.gender,
+        className: studentData.className, // Service 会根据 className 查找 class_id
+        phone: studentData.phone || null,
+        email: studentData.email || null,
+        join_date: studentData.joinDate // 转换为 snake_case
+    };
+
+    // 调用 service 函数添加
+    const newStudent = await studentService.addStudent(serviceData); // studentService.addStudent 应该处理验证和添加
+
+    if (newStudent) {
+      // 添加成功，返回 201 Created 和新学生数据
+      res.status(201).json({ code: 201, message: '学生添加成功', data: newStudent });
+    } else {
+      // 如果 service 返回 null 或 false，通常意味着发生了预期之外的错误
+      res.status(500).json({ code: 500, message: '添加学生失败，请检查服务日志' });
+    }
+
+  } catch (error) {
+    console.error('[Server] 添加学生失败:', error);
+    // 处理 Service 层可能抛出的特定错误
+    if (error.message === '学号格式无效' || error.message === '学号已存在' || (error.message && error.message.includes('班级') && error.message.includes('不存在'))) {
+        // 对于验证错误或冲突，返回 400 Bad Request 或 409 Conflict
+        res.status(400).json({ code: 400, message: error.message });
+    } else if (error.message === '缺少必要的学生信息') {
+        res.status(400).json({ code: 400, message: error.message });
+    } else {
+      // 其他未知错误，返回 500 Internal Server Error
+      res.status(500).json({
+        code: 500,
+        message: '添加学生时发生服务器内部错误: ' + error.message,
+        data: null
+      });
+    }
+  }
+});
+
+// **新增：删除学生 (需要认证)**
+app.delete(`${apiPrefix}/student/:id`, authenticateToken, async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id, 10);
+    console.log(`[Server] 收到删除学生请求: ID=${studentId}`);
+
+    if (isNaN(studentId)) {
+      return res.status(400).json({ code: 400, message: '无效的学生ID' });
+    }
+
+    // 调用 service 函数删除
+    // studentService.deleteStudent 应该返回 { success: boolean, student_id_str: string | null }
+    const result = await studentService.deleteStudent(studentId); 
+
+    if (result.success) {
+      res.json({ code: 200, message: `学生 (学号: ${result.student_id_str || studentId}) 删除成功` });
+    } else {
+      // 如果 service 返回 success: false，通常意味着未找到记录
+      res.status(404).json({ code: 404, message: `删除学生失败，未找到ID为 ${studentId} 的学生` });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 删除学生失败 (ID: ${req.params.id}):`, error);
+    // 处理特定数据库错误，例如外键约束 (如果 service 层没有处理)
+    // if (error.code === 'ER_ROW_IS_REFERENCED_2') { ... }
+    res.status(500).json({
+      code: 500,
+      message: '删除学生时发生服务器内部错误: ' + error.message,
+      data: null
+    });
+  }
+});
+
+// **新增：导入学生数据 (需要认证)**
+app.post(`${apiPrefix}/student/import`, authenticateToken, importUpload.single('file'), async (req, res) => {
+  console.log('[Server] Received request for /api/student/import');
+  if (!req.file) {
+    console.log('[Server] No file uploaded for student import.');
+    return res.status(400).json({ code: 400, message: '未上传文件' });
+  }
+
+  console.log(`[Server] Processing uploaded file: ${req.file.originalname}, size: ${req.file.size}, type: ${req.file.mimetype}`);
+
+  try {
+    let students = [];
+    const buffer = req.file.buffer;
+
+    // --- Parse file based on type ---
+    if (req.file.mimetype === 'text/csv') {
+      console.log('[Server Student Import] Parsing CSV...');
+      const csvString = buffer.toString('utf8');
+      const parseResult = papaparse.parse(csvString, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true,
+      });
+
+      if (parseResult.errors.length > 0) {
+        console.error('[Server Student Import] CSV parsing errors:', parseResult.errors);
+        return res.status(400).json({ code: 400, message: 'CSV文件解析失败', data: { errors: parseResult.errors } });
+      }
+      students = parseResult.data;
+    } else if (req.file.mimetype.startsWith('application/vnd.openxmlformats-officedocument') || req.file.mimetype === 'application/vnd.ms-excel') {
+        console.log('[Server Student Import] Parsing Excel...');
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        students = xlsx.utils.sheet_to_json(worksheet, {
+            raw: false,
+            dateNF: 'yyyy-mm-dd'
+        });
+    } else {
+        return res.status(400).json({ code: 400, message: '不支持的文件类型' });
+    }
+    console.log(`[Server Student Import] Parsed ${students.length} rows.`);
+
+    // --- Data Validation and Transformation ---
+    const processedStudents = [];
+    const validationErrors = [];
+    const requiredFields = ['学号', '姓名', '性别', '所属班级', '入学时间']; // Headers expected in the file
+    const studentIdRegex = /^S\d{7}$/; // Use hardcoded regex literal for validation
+    console.log(`[Server Student Import] Using hardcoded regex for validation: ${studentIdRegex}`);
+
+    for (let i = 0; i < students.length; i++) {
+        const row = students[i];
+        const rowNum = i + 2; // Assuming header is row 1
+        const rowErrors = [];
+
+        // 1. Check for required fields
+        for (const field of requiredFields) {
+            if (row[field] === undefined || row[field] === null || String(row[field]).trim() === '') {
+                rowErrors.push(`缺少必需字段 '${field}'`);
+            }
+        }
+
+        // 2. Validate student_id format (use trimmed value)
+        const studentId = String(row['学号'] || '').trim();
+        if (studentId && !studentIdRegex.test(studentId)) {
+            rowErrors.push(`学号 '${studentId}' 格式不符合规则 (${studentIdRegex})`);
+        }
+
+        // 3. Validate date format (simple check, similar to employee import)
+        const joinDate = row['入学时间'];
+        let formattedJoinDate = null;
+        if (joinDate) {
+            if (dayjs(joinDate, ['YYYY-MM-DD', 'YYYY/MM/DD'], true).isValid()) {
+                formattedJoinDate = dayjs(joinDate).format('YYYY-MM-DD');
+            } else if (typeof joinDate === 'number' && joinDate > 1) {
+                try {
+                    const parsedDate = xlsx.SSF.parse_date_code(joinDate);
+                    formattedJoinDate = dayjs(new Date(parsedDate.y, parsedDate.m - 1, parsedDate.d)).format('YYYY-MM-DD');
+                } catch (dateParseError) {
+                    rowErrors.push(`入学时间 '${joinDate}' 格式无效 (非标准日期或Excel序列号)`);
+                }
+            } else {
+                 rowErrors.push(`入学时间 '${joinDate}' 格式无效 (预期 YYYY-MM-DD 或 YYYY/MM/DD)`);
+            }
+        } // If joinDate is missing, it's already caught by requiredFields check
+
+        if (rowErrors.length > 0) {
+            validationErrors.push({ row: rowNum, errors: rowErrors, rowData: row });
+        } else {
+            // Transform keys and prepare data for service
+             processedStudents.push({
+                student_id: studentId, // Use validated & trimmed ID
+                name: String(row['姓名']).trim(),
+                gender: String(row['性别']).trim(),
+                class_name: String(row['所属班级']).trim(), // Pass className to service
+                phone: row['联系电话'] ? String(row['联系电话']).trim() : null,
+                email: row['邮箱'] ? String(row['邮箱']).trim() : null,
+                join_date: formattedJoinDate // Use formatted date
+            });
+        }
+    }
+
+    console.log(`[Server Student Import] Validation complete. Valid: ${processedStudents.length}, Invalid: ${validationErrors.length}`);
+
+    if (processedStudents.length === 0 && validationErrors.length > 0) {
+        return res.status(400).json({
+            code: 400,
+            message: '导入失败：文件内容校验未通过',
+            data: { errors: validationErrors }
+        });
+    }
+
+    // --- Call Service to Batch Add/Update ---
+    // studentService.batchAddStudents should handle className -> classId lookup
+    const result = await studentService.batchAddStudents(processedStudents);
+
+    // --- Construct Response (Similar to Employee/Dept Import) ---
+    const finalErrors = [...validationErrors, ...(result.errors || [])]; // Combine validation and DB errors
+
+    if (result.success && finalErrors.length === 0) {
+      res.json({
+        code: 200, // Use 200 for success
+        message: `导入成功！共处理 ${result.processedCount} 条记录。`,
+        data: { processedCount: result.processedCount, errors: [] }
+      });
+    } else if (result.success && finalErrors.length > 0) {
+        res.status(200).json({ // Use 200 for partial success, but include errors
+            code: 200, // Signal overall process completed, but check data.errors
+            message: `导入完成（部分成功）。处理 ${result.processedCount} 条，失败/跳过 ${finalErrors.length} 条。`,
+            data: { processedCount: result.processedCount, errors: finalErrors }
+        });
+    } else {
+        // Complete failure from service
+        res.status(500).json({
+          code: 500,
+            message: '导入失败：服务器在处理数据时发生错误',
+            data: { processedCount: result.processedCount || 0, errors: finalErrors }
+        });
+    }
+
+  } catch (error) {
+    console.error('[Server Student Import] Import failed:', error);
+    res.status(500).json({
+      code: 500,
+      message: '处理导入文件时发生服务器内部错误: ' + error.message,
+      data: null
+    });
+  }
+});
+
+// 获取考试列表 (需要认证)
 app.get(`${apiPrefix}/exam/list`, authenticateToken, async (req, res) => {
   try {
     console.log('获取考试列表, 参数:', req.query);
     const examData = await examService.getExamList(req.query);
-    res.json({
+    res.json({ 
       code: 200,
       message: '获取成功',
       data: examData
     });
   } catch (error) {
     console.error('获取考试列表失败:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '获取考试列表时发生内部错误: ' + error.message,
       data: null
@@ -1092,14 +1339,14 @@ app.get(`${apiPrefix}/exam/types`, authenticateToken, async (req, res) => {
   try {
     console.log('[Server] 获取不重复的考试类型 (for /api/exam/types)');
     const types = await examService.getDistinctExamTypes(); 
-    res.json({
+    res.json({ 
       code: 200,
       message: '获取考试类型成功',
       data: types // 直接返回字符串数组
     });
   } catch (error) {
     console.error('[Server] 获取考试类型失败 (for /api/exam/types):', error);
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '获取考试类型失败: ' + error.message,
       data: null
@@ -1229,8 +1476,8 @@ app.get(`${apiPrefix}/score/student/:studentId`, authenticateToken, async (req, 
     if (error.message === '学生ID和考试ID不能为空') {
         res.status(400).json({ code: 400, message: error.message });
     } else {
-        res.status(500).json({
-            code: 500,
+    res.status(500).json({
+      code: 500,
             message: '获取学生成绩时发生服务器内部错误: ' + error.message,
             data: null
         });
@@ -1311,12 +1558,12 @@ app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
      if (error.message && error.message.includes('格式无效')) {
        res.status(400).json({ code: 400, message: error.message });
      } else {
-       res.status(500).json({
-         code: 500,
+    res.status(500).json({
+      code: 500,
          message: '更新考试信息时发生服务器内部错误: ' + error.message,
-         data: null
-       });
-     }
+      data: null
+    });
+  }
   }
 });
 

@@ -2,20 +2,6 @@ const db = require('./db');
 const dayjs = require('dayjs'); // Import dayjs
 const logService = require('./logService'); // Import logService
 
-// 在服务启动时加载配置
-let configCache = {};
-async function loadConfig() {
-  try {
-    configCache = await db.getAllConfig();
-    console.log('Student Service: Loaded config:', configCache);
-  } catch (error) {
-    console.error('Student Service: Failed to load config:', error);
-    // Fallback or default regex can be set here if needed
-    configCache.studentIdRegex = '^S\\d{8}$'; // Example fallback
-  }
-}
-loadConfig(); // Load config when the service initializes
-
 /**
  * 获取学生列表
  * @param {Object} params 查询参数
@@ -133,17 +119,16 @@ async function getStudentDetail(id) {
 async function addStudent(studentData) {
   console.log('准备添加学生数据:', studentData);
   
-  // 使用缓存的配置进行验证
-  const regexPattern = configCache.studentIdRegex;
-  if (!regexPattern) {
-     console.warn('Student Service: studentIdRegex not found in config cache, using default.');
-  }
-  const studentIdRegex = new RegExp(regexPattern || '^S\\d{8}$'); // Use loaded or fallback
+  // --- Hardcoded Validation using Regex Literal ---
+  const studentIdRegex = /^S\d{7}$/; // Use literal directly
+  const studentIdToTest = studentData.student_id ? String(studentData.student_id).trim() : ''; 
+  console.log(`Student Service: Validating trimmed ID '${studentIdToTest}' against hardcoded regex ${studentIdRegex}`);
 
-  if (!studentIdRegex.test(studentData.student_id)) {
-    console.log(`学号 ${studentData.student_id} 格式无效 (规则: ${regexPattern})`);
+  if (!studentIdToTest || !studentIdRegex.test(studentIdToTest)) { 
+    console.log(`学号 '${studentIdToTest}' (原始: '${studentData.student_id}') 格式无效 (硬编码规则: /^S\d{7}$/)`);
     throw new Error('学号格式无效');
   }
+  // --- End Hardcoded Validation ---
 
   try {
     // 先获取班级ID
@@ -158,14 +143,14 @@ async function addStudent(studentData) {
       }
     }
 
-    // 检查学号是否已存在
+    // 检查学号是否已存在 (use trimmed ID for check)
     const checkQuery = 'SELECT id FROM student WHERE student_id = ?';
-    const exists = await db.query(checkQuery, [studentData.student_id]);
+    const exists = await db.query(checkQuery, [studentIdToTest]); 
     if (exists.length > 0) {
-      throw new Error(`学号 "${studentData.student_id}" 已存在`);
+      throw new Error(`学号 "${studentIdToTest}" 已存在`);
     }
 
-    // 插入学生记录
+    // 插入学生记录 (use trimmed ID for insert)
     const insertQuery = `
       INSERT INTO student 
         (student_id, name, gender, class_id, phone, email, join_date) 
@@ -174,7 +159,7 @@ async function addStudent(studentData) {
     `;
     
     const result = await db.query(insertQuery, [
-      studentData.student_id,
+      studentIdToTest, 
       studentData.name,
       studentData.gender,
       classId,
@@ -184,7 +169,7 @@ async function addStudent(studentData) {
     ]);
     
     // 返回新添加的学生信息
-    await logService.addLogEntry('database', 'create', `添加学生 ${studentData.name} (ID: ${result.insertId})`, 'System');
+    await logService.addLogEntry('database', 'create', `添加学生 ${studentData.name} (ID: ${result.insertId}, 学号: ${studentIdToTest})`, 'System');
     return await getStudentDetail(result.insertId);
   } catch (error) {
     console.error('添加学生失败:', error);
@@ -202,18 +187,19 @@ async function addStudent(studentData) {
 async function updateStudent(id, studentData) {
   console.log(`准备更新学生 ID ${id} 的数据:`, studentData);
   
-  // 使用缓存的配置进行验证 (如果允许更新学号)
-  if (studentData.student_id) { // Only validate if student_id is part of the update
-      const regexPattern = configCache.studentIdRegex;
-      if (!regexPattern) {
-         console.warn('Student Service: studentIdRegex not found in config cache, using default.');
-      }
-      const studentIdRegex = new RegExp(regexPattern || '^S\\d{8}$'); // Use loaded or fallback
-      if (!studentIdRegex.test(studentData.student_id)) {
-        console.log(`学号 ${studentData.student_id} 格式无效 (规则: ${regexPattern})`);
+  // --- Hardcoded Validation (if student_id is being updated) ---
+  let studentIdToTest = null;
+  if (studentData.student_id !== undefined) { 
+      studentIdToTest = String(studentData.student_id).trim();
+      const studentIdRegex = /^S\d{7}$/; // Use literal directly
+      console.log(`Student Service Update: Validating trimmed ID '${studentIdToTest}' against hardcoded regex ${studentIdRegex}`);
+      if (!studentIdToTest || !studentIdRegex.test(studentIdToTest)) {
+        console.log(`学号 '${studentIdToTest}' (原始: '${studentData.student_id}') 格式无效 (硬编码规则: /^S\d{7}$/)`);
         throw new Error('学号格式无效');
       }
+      studentData.student_id = studentIdToTest; 
   }
+  // --- End Hardcoded Validation ---
 
   try {
     // 获取新班级ID
@@ -409,7 +395,7 @@ async function getMaxStudentId() {
   }
 }
 
-// --- 新增：批量添加/更新学生 --- 
+// --- 批量添加/更新学生 --- 
 async function batchAddStudents(students) {
     console.log('[Batch Student Add] Starting batch add/update for', students.length, 'students.');
     const connection = await db.getConnection();
@@ -419,6 +405,11 @@ async function batchAddStudents(students) {
     if (!students || students.length === 0) {
         return { success: true, processedCount: 0, errors: [] };
     }
+
+    // --- Hardcoded Validation using Regex Literal ---
+    const studentIdRegex = /^S\d{7}$/; // Use literal directly
+    console.log(`[Batch Student Add] Using hardcoded regex for validation: ${studentIdRegex}`);
+    // --- End Hardcoded Validation ---
 
     try {
         await connection.beginTransaction();
@@ -434,17 +425,24 @@ async function batchAddStudents(students) {
 
         // 2. 准备批量插入/更新的数据
         const values = [];
-        const studentIdsInBatch = new Set(); // 检查批次内学号是否重复
+        const studentIdsInBatch = new Set(); 
         for (let i = 0; i < students.length; i++) {
             const student = students[i];
-            const rowNum = i + 2; // Assuming row number for error reporting
+            const rowNum = i + 2; 
 
-            // 检查批次内学号重复
-            if (studentIdsInBatch.has(student.student_id)) {
-                 errors.push({ row: rowNum, error: `学号 ${student.student_id} 在文件中重复` });
-                 continue; // 跳过重复学号
+            const studentIdToTest = student.student_id ? String(student.student_id).trim() : '';
+
+            if (studentIdsInBatch.has(studentIdToTest)) {
+                 errors.push({ row: rowNum, error: `学号 ${studentIdToTest} 在文件中重复` });
+                 continue; 
             }
-            studentIdsInBatch.add(student.student_id);
+            if(studentIdToTest) studentIdsInBatch.add(studentIdToTest);
+
+            // -- Validate student_id format using hardcoded regex --
+            if (!studentIdToTest || !studentIdRegex.test(studentIdToTest)) {
+                 errors.push({ row: rowNum, error: `学号 ${studentIdToTest} 格式无效 (硬编码规则: /^S\d{7}$/)` });
+                 continue;
+            }
 
             // 查找班级ID
             const classId = classNameToIdMap[student.class_name];
@@ -453,14 +451,14 @@ async function batchAddStudents(students) {
                 continue; // 跳过无效班级
             }
 
-            // 准备插入值 (确保与表列顺序一致)
+            // 准备插入值 (确保与表列顺序一致, use trimmed ID)
             values.push([
-                student.student_id, // 学号
+                studentIdToTest,    // 学号
                 student.name,       // 姓名
                 student.gender,     // 性别
                 classId,            // 班级ID
-                student.phone,      // 电话
-                student.email,      // 邮箱
+                student.phone || null, // 电话 (allow null)
+                student.email || null, // 邮箱 (allow null)
                 student.join_date   // 入学时间
             ]);
         }
@@ -496,7 +494,7 @@ async function batchAddStudents(students) {
         console.log('[Batch Student Add] Transaction committed. Processed rows:', processedCount);
 
         // 记录日志
-        logService.addLog({
+        logService.addLogEntry({
             type: 'database',
             operation: '批量导入',
             content: `学生: 处理了 ${processedCount} 条记录，其中错误 ${errors.length} 条`,
@@ -509,7 +507,7 @@ async function batchAddStudents(students) {
         await connection.rollback();
         console.error('[Batch Student Add] Error during batch operation:', error);
         // 记录错误日志
-        logService.addLog({
+        logService.addLogEntry({
             type: 'database',
             operation: '批量导入失败',
             content: `学生: ${error.message}`,

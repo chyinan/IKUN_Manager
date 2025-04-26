@@ -419,7 +419,7 @@ const handleSubmit = async () => {
           console.log('更新学生响应:', response)
         }
         
-        if (response.code === 200) {
+        if (response.code === 200 || response.code === 201) {
           ElMessage.success(dialogType.value === 'add' ? '新增成功' : '修改成功')
           dialogVisible.value = false
           await fetchData() // 重新获取数据
@@ -565,29 +565,28 @@ const handleImportRequest = async (options: UploadRequestOptions) => {
   loading.value = true; // Start loading early
   try {
     console.log('[Student Import] handleImportRequest called with file:', options.file.name);
-    const res = await importStudents(options.file); // Call API
+    // Assuming importStudents returns the data object directly due to interceptor
+    const res = await importStudents(options.file);
     console.log('[Student Import] API Response:', res);
 
-    // Check if the response AND response.data exists and has a code property
-    if (res && res.data && res.data.hasOwnProperty('code')) {
-        // Corrected: Access data nested inside res.data.data
-        const processedCount = res.data?.data?.processedCount ?? 0;
-        const errors = res.data?.data?.errors ?? [];
-        const messageFromServer = res.message || res.data.message || '';
+    // Corrected Check: Check if the response object itself has the 'code' property
+    if (res && res.hasOwnProperty('code')) {
+        // Access data directly from res and res.data
+        const responseCode = res.code; // Use res.code
+        const processedCount = res.data?.processedCount ?? 0; // Use res.data.processedCount
+        const errors = res.data?.errors ?? [];               // Use res.data.errors
+        const messageFromServer = res.message || '';          // Use res.message
 
-        if (res.data.code === 200) {
+        // Now use responseCode for the check
+        if (responseCode === 200) {
             // --- Backend returned 200 OK ---
-            
-            // **** Add specific logs before the check ****
             console.log('[Student Import DEBUG] Extracted errors variable before check:', JSON.stringify(errors));
             console.log('[Student Import DEBUG] Extracted errors.length before check:', errors ? errors.length : 'errors is null/undefined');
-            // **** End added logs ****
 
-            if (errors.length > 0) {
-                // Case 1: Code 200, but there were validation errors (even if processedCount is 0)
+            if (errors && errors.length > 0) {
+                // Case 1: Code 200, but there were validation/DB errors (Partial Success/Failure)
                 console.log('[Student Import DEBUG] Condition (errors.length > 0) is TRUE. Showing ElNotification.');
                 const errorCount = errors.length;
-                // Construct message prioritizing clarity about success/failure counts
                 const notificationMessage = `导入完成，尝试处理 ${processedCount + errorCount} 行，成功 ${processedCount} 行，失败/跳过 ${errorCount} 行。`;
                 let errorDetails = errors.map((err: any) => `行 ${err.row}: ${err.error || err.errors?.join(', ') || '未知错误'}`).join('<br>');
 
@@ -611,23 +610,25 @@ const handleImportRequest = async (options: UploadRequestOptions) => {
                 ElMessage.warning(messageFromServer || '未导入任何新记录（文件可能为空或数据已存在）。');
             }
 
-            // Refresh list only if there's a chance data changed (processed or had errors that might imply an update attempt)
-            if (processedCount > 0 || (errors && errors.length > 0)) { // Also check errors validity here
+            // Refresh list only if there's a chance data changed
+            if (processedCount > 0 || (errors && errors.length > 0)) {
                  await fetchData();
             }
         } else {
-            // --- Backend returned non-200 code in res.data.code ---
-             console.log(`[Student Import DEBUG] Non-200 code (${res.data.code}). Passing to handleImportError.`);
-            handleImportError(res.data);
+            // --- Backend returned non-200 code in res.code ---
+             console.log(`[Student Import DEBUG] Non-200 code (${responseCode}). Passing to handleImportError.`);
+            // Pass the whole 'res' object to error handler as it contains code, message, and potentially data.errors
+            handleImportError(res);
         }
     } else {
-        // --- Response object is malformed or missing res.data or res.data.code ---
+        // --- Response object is malformed or missing res.code ---
         console.error('[Student Import] Invalid API response structure:', res);
+        // Pass the problematic response or a generic error
         handleImportError(res || new Error('收到了无效的服务器响应'));
     }
   } catch (error: any) { // Catches network errors or promise rejections from importStudents
       console.error('[Student Import] Error caught in handleImportRequest catch block:', error);
-      handleImportError(error);
+      handleImportError(error); // Pass the caught error (likely AxiosError)
   } finally {
     loading.value = false; // Ensure loading is always stopped
   }

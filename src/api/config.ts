@@ -3,6 +3,7 @@
  */
 
 import request from '@/utils/request'
+import type { ApiResponse } from '@/types/common'
 
 // API服务器地址
 export const apiUrl = 'http://localhost:3000/api';
@@ -16,19 +17,46 @@ export default {
   timeout
 };
 
-// 获取正则表达式配置
-export function getRegexConfig() {
-  return request({
-    url: '/config/regex',
-    method: 'get'
-  })
+// 定义配置项接口
+interface RegexConfig {
+  studentIdRegex: string;
+  employeeIdRegex: string;
+  logRetentionDays?: number;
 }
 
-// 更新正则表达式配置
-export function updateRegexConfig(data: { studentIdRegex: string, employeeIdRegex: string }) {
-  return request({
-    url: '/config/regex',
-    method: 'put',
-    data
-  })
+/**
+ * 获取正则表达式配置
+ */
+export const getRegexConfig = (): Promise<ApiResponse<RegexConfig>> => {
+  return request.get<ApiResponse<RegexConfig>>('/config/regex')
+    .catch(error => {
+        console.error('[API config.ts] Error fetching regex config:', error);
+        // 返回一个符合类型的错误响应，而不是抛出，避免上层调用中断
+        return Promise.resolve({
+            code: error.response?.status || 500,
+            message: error.message || '获取配置失败',
+            data: {
+                studentIdRegex: '',
+                employeeIdRegex: '',
+                logRetentionDays: 0
+            }
+        });
+    });
+}
+
+/**
+ * 更新正则表达式配置
+ * @param config 配置对象
+ */
+export const updateRegexConfig = (config: RegexConfig): Promise<ApiResponse<void>> => {
+  return request.put<ApiResponse<void>>('/config/regex', config)
+    .catch(error => {
+      console.error('[API config.ts] Error updating regex config:', error);
+      // 返回符合类型的错误响应
+      return Promise.resolve({
+        code: error.response?.status || 500,
+        message: error.message || '更新配置失败',
+        data: undefined
+      });
+    });
 } 

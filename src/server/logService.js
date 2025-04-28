@@ -144,6 +144,54 @@ async function clearLogs() {
 }
 
 /**
+ * 删除指定天数之前的旧日志
+ * @param {number} retentionDays 保留天数 (e.g., 30 means delete logs older than 30 days)
+ * @returns {Promise<number>} 删除的记录数
+ */
+async function deleteOldLogs(retentionDays) {
+  if (typeof retentionDays !== 'number' || retentionDays <= 0) {
+    console.log(`[LogService] Invalid retentionDays (${retentionDays}). Skipping old log deletion.`);
+    return 0; // Do nothing if days is invalid or zero
+  }
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+  const cutoffDateString = cutoffDate.toISOString().slice(0, 19).replace('T', ' '); // Format as YYYY-MM-DD HH:MI:SS
+
+  console.log(`[LogService] Deleting logs older than ${retentionDays} days (before ${cutoffDateString})...`);
+
+  let connection;
+  try {
+    connection = await db.getConnection();
+    const query = 'DELETE FROM system_log WHERE create_time < ?';
+    const [result] = await connection.query(query, [cutoffDateString]);
+    const deletedCount = result.affectedRows;
+    console.log(`[LogService] Successfully deleted ${deletedCount} old log entries.`);
+    // Optionally add a log entry about the cleanup itself
+    if (deletedCount > 0) {
+      addLog({
+        type: 'system',
+        operation: '自动清理日志',
+        content: `成功删除 ${deletedCount} 条 ${retentionDays} 天前的旧日志`,
+        operator: 'system-cron'
+      });
+    }
+    return deletedCount;
+  } catch (error) {
+    console.error('[LogService] Error deleting old logs:', error);
+    addLog({ // Log the error
+        type: 'error',
+        operation: '自动清理日志失败',
+        content: `自动清理日志时发生错误: ${error.message}`,
+        operator: 'system-cron'
+      });
+    throw error; // Re-throw to allow the cron job handler to know about the failure
+  } finally {
+    if (connection) connection.release();
+  }
+}
+
+/**
  * 添加日志条目并广播
  * @param {Object} logData { type, operation, content, operator }
  * @returns {Promise<Object|null>} 新日志条目或 null
@@ -233,5 +281,6 @@ module.exports = {
   deleteLog,
   batchDeleteLog,
   clearLogs,
+  deleteOldLogs,
   addLogEntry: addLog
 }; 

@@ -23,6 +23,7 @@ const papaparse = require('papaparse');
 const dayjs = require('dayjs'); // Ensure dayjs is required
 const isSameOrBefore = require('dayjs/plugin/isSameOrBefore'); // For date validation
 dayjs.extend(isSameOrBefore);
+const cron = require('node-cron'); // <-- Add node-cron
 
 // --- Simple Middleware for Debugging ---
 const simpleAuthLogger = (req, res, next) => {
@@ -298,54 +299,110 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, avatarUpload.single('ava
 // GET /api/config/regex - 移除 authenticateToken 和 isAdmin，允许公开访问
 app.get(`${apiPrefix}/config/regex`, async (req, res) => {
   try {
-    console.log('获取正则表达式配置 (公开访问)');
-    const configData = await db.getAllConfig();
-    const regexConfig = {
-      studentIdRegex: configData.studentIdRegex || '', // Default to empty if not found
-      employeeIdRegex: configData.employeeIdRegex || '' // Default to empty if not found
+    console.log('获取正则表达式和日志保留天数配置 (公开访问)');
+    const configData = await db.getAllConfig(); // getAllConfig now includes logRetentionDays
+    // Prepare the data for the frontend, ensuring logRetentionDays is a number
+    const responseConfig = {
+      studentIdRegex: configData.studentIdRegex || '',
+      employeeIdRegex: configData.employeeIdRegex || '',
+      logRetentionDays: parseInt(configData.logRetentionDays || '0', 10) // Convert to number, default 0
     };
     res.json({
       code: 200,
-      data: regexConfig,
+      data: responseConfig,
       message: '获取成功'
     });
   } catch (error) {
-    console.error('获取正则表达式配置失败:', error);
-    res.status(500).json({ code: 500, message: '获取正则表达式配置失败', data: null });
+    console.error('获取系统配置失败:', error);
+    res.status(500).json({ code: 500, message: '获取系统配置失败', data: null });
   }
 });
 
 // PUT /api/config/regex - 保留 authenticateToken 和 isAdmin，需要管理员权限
+// Renamed for clarity, but keeping the route for now to match frontend API call
 app.put(`${apiPrefix}/config/regex`, authenticateToken, isAdmin, async (req, res) => {
-  const { studentIdRegex, employeeIdRegex } = req.body;
-  console.log('更新正则表达式配置:', req.body);
+  const { studentIdRegex, employeeIdRegex, logRetentionDays } = req.body;
+  console.log('更新系统配置:', req.body);
 
-  // Basic validation: Ensure values are strings (more robust regex validation can be added)
+  // Basic validation
   if (typeof studentIdRegex !== 'string' || typeof employeeIdRegex !== 'string') {
-    return res.status(400).json({ code: 400, message: '无效的配置值，必须为字符串' });
+    return res.status(400).json({ code: 400, message: '无效的正则表达式配置值，必须为字符串' });
+  }
+  const retentionDays = parseInt(logRetentionDays, 10);
+  if (isNaN(retentionDays) || retentionDays < 0 || retentionDays > 365) {
+      return res.status(400).json({ code: 400, message: '无效的日志保留天数，必须是 0 到 365 之间的数字' });
   }
 
   try {
     // Update sequentially and check results
     const studentUpdateSuccess = await db.updateConfig('studentIdRegex', studentIdRegex);
     const employeeUpdateSuccess = await db.updateConfig('employeeIdRegex', employeeIdRegex);
+    const logUpdateSuccess = await db.updateConfig('logRetentionDays', String(retentionDays)); // Store as string
 
-    // Check if both updates were successful according to db.js
-    if (studentUpdateSuccess && employeeUpdateSuccess) {
-        console.log('成功将规则写入数据库 (实际操作结果)');
-        res.json({ code: 200, message: '正则表达式配置更新成功' });
+    if (studentUpdateSuccess && employeeUpdateSuccess && logUpdateSuccess) {
+        console.log('成功将配置写入数据库');
+        // Schedule the cron job immediately after successful update
+        // (Or restart it if it was already running with old config)
+        scheduleLogCleanup(); // Reschedule with new value
+        res.json({ code: 200, message: '系统配置更新成功' });
     } else {
-        // Log which one failed if possible (db.js already logs errors)
         console.error('至少有一个配置项未能成功更新数据库');
-        res.status(500).json({ code: 500, message: '更新正则表达式配置时数据库操作失败' });
+        res.status(500).json({ code: 500, message: '更新系统配置时数据库操作失败' });
     }
 
   } catch (error) {
-    // Catch unexpected errors during the process
-    console.error('更新正则表达式配置路由处理失败:', error);
-    res.status(500).json({ code: 500, message: '更新正则表达式配置时发生服务器内部错误' });
+    console.error('更新系统配置路由处理失败:', error);
+    res.status(500).json({ code: 500, message: '更新系统配置时发生服务器内部错误' });
   }
 });
+
+// --- Cron Job for Log Cleanup ---
+let scheduledTask = null;
+
+async function runLogCleanup() {
+    console.log('[Cron Job] Running scheduled log cleanup...');
+    try {
+        const configData = await db.getAllConfig(); // Fetch latest config
+        const retentionDays = parseInt(configData.logRetentionDays || '0', 10);
+
+        if (retentionDays > 0) {
+            console.log(`[Cron Job] Log retention is set to ${retentionDays} days. Cleaning up...`);
+            const deletedCount = await logService.deleteOldLogs(retentionDays);
+            console.log(`[Cron Job] Log cleanup finished. Deleted ${deletedCount} entries.`);
+            // Log success via logService if needed (deleteOldLogs might already do this)
+        } else {
+            console.log('[Cron Job] Log retention is disabled (0 days). Skipping cleanup.');
+        }
+    } catch (error) {
+        console.error('[Cron Job] Error during scheduled log cleanup:', error);
+        // Log error via logService
+        logService.addLogEntry({
+            type: 'error',
+            operation: '定时日志清理失败',
+            content: `执行定时日志清理任务时出错: ${error.message}`,
+            operator: 'system-cron'
+        });
+    }
+}
+
+function scheduleLogCleanup() {
+    // Stop existing task if it's running
+    if (scheduledTask) {
+        scheduledTask.stop();
+        console.log('[Cron Job] Stopped existing log cleanup task.');
+    }
+
+    // Schedule the task to run daily at 2:00 AM
+    // cron format: second minute hour day-of-month month day-of-week
+    scheduledTask = cron.schedule('0 2 * * *', runLogCleanup, {
+        scheduled: true,
+        timezone: "Asia/Shanghai" // Set your server's timezone
+    });
+    console.log('[Cron Job] Scheduled log cleanup task to run daily at 2:00 AM.');
+
+    // Optional: Run once immediately on schedule setup (or server start)
+    // runLogCleanup();
+}
 
 // --- Data Listing Routes (恢复/添加) ---
 
@@ -1642,6 +1699,8 @@ async function startServer() {
     httpServer.listen(config.server.port, () => { 
       console.log(`服务器运行在 http://localhost:${config.server.port}`);
       logService.addLogEntry('system', 'start', `服务器启动成功，监听端口 ${config.server.port}`, 'System'); 
+      // Schedule the log cleanup task when server starts
+      scheduleLogCleanup();
     });
 
     // Socket.IO connection handling

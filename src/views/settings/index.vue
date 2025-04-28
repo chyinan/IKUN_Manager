@@ -25,6 +25,18 @@
            />
            <div class="regex-tip">用于验证员工管理中输入的工号格式。</div>
         </el-form-item>
+
+        <el-form-item label="日志保留天数" prop="logRetentionDays">
+          <el-input-number
+            v-model="regexForm.logRetentionDays"
+            :min="1"
+            :max="365"
+            controls-position="right"
+            placeholder="输入保留天数"
+            style="width: 220px;"
+          />
+          <div class="regex-tip">系统将自动删除超过此天数的旧日志 (0 或空表示不自动删除)。设为 0 或空则不启用自动删除。</div>
+        </el-form-item>
         
         <el-form-item>
           <el-button 
@@ -61,19 +73,22 @@ const loading = ref(false)
 // 表单数据
 const regexForm = reactive({
   studentIdRegex: '',
-  employeeIdRegex: ''
+  employeeIdRegex: '',
+  logRetentionDays: 0
 })
 
 // 初始数据，用于比较是否更改
 const initialForm = reactive({
   studentIdRegex: '',
-  employeeIdRegex: ''
+  employeeIdRegex: '',
+  logRetentionDays: 0
 })
 
 // 计算表单是否已更改
 const isChanged = computed(() => {
   return regexForm.studentIdRegex !== initialForm.studentIdRegex || 
-         regexForm.employeeIdRegex !== initialForm.employeeIdRegex;
+         regexForm.employeeIdRegex !== initialForm.employeeIdRegex ||
+         regexForm.logRetentionDays !== initialForm.logRetentionDays;
 })
 
 // 获取当前设置
@@ -84,9 +99,11 @@ const fetchSettings = async () => {
     if (response.code === 200 && response.data) {
       regexForm.studentIdRegex = response.data.studentIdRegex || '';
       regexForm.employeeIdRegex = response.data.employeeIdRegex || '';
+      regexForm.logRetentionDays = response.data.logRetentionDays || 0;
       // 保存初始值
       initialForm.studentIdRegex = regexForm.studentIdRegex;
       initialForm.employeeIdRegex = regexForm.employeeIdRegex;
+      initialForm.logRetentionDays = regexForm.logRetentionDays;
     } else {
       ElMessage.error(response.message || '获取设置失败');
     }
@@ -115,13 +132,15 @@ const handleSaveSettings = async () => {
   try {
     const response = await updateRegexConfig({
       studentIdRegex: regexForm.studentIdRegex,
-      employeeIdRegex: regexForm.employeeIdRegex
+      employeeIdRegex: regexForm.employeeIdRegex,
+      logRetentionDays: regexForm.logRetentionDays
     });
     if (response.code === 200) {
       ElMessage.success('设置保存成功');
       // 更新初始值
       initialForm.studentIdRegex = regexForm.studentIdRegex;
       initialForm.employeeIdRegex = regexForm.employeeIdRegex;
+      initialForm.logRetentionDays = regexForm.logRetentionDays;
       // 重新加载配置到服务（理想情况下后端应该通知前端或有其他机制）
       // 或者提示用户可能需要刷新或重新启动服务使更改完全生效
       ElMessageBox.alert('部分验证规则可能需要重新加载页面或重启服务后才能完全生效。', '提示', { type: 'info' });
@@ -140,6 +159,7 @@ const handleSaveSettings = async () => {
 const resetForm = () => {
   regexForm.studentIdRegex = initialForm.studentIdRegex;
   regexForm.employeeIdRegex = initialForm.employeeIdRegex;
+  regexForm.logRetentionDays = initialForm.logRetentionDays;
 }
 
 // 组件挂载时获取设置

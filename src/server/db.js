@@ -25,6 +25,11 @@ async function createPool() {
 // Call createPool immediately when the module is loaded
 createPool();
 
+// --- Config Cache ---
+let configCache = {}; // In-memory cache for config values
+let lastCacheUpdateTime = 0;
+const CACHE_DURATION = 60 * 1000; // Cache duration in ms (e.g., 60 seconds)
+
 /**
  * 执行SQL查询
  * @param {string} sql SQL语句
@@ -75,62 +80,85 @@ async function getConnection() {
   }
 }
 
-// 获取所有系统配置
+/**
+ * Get all configuration values from the database or cache
+ * @returns {Promise<Object>} Object containing all config key-value pairs
+ */
 async function getAllConfig() {
-  try {
-    const rows = await query('SELECT config_key, config_value FROM system_config');
-    const configData = rows.reduce((acc, row) => {
-      acc[row.config_key] = row.config_value;
-      return acc;
-    }, {});
-    return configData;
-  } catch (error) {
-    console.error('获取所有配置失败:', error);
-    return {}; // Return empty object on failure
-  }
-}
-
-// Get a specific config value
-async function getConfig(key) {
-  try {
-    const rows = await query('SELECT config_value FROM system_config WHERE config_key = ?', [key]);
-    return rows.length > 0 ? rows[0].config_value : null;
-  } catch (error) {
-    console.error(`获取配置项 ${key} 失败:`, error);
-    return null;
-  }
-}
-
-// Update or insert a config value
-async function updateConfig(key, value) {
-  try {
-    // Simplified SQL: Removed the subquery for description to avoid ER_UPDATE_TABLE_USED error.
-    // Now, updating a config value will reset its description if it was inserted, 
-    // or keep the existing description if it was updated (standard ON DUPLICATE KEY behavior for other columns isn't affected).
-    const sql = `
-      INSERT INTO system_config (config_key, config_value, update_time) 
-      VALUES (?, ?, NOW()) 
-      ON DUPLICATE KEY UPDATE config_value = ?, update_time = NOW()
-    `;
-    // Parameters: key, value (for INSERT), value (for UPDATE)
-    const result = await query(sql, [key, value, value]);
-    
-    // Check if the insert or update actually happened
-    if (result.affectedRows > 0 || result.warningStatus === 0) { // warningStatus 0 often indicates a successful update with no change
-      console.log(`配置项 '${key}' 更新或插入成功`);
-      // Emit event only if update/insert was successful
-      configEmitter.emit('configUpdated', key, value); // <-- Emit event
-      return true;
-    } else {
-      console.warn(`配置项 '${key}' 更新似乎没有影响行数，可能值未改变`);
-       // Still emit event if value might be the same but user intended to save
-       configEmitter.emit('configUpdated', key, value); 
-      return true; // Consider it a success even if value didn't change
+    const now = Date.now();
+    // Check cache validity
+    if (now - lastCacheUpdateTime < CACHE_DURATION && Object.keys(configCache).length > 0) {
+        console.log('[DB Config] Returning config from cache.');
+        return configCache;
     }
-  } catch (error) {
-    console.error(`更新配置项 ${key} 失败:`, error);
-    return false;
-  }
+
+    console.log('[DB Config] Fetching config from database...');
+    try {
+        const [rows] = await pool.query('SELECT config_key, config_value FROM system_config');
+        configCache = rows.reduce((acc, row) => {
+            acc[row.config_key] = row.config_value;
+            return acc;
+        }, {});
+
+        // Ensure essential keys have default values if missing from DB
+        if (!configCache.studentIdRegex) configCache.studentIdRegex = '^S\\d{8}$';
+        if (!configCache.employeeIdRegex) configCache.employeeIdRegex = '^E\\d{5}$';
+        if (configCache.logRetentionDays === undefined) configCache.logRetentionDays = '0'; // Default to '0' (string)
+
+        lastCacheUpdateTime = now;
+        console.log('[DB Config] Config cache updated:', configCache);
+        return configCache;
+    } catch (error) {
+        console.error('获取系统配置失败:', error);
+        // Return defaults or last known cache on error to prevent total failure?
+        // For now, return defaults including the new one
+        return {
+            studentIdRegex: '^S\\d{8}$',
+            employeeIdRegex: '^E\\d{5}$',
+            logRetentionDays: '0'
+        };
+    }
+}
+
+/**
+ * Update or insert a specific configuration value
+ * @param {string} key Configuration key
+ * @param {string} value Configuration value
+ * @returns {Promise<boolean>} True if successful, false otherwise
+ */
+async function updateConfig(key, value) {
+    if (typeof key !== 'string' || key.trim() === '') {
+        console.error('无效的配置键:', key);
+        return false;
+    }
+    // Ensure value is treated as a string for DB storage
+    const stringValue = String(value);
+
+    console.log(`[DB Config] Attempting to update/insert config: ${key} = ${stringValue}`);
+    try {
+        const query = `
+            INSERT INTO system_config (config_key, config_value, description, update_time)
+            VALUES (?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE config_value = ?, description = ?, update_time = NOW()
+        `;
+        // Provide a default description or derive it
+        let description = `Configuration for ${key}`;
+        if (key === 'studentIdRegex') description = '学号正则表达式';
+        else if (key === 'employeeIdRegex') description = '员工号正则表达式';
+        else if (key === 'logRetentionDays') description = '日志保留天数 (0表示不自动删除)';
+
+        const [result] = await pool.query(query, [key, stringValue, description, stringValue, description]);
+
+        // Invalidate cache immediately after successful update
+        lastCacheUpdateTime = 0;
+        configCache = {}; // Clear cache
+        console.log(`[DB Config] Config '${key}' updated/inserted successfully. Cache invalidated.`);
+        // Check affectedRows or changedRows depending on insert/update
+        return result.affectedRows > 0 || result.changedRows > 0;
+    } catch (error) {
+        console.error(`更新配置项 '${key}' 失败:`, error);
+        return false;
+    }
 }
 
 module.exports = {
@@ -138,7 +166,6 @@ module.exports = {
   testConnection,
   getConnection,
   getAllConfig,
-  getConfig,
   updateConfig,
   configEmitter
 }; 

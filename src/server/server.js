@@ -1399,6 +1399,41 @@ app.get(`${apiPrefix}/log/list`, authenticateToken, async (req, res) => {
   }
 });
 
+// **新增：清空所有日志 (需要认证和管理员权限)**
+app.delete(`${apiPrefix}/log/clear`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log(`[Server] Received request to clear all logs by user: ${req.user.username}`);
+    const success = await logService.clearLogs(); // Assuming clearLogs returns boolean or throws error
+
+    if (success) {
+      res.json({ code: 200, message: '所有系统日志已成功清空' });
+      // Optionally add a log entry for this action itself (if clearLogs doesn't do it)
+      logService.addLogEntry({
+        type: 'system',
+        operation: '清空日志',
+        content: '所有系统日志已被清空',
+        operator: req.user.username // Log which admin performed the action
+      });
+    } else {
+      // This case might not be reachable if clearLogs throws on failure
+      res.status(500).json({ code: 500, message: '清空日志操作失败，但未抛出错误' });
+    }
+  } catch (error) {
+    console.error('[Server] 清空日志失败:', error);
+    logService.addLogEntry({ // Log the failure
+      type: 'error',
+      operation: '清空日志失败',
+      content: `尝试清空日志时发生错误: ${error.message}`,
+      operator: req.user?.username || 'system' // Use optional chaining for req.user
+    });
+    res.status(500).json({
+      code: 500,
+      message: '清空日志时发生服务器内部错误: ' + error.message,
+      data: null
+    });
+  }
+});
+
 // 确保统计路由也需要认证
 app.get(`${apiPrefix}/employee/stats`, authenticateToken, async (req, res) => {
   try {

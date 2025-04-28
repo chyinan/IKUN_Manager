@@ -7,8 +7,8 @@
         <span>系统日志监控</span>
       </div>
       <div class="operation-buttons">
-        <el-button type="warning" @click="clearLogs">
-          <el-icon><Delete /></el-icon>清空日志
+        <el-button type="danger" @click="handleDeleteOldLogs">
+          <el-icon><Delete /></el-icon>删除日志
         </el-button>
         <el-button type="success" @click="exportLogs">
           <el-icon><Download /></el-icon>导出日志
@@ -48,12 +48,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDark } from '@vueuse/core'
 import { Monitor, Delete, Download } from '@element-plus/icons-vue'
 import { io, Socket } from 'socket.io-client'
 import type { LogEntry, LogType, LogResponse } from '@/types/log'
-import { getLogList } from '@/api/log'
+import { getLogList, clearLogs as apiClearLogs } from '@/api/log'
 
 // 日志列表
 const logs = ref<LogEntry[]>([])
@@ -140,10 +140,38 @@ const loadHistoryLogs = async () => {
   }
 }
 
-// 清空日志
-const clearLogs = () => {
-  logs.value = []
-  ElMessage.success('日志已清空')
+// 删除旧日志
+const handleDeleteOldLogs = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除数据库中的【所有】系统日志吗？此操作不可恢复！',
+      '警告',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        buttonSize: 'default'
+      }
+    );
+
+    // User confirmed
+    try {
+      const response = await apiClearLogs();
+      if (response.code === 200) {
+        logs.value = [];
+        ElMessage.success('所有日志已成功删除');
+      } else {
+        ElMessage.error(response.message || '删除日志失败');
+      }
+    } catch (apiError: any) {
+      console.error('删除日志 API 调用失败:', apiError);
+      ElMessage.error(apiError.message || '删除日志时发生错误');
+    }
+
+  } catch (cancel) {
+    // User clicked cancel or closed the dialog
+    ElMessage.info('已取消删除操作');
+  }
 }
 
 // 导出日志

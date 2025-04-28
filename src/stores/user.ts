@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { login, logout, getUserInfo } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import type { LoginData, UserInfo, ApiResponse } from '@/types/common'
+import router from '@/router'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -164,7 +165,13 @@ export const useUserStore = defineStore('user', () => {
     roles.value = []
     permissions.value = []
     localStorage.removeItem('token')
-    localStorage.removeItem('user_avatar_url') // <-- Clear avatar URL on logout
+    localStorage.removeItem('user_avatar_url') 
+
+    // Add redirection to login page
+    router.push('/login').catch(err => {
+      console.error('Redirect to login failed:', err);
+    });
+    console.log('User state reset and redirected to login.');
   }
 
   // Attempt to load user info if token exists on initial store creation

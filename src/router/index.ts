@@ -79,7 +79,7 @@ const router = createRouter({
           path: 'log',
           name: 'Log',
           component: Log,
-          meta: { title: '系统日志', icon: 'List' }
+          meta: { title: '系统日志', icon: 'List', requiresAdmin: true }
         },
         {
           path: 'settings',

@@ -141,13 +141,14 @@ const routes = computed(() => {
   console.log('Filtering routes, isAdmin:', isAdmin);
   
   return allRoutes.filter(r => {
-    // 如果路由没有meta或没有requiresAdmin，则显示
-    if (!r.meta || r.meta.hidden) return false; // Hide routes marked as hidden
+    // 如果路由没有meta或标记为hidden，则不显示
+    if (!r.meta || r.meta.hidden) return false; 
+
+    // 检查是否需要 admin 权限 (通用逻辑)
     if (r.meta.requiresAdmin) {
-      // 如果需要admin权限，则只有admin用户能看到
       return isAdmin;
     } else {
-      // 不需要admin权限的路由都显示
+      // 不需要 admin 权限的路由都显示
       return true;
     }
   });

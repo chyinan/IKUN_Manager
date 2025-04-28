@@ -44,17 +44,18 @@
             </div>
           </template>
           <div class="shortcut-grid">
-            <div 
-              v-for="(item, index) in shortcuts" 
-              :key="index" 
-              class="shortcut-item"
-              @click="navigateTo(item.path)"
-            >
-              <el-icon :size="30" :color="isDark ? '#cccccc' : item.color">
-                <component :is="item.icon" />
-              </el-icon>
-              <span>{{ item.title }}</span>
-            </div>
+            <template v-for="(item, index) in shortcuts" :key="index">
+              <div 
+                v-if="item.path !== '/log' || (item.path === '/log' && userInfo?.username === 'admin')" 
+                class="shortcut-item"
+                @click="navigateTo(item.path)"
+              >
+                <el-icon :size="30" :color="isDark ? '#cccccc' : item.color">
+                  <component :is="item.icon" />
+                </el-icon>
+                <span>{{ item.title }}</span>
+              </div>
+            </template>
           </div>
         </el-card>
       </el-col>
@@ -82,6 +83,7 @@ import { getDeptList } from '@/api/dept'
 import { getClassList } from '@/api/class'
 import { getExamStats } from '@/api/exam'
 import type { ApiResponse, ExamStats } from '@/types/common'
+import { useUserStore } from '@/stores/user'
 
 // Define interface for Chart.js dataset (adjust if using different chart library)
 interface ChartDataset {
@@ -94,6 +96,8 @@ interface ChartDataset {
 const router = useRouter()
 const loading = ref(true)
 const isDark = useDark()
+const userStore = useUserStore()
+const userInfo = computed(() => userStore.userInfo)
 
 // Corrected: Define examTypeDistribution ref with explicit dataset type
 const examTypeDistribution = ref<{ labels: string[], datasets: ChartDataset[] }>({ 

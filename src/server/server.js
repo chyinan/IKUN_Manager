@@ -1634,3 +1634,94 @@ async function startServer() {
 }
 
 startServer();
+
+// **新增：添加考试 (需要认证)**
+app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
+  try {
+    const { exam_name, exam_type, start_time, end_time, status, description } = req.body;
+    console.log('[Server] 收到添加考试请求:', req.body);
+
+    // --- Basic Validation --- 
+    if (!exam_name || !exam_type || !start_time || !end_time) {
+      return res.status(400).json({ code: 400, message: '考试名称、类型、开始时间和结束时间不能为空' });
+    }
+
+    // --- Data Transformation --- 
+    let duration = null;
+    if (start_time && end_time) {
+      const start = dayjs(start_time);
+      const end = dayjs(end_time);
+      if (start.isValid() && end.isValid() && end.isAfter(start)) {
+        duration = end.diff(start, 'minute'); // Calculate duration in minutes
+      } else {
+        return res.status(400).json({ code: 400, message: '结束时间必须晚于开始时间' });
+      }
+    }
+
+    const examDataForService = {
+      exam_name: exam_name,
+      exam_type: exam_type,
+      exam_date: start_time, // Use start_time as exam_date
+      duration: duration, // Use calculated duration
+      subjects: '', // Temporary placeholder for subjects
+      status: status !== undefined ? status : 0, // Default to 0 if not provided
+      remark: description || null // Use description as remark
+    };
+
+    console.log('[Server] 调用 examService.addExam 的数据:', examDataForService);
+
+    // --- Call Service --- 
+    const newExam = await examService.addExam(examDataForService); 
+
+    // --- Respond --- 
+    // addExam returns the new exam object including ID on success
+    res.status(201).json({ code: 201, message: '考试添加成功', data: newExam });
+
+  } catch (error) {
+    console.error('[Server] 添加考试失败:', error);
+    // Handle specific errors (e.g., validation from service) or generic 500
+    if (error.message && error.message.includes('不能为空')) {
+        res.status(400).json({ code: 400, message: error.message });
+    } else {
+      res.status(500).json({
+        code: 500,
+        message: '添加考试时发生服务器内部错误: ' + error.message,
+        data: null
+      });
+    }
+  }
+});
+
+// **新增：删除考试 (需要认证)**
+app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
+  try {
+    const examId = parseInt(req.params.id, 10);
+    console.log(`[Server] 收到删除考试请求: ID=${examId}`);
+
+    if (isNaN(examId)) {
+      return res.status(400).json({ code: 400, message: '无效的考试ID' });
+    }
+
+    // 调用 service 函数删除 (examService.deleteExam 返回 boolean)
+    const success = await examService.deleteExam(examId); 
+
+    if (success) {
+      res.json({ code: 200, message: `考试 ID ${examId} 删除成功` });
+    } else {
+      // 如果 service 返回 false，通常意味着未找到记录
+      res.status(404).json({ code: 404, message: `删除考试失败，未找到ID为 ${examId} 的考试` });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 删除考试失败 (ID: ${req.params.id}):`, error);
+    // 处理特定数据库错误，例如外键约束 (如果 service 层没有处理)
+    // if (error.code === 'ER_ROW_IS_REFERENCED_2') { ... }
+    res.status(500).json({
+      code: 500,
+      message: '删除考试时发生服务器内部错误: ' + error.message,
+      data: null
+    });
+  }
+}); // Added missing closing brace
+
+// ... (Rest of the routes)

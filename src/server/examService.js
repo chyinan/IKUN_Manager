@@ -361,9 +361,9 @@ async function getDistinctExamTypes() {
  */
 async function addExam(examData) {
   try {
-    // Basic validation (add more as needed)
-    if (!examData.exam_name || !examData.exam_type || !examData.exam_date || !examData.subjects) {
-      throw new Error('考试名称、类型、日期和科目不能为空');
+    // Basic validation: Only check essential fields for now
+    if (!examData.exam_name || !examData.exam_type || !examData.exam_date) { // Removed check for subjects
+      throw new Error('考试名称、类型和日期不能为空'); // Updated error message
     }
 
     const query = `

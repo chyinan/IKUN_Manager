@@ -26,4 +26,5 @@ coverage
 *.njsproj
 *.sln
 *.sw?
-src/server/uploads/avatars/
+src/server/uploads/avatars/*
+.VSCodeCounter/*

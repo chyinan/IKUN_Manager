@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld(
     maximizeWindow: () => ipcRenderer.send('maximize-window'),
     closeWindow: () => ipcRenderer.send('close-window'),
 
+    // Function to listen for window state changes from main process
+    onWindowStateChange: (callback) => {
+        // Ensure we only attach one listener, or clean up previous ones if needed
+        // For simplicity, this example assumes it's called once.
+        ipcRenderer.on('window-state-changed', (event, data) => {
+            console.log('[Electron Preload] Received window-state-changed:', data);
+            callback(data.isMaximized);
+        });
+    },
+
     // You can expose other Node.js modules or custom functions here
     // Be very selective about what you expose for security reasons.
     // For example, to expose a specific Node.js module:

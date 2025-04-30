@@ -34,16 +34,21 @@
       <div v-if="!isMac" class="custom-title-bar" :class="{ 'dark': isDark }">
         <!-- 拖动区域 -->
         <div class="draggable-area">
-          <!-- 你可以在这里放应用标题 -->
           <!-- <span class="window-title">IKUN Manager</span> -->
         </div>
-        <!-- 窗口控件 -->
-        <div class="window-controls">
+        <!-- 窗口控件 (仅在 Electron 且非 macOS 时显示) -->
+        <div v-if="isElectronApp && !isMac" class="window-controls">
           <button class="control-button" @click="minimizeWindow" title="最小化">
             <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="currentColor" width="10" height="1" x="1" y="6"></rect></svg>
           </button>
           <button class="control-button" @click="maximizeWindow" title="最大化/还原">
-            <svg width="12" height="12" viewBox="0 0 12 12"><rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="currentColor"></rect></svg>
+            <!-- Maximize Icon -->
+            <svg v-if="!isMaximized" width="12" height="12" viewBox="0 0 12 12"><rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="currentColor"></rect></svg>
+            <!-- Restore Icon -->
+            <svg v-else width="12" height="12" viewBox="0 0 12 12">
+              <path fill="none" stroke="currentColor" d="M2.5,4.5 L2.5,1.5 L9.5,1.5 L9.5,8.5 L6.5,8.5"/>
+              <rect width="7" height="7" x="1.5" y="3.5" fill="none" stroke="currentColor" transform="translate(1, 1)"/>
+            </svg>
           </button>
           <button class="control-button close-button" @click="closeWindow" title="关闭">
             <svg width="12" height="12" viewBox="0 0 12 12"> <polygon fill="currentColor" points="11 1.576 6.583 6 11 10.424 10.424 11 6 6.583 1.576 11 1 10.424 5.417 6 1 1.576 1.576 1 6 5.417 10.424 1"></polygon></svg>
@@ -112,7 +117,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -142,13 +147,40 @@ const isCollapse = ref(false)
 // Dark mode setup
 const isDark = useDark()
 
-// --- New Code for Custom Title Bar ---
+// --- New Code for Custom Title Bar & Electron Detection & Window State ---
 const isMac = ref(false);
+const isElectronApp = computed(() => typeof window.electronAPI !== 'undefined');
+const isMaximized = ref(false); // New state for maximized status
+let cleanupWindowStateChangeListener: (() => void) | null = null; // For cleanup
 
 onMounted(() => {
-  // Check platform in renderer process (less ideal but simple)
-  // A better way might be to get platform from main process via preload
   isMac.value = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  console.log('[Layout] Is Electron App:', isElectronApp.value);
+  console.log('[Layout] Is macOS:', isMac.value);
+
+  // Listen for window state changes if in Electron
+  if (isElectronApp.value && window.electronAPI.onWindowStateChange) {
+    const listener = (maximized: boolean) => {
+      isMaximized.value = maximized;
+      console.log('[Layout] Window state changed, isMaximized:', maximized);
+    };
+    window.electronAPI.onWindowStateChange(listener);
+    // Store cleanup function
+    cleanupWindowStateChangeListener = () => {
+        // In a real app, you might need ipcRenderer.removeListener or similar
+        // exposed via preload if you add/remove listeners frequently.
+        // For this simple case, we assume it's set up once.
+        console.log('[Layout] Skipping cleanup for window state listener in this example.')
+    };
+    console.log('[Layout] Registered window state change listener.');
+  }
+});
+
+// Clean up listener when component unmounts
+onBeforeUnmount(() => {
+  if (cleanupWindowStateChangeListener) {
+    cleanupWindowStateChangeListener();
+  }
 });
 
 // Expose window control functions from preload script
@@ -621,6 +653,11 @@ const handleCommand = (command: string) => {
 /* Add extra padding-top when custom title bar AND navbar are fixed */
 .main-container:has(.custom-title-bar) .app-main {
     padding-top: calc(30px + 60px + 20px); /* title_height + navbar_height + original_padding */
+}
+
+/* Adjust custom title bar padding if controls are hidden */
+.custom-title-bar:not(:has(.window-controls)) {
+  padding-right: 0; /* Remove right padding if no controls */
 }
 
 </style> 

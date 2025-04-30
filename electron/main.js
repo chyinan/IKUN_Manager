@@ -55,6 +55,20 @@ function createWindow() {
     // when you should delete the corresponding element.
     mainWindow = null;
   });
+
+  // Listen for maximize/unmaximize events and notify renderer
+  mainWindow.on('maximize', () => {
+    console.log('[Electron Main] Window maximized');
+    if (mainWindow && mainWindow.webContents) { // Check if window still exists
+        mainWindow.webContents.send('window-state-changed', { isMaximized: true });
+    }
+  });
+  mainWindow.on('unmaximize', () => {
+    console.log('[Electron Main] Window unmaximized');
+    if (mainWindow && mainWindow.webContents) { // Check if window still exists
+        mainWindow.webContents.send('window-state-changed', { isMaximized: false });
+    }
+  });
 }
 
 // --- Preload Script (Placeholder - We'll create this file next) ---

@@ -378,6 +378,7 @@ export interface IElectronAPI {
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   closeWindow: () => void;
+  onWindowStateChange: (callback: (isMaximized: boolean) => void) => void;
   // Add other functions exposed in preload.js here if needed
 }
 

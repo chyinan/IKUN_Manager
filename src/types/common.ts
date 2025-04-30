@@ -368,3 +368,22 @@ export interface ExamStats {
   upcomingCount?: number;
   typeDistribution?: Array<{ type: string; count: number }>;
 }
+
+// --- Electron API Declaration ---
+// This section tells TypeScript about the API exposed via contextBridge in preload.js
+
+// Define the structure of the API
+export interface IElectronAPI {
+  performAction: (arg: any) => Promise<{ success: boolean; message: string }>;
+  minimizeWindow: () => void;
+  maximizeWindow: () => void;
+  closeWindow: () => void;
+  // Add other functions exposed in preload.js here if needed
+}
+
+// Extend the global Window interface to include electronAPI
+declare global {
+  interface Window {
+    electronAPI: IElectronAPI;
+  }
+}

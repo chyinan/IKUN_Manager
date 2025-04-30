@@ -30,8 +30,29 @@
     
     <!-- 主要内容区域 -->
     <div class="main-container">
-      <!-- 顶部导航栏 -->
-      <div class="navbar">
+      <!-- 自定义标题栏 (仅非 macOS 显示) -->
+      <div v-if="!isMac" class="custom-title-bar" :class="{ 'dark': isDark }">
+        <!-- 拖动区域 -->
+        <div class="draggable-area">
+          <!-- 你可以在这里放应用标题 -->
+          <!-- <span class="window-title">IKUN Manager</span> -->
+        </div>
+        <!-- 窗口控件 -->
+        <div class="window-controls">
+          <button class="control-button" @click="minimizeWindow" title="最小化">
+            <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="currentColor" width="10" height="1" x="1" y="6"></rect></svg>
+          </button>
+          <button class="control-button" @click="maximizeWindow" title="最大化/还原">
+            <svg width="12" height="12" viewBox="0 0 12 12"><rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="currentColor"></rect></svg>
+          </button>
+          <button class="control-button close-button" @click="closeWindow" title="关闭">
+            <svg width="12" height="12" viewBox="0 0 12 12"> <polygon fill="currentColor" points="11 1.576 6.583 6 11 10.424 10.424 11 6 6.583 1.576 11 1 10.424 5.417 6 1 1.576 1.576 1 6 5.417 10.424 1"></polygon></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 原顶部导航栏 -->
+      <div class="navbar" :class="{ 'with-custom-titlebar': !isMac }">
         <div class="left-menu">
           <el-icon class="fold-icon" @click="toggleSidebar">
             <component :is="isCollapse ? 'Expand' : 'Fold'" />
@@ -91,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -120,6 +141,41 @@ const isCollapse = ref(false)
 
 // Dark mode setup
 const isDark = useDark()
+
+// --- New Code for Custom Title Bar ---
+const isMac = ref(false);
+
+onMounted(() => {
+  // Check platform in renderer process (less ideal but simple)
+  // A better way might be to get platform from main process via preload
+  isMac.value = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+});
+
+// Expose window control functions from preload script
+const minimizeWindow = () => {
+  if (window.electronAPI) {
+    window.electronAPI.minimizeWindow();
+  } else {
+    console.error('electronAPI not found on window object.');
+  }
+};
+
+const maximizeWindow = () => {
+  if (window.electronAPI) {
+    window.electronAPI.maximizeWindow();
+  } else {
+    console.error('electronAPI not found on window object.');
+  }
+};
+
+const closeWindow = () => {
+  if (window.electronAPI) {
+    window.electronAPI.closeWindow();
+  } else {
+    console.error('electronAPI not found on window object.');
+  }
+};
+// --- End New Code ---
 
 // New function to log switch changes
 const logSwitchChange = (newValue: boolean) => {
@@ -449,6 +505,122 @@ const handleCommand = (command: string) => {
 /* Ensure the switch action (the circle) has a smooth transition */
 .dark-mode-switch :deep(.el-switch__action) {
   transition: transform 0.3s ease, left 0.3s ease !important; /* Adjust duration/easing if needed */
+}
+
+/* --- Custom Title Bar Styles (for non-macOS) --- */
+.custom-title-bar {
+  height: 30px; /* Adjust height as needed */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f0f2f5; /* Default light mode background */
+  padding: 0 8px;
+  position: fixed; /* Fixed position */
+  top: 0;
+  left: 210px; /* Initial width of sidebar */
+  right: 0;
+  z-index: 1001; /* Ensure it's above sidebar but below potential modals? */
+  transition: background-color 0.3s ease, left 0.28s ease; /* Transition background and left position */
+  -webkit-user-select: none; /* Prevent text selection */
+  user-select: none;
+}
+
+.is-collapse .custom-title-bar {
+  left: 64px; /* Adjust left when sidebar is collapsed */
+}
+
+.custom-title-bar.dark {
+  background-color: #1f2937; /* Dark mode background */
+  color: #e0e0e0;
+}
+
+.draggable-area {
+  flex-grow: 1;
+  height: 100%;
+  -webkit-app-region: drag; /* Make this area draggable */
+  display: flex; /* Allow content inside */
+  align-items: center;
+  padding-left: 10px;
+}
+
+.window-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-left: 5px;
+  /* Color will be inherited from .custom-title-bar */
+}
+
+.window-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag; /* Make controls not draggable */
+}
+
+.control-button {
+  width: 45px; /* Adjust width */
+  height: 100%;
+  border: none;
+  background-color: transparent;
+  color: #5a5a5a; /* Default icon color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease;
+}
+
+.custom-title-bar.dark .control-button {
+  color: #a0a0a0; /* Dark mode icon color */
+}
+
+.control-button:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.custom-title-bar.dark .control-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.control-button.close-button:hover {
+  background-color: #e81123;
+  color: white;
+}
+
+.custom-title-bar.dark .control-button.close-button:hover {
+  background-color: #c42b1c; /* Darker red for dark mode */
+  color: white;
+}
+
+.control-button svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Adjust navbar position when custom title bar is present */
+.navbar.with-custom-titlebar {
+  position: fixed; /* Fixed position */
+  top: 30px; /* Position below custom title bar */
+  left: 210px; /* Initial width of sidebar */
+  right: 0;
+  height: 60px;
+  z-index: 1000;
+  transition: left 0.28s ease;
+}
+
+.is-collapse .navbar.with-custom-titlebar {
+  left: 64px; /* Adjust left when sidebar is collapsed */
+}
+
+/* Adjust main content padding-top when custom title bar is present */
+.app-main {
+   /* Original padding: 20px */
+   padding-top: 20px; /* Keep original top padding */
+}
+
+/* Add extra padding-top when custom title bar AND navbar are fixed */
+.main-container:has(.custom-title-bar) .app-main {
+    padding-top: calc(30px + 60px + 20px); /* title_height + navbar_height + original_padding */
 }
 
 </style> 

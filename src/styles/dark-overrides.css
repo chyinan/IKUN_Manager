@@ -92,8 +92,250 @@ html.dark .el-select .el-input__wrapper:hover {
 }
 
 html.dark .el-select.is-focus .el-input__wrapper {
-  box-shadow: 0 0 0 1px var(--el-color-primary) !important;
-  border: none !important;
+  box-shadow: 0 0 0 1px var(--el-color-primary-light-3) inset !important;
 }
 
-/* Add other global dark mode overrides here if needed */ 
+/* Add other global dark mode overrides here if needed */
+
+/* Additions for View Container Backgrounds */
+
+/* Global Dark Mode Backgrounds for View Containers */
+html.dark .dashboard-container,
+html.dark .emp-container,
+html.dark .dept-container,
+html.dark .class-container,
+html.dark .student-container,
+html.dark .exam-container,
+html.dark .score-container,
+html.dark .log-container,
+html.dark .settings-container,
+html.dark .profile-container,
+html.dark .empReport-container, /* Assuming class name */
+html.dark .stuReport-container,  /* Assuming class name */
+html.dark .app-main /* Add AppMain background */ {
+  background-color: #1f2937;
+  /* Transition should ideally be on the base class for entering/leaving dark mode */
+  /* transition: background-color 0.3s ease; */
+}
+
+/* Add more global overrides as needed */
+
+/* === Dark Mode Table Overrides === */
+html.dark {
+  /* Remove or comment out variable overrides as they didn't work as expected */
+  /* --el-table-header-bg-color: #1f2937; */ /* Revert to specific selectors */
+  /* --el-table-row-hover-bg-color: #303e4e; */ /* Revert to specific selectors */
+  --el-table-border-color: var(--el-border-color-darker); /* Keep border variable */
+
+  .el-table,
+  .el-table__expanded-cell {
+    background-color: #263445; /* Base table background */
+  }
+
+  /* Reinstate specific Header styling with NEW color */
+  .el-table th,
+  .el-table thead {
+    background-color: #1f2937; /* New Target Header background */
+    color: #E0E0E0; /* Header text color */
+  }
+  /* Ensure fixed header also uses the new color */
+  .el-table__fixed-right thead tr th,
+  .el-table__fixed thead tr th,
+  .el-table--scrollable-x .el-table__fixed-right thead tr th,
+  .el-table--scrollable-y .el-table__fixed thead tr th {
+     background-color: #1f2937 !important; /* New Target Header background, use !important if needed */
+     color: #E0E0E0;
+  }
+
+
+  /* Table Body Rows */
+  .el-table tr {
+    background-color: transparent; /* Let table bg show through */
+    color: #C0C0C0; /* Regular text color */
+  }
+
+  /* Reinstate specific hover rule with correct color */
+  .el-table--enable-row-hover .el-table__body tr:hover > td {
+    background-color: #303e4e !important; /* Corrected hover color, use !important if needed */
+  }
+
+  /* Striped effect */
+  .el-table--striped .el-table__body tr.el-table__row--striped td {
+    background-color: #2a3848; /* Slightly different striped color */
+  }
+
+  /* Borders */
+  .el-table--border th,
+  .el-table--border td,
+  .el-table th.is-leaf,
+  .el-table td {
+    border-bottom: 1px solid var(--el-table-border-color);
+    border-right: 1px solid var(--el-table-border-color);
+  }
+  .el-table th.gutter {
+      border-bottom-width: 0; /* Fix gutter border */
+  }
+  .el-table--border::before, /* Top border */
+  .el-table--group::after, /* Left border */
+  .el-table::before /* Bottom border for non-border tables */ {
+    background-color: var(--el-table-border-color);
+  }
+
+  /* Empty text */
+  .el-table__empty-text {
+    color: #A0A0A0;
+  }
+
+  /* Fixed Columns Body Background (Keep this) */
+  .el-table__fixed-right,
+  .el-table__fixed {
+    background-color: #263445; /* Match base table background */
+  }
+
+  /* Remove previous fixed header rules - replaced above */
+
+  /* Optional: Adjust fixed column shadow if needed */
+  .el-table--scrollable-x .el-table__fixed-right {
+     box-shadow: -5px 0 5px -5px rgba(0, 0, 0, 0.3); /* Adjust shadow for dark */
+  }
+  .el-table--scrollable-y .el-table__fixed-left {
+     box-shadow: 5px 0 5px -5px rgba(0, 0, 0, 0.3); /* Adjust shadow for dark */
+  }
+}
+
+/* === End Dark Mode Table Overrides === */
+
+/* === Dark Mode Pagination Overrides === */
+html.dark .el-pagination {
+  background-color: #263445; /* Match table/card background */
+  color: #C0C0C0; /* Adjust text color if needed */
+}
+
+/* Adjust button colors within pagination */
+html.dark .el-pagination button,
+html.dark .el-pagination span:not([class*=suffix]) { /* Target text spans */
+  color: #C0C0C0;
+}
+html.dark .el-pagination .el-pager li {
+  color: #C0C0C0;
+  background-color: transparent; /* Ensure buttons have correct background */
+}
+html.dark .el-pagination .el-pager li.is-active {
+  color: var(--el-color-primary);
+  background-color: rgba(var(--el-color-primary-rgb), 0.1); /* Use theme color slightly transparent */
+}
+html.dark .el-pagination button:disabled {
+  color: #4d4d4d;
+}
+
+/* Adjust input color in jumper */
+html.dark .el-pagination .el-input__inner {
+   background-color: #2c3e50;
+   color: #E0E0E0;
+   border-color: var(--el-border-color-darker);
+}
+
+/* === End Dark Mode Table Overrides === */
+
+/* === Dark Mode Card Overrides (Specific for Score page cards if needed) === */
+html.dark .score-container .header-card,
+html.dark .score-container .filter-card,
+html.dark .score-container .student-select-area,
+html.dark .score-container .score-form-card,
+html.dark .score-container .subject-card,
+html.dark .score-container .summary-card {
+  background-color: #263445 !important; /* Match card background */
+  border-color: var(--el-border-color-darker);
+}
+
+/* Adjust text within these cards */
+html.dark .score-container .header-card .header-title,
+html.dark .score-container .filter-card .area-title,
+html.dark .score-container .score-form-card .student-name,
+html.dark .score-container .subject-card .subject-header,
+html.dark .score-container .summary-card .summary-value {
+  color: #E0E0E0;
+}
+html.dark .score-container .header-card .header-desc,
+html.dark .score-container .filter-card .exam-type,
+html.dark .score-container .summary-card .summary-header {
+   color: #A0A0A0;
+}
+
+/* === Dark Mode Select Overrides (Specific for Score page filter area) === */
+html.dark .score-container .filter-card .el-select .el-input__wrapper,
+html.dark .score-container .student-select-area .el-select .el-input__wrapper {
+  background-color: #2c3e50 !important; /* Slightly darker background for select */
+  box-shadow: 0 0 0 1px var(--el-border-color-darker) inset !important;
+  color: #E0E0E0;
+}
+html.dark .score-container .filter-card .el-select .el-input__inner,
+html.dark .score-container .student-select-area .el-select .el-input__inner {
+  color: #E0E0E0 !important; /* Ensure placeholder/text color is light */
+}
+
+/* Style the dropdown popup */
+html.dark .el-select-dropdown {
+  background-color: #263445;
+  border: 1px solid var(--el-border-color-darker);
+}
+html.dark .el-select-dropdown__item {
+  color: #C0C0C0;
+}
+html.dark .el-select-dropdown__item.hover,
+html.dark .el-select-dropdown__item:hover {
+  background-color: #303e4e;
+}
+html.dark .el-select-dropdown__item.selected {
+  color: var(--el-color-primary-light-3);
+  background-color: rgba(var(--el-color-primary-rgb), 0.1);
+}
+
+/* === End Dark Mode Pagination Overrides === */
+
+/* === Dark Mode Card Overrides (Specific for Settings page) === */
+html.dark .settings-container .settings-card {
+  background-color: #263445 !important; /* Match other cards */
+  border-color: var(--el-border-color-darker);
+}
+
+/* Adjust text and form elements within the settings card */
+html.dark .settings-container .settings-card .card-header span,
+html.dark .settings-container .settings-card .setting-label {
+  color: #E0E0E0; /* Lighter text for headers and labels */
+}
+
+html.dark .settings-container .settings-card .setting-description {
+  color: #A0A0A0; /* Secondary text */
+}
+
+/* Input field adjustments */
+html.dark .settings-container .settings-card .el-input .el-input__wrapper,
+html.dark .settings-container .settings-card .el-input-number .el-input__wrapper {
+  background-color: #2c3e50 !important;
+  box-shadow: 0 0 0 1px var(--el-border-color-darker) inset !important;
+  color: #E0E0E0;
+}
+html.dark .settings-container .settings-card .el-input .el-input__inner,
+html.dark .settings-container .settings-card .el-input-number .el-input__inner {
+  color: #E0E0E0 !important;
+}
+
+/* Input number controls */
+html.dark .settings-container .settings-card .el-input-number__decrease,
+html.dark .settings-container .settings-card .el-input-number__increase {
+  background-color: #374151 !important;
+  color: #C0C0C0 !important;
+  border-color: var(--el-border-color-darker) !important;
+}
+html.dark .settings-container .settings-card .el-input-number__decrease:hover,
+html.dark .settings-container .settings-card .el-input-number__increase:hover {
+  color: var(--el-color-primary-light-3) !important;
+}
+
+/* === Dark Mode Icon Overrides (Specific for Exam page header) === */
+html.dark .exam-container .page-header .el-icon {
+  color: #A0A0A0; /* Lighter color for the icon */
+}
+
+/* === End Input number controls === */ 

@@ -3,7 +3,7 @@
     <el-row :gutter="20">
       <!-- 欢迎卡片 -->
       <el-col :span="24">
-        <el-card class="welcome-card" :class="{ 'dark-component-bg': isDark }">
+        <el-card class="welcome-card">
           <div class="welcome-content">
             <div class="welcome-text">
               <h2>欢迎使用高校人事管理系统</h2>
@@ -20,9 +20,9 @@
     <!-- 数据卡片 -->
     <el-row :gutter="20" class="data-row">
       <el-col :xs="24" :sm="12" :md="6" v-for="(item, index) in statCards" :key="index">
-        <el-card class="data-card" :body-style="{ padding: '20px' }" :class="{ 'dark-component-bg': isDark }">
+        <el-card class="data-card" :body-style="{ padding: '20px' }">
           <div class="card-content">
-            <el-icon :size="40" :color="isDark ? '#cccccc' : item.color">
+            <el-icon :size="40" :color="item.color">
               <component :is="item.icon" />
             </el-icon>
             <div class="card-info">
@@ -37,7 +37,7 @@
     <!-- 快捷入口 -->
     <el-row :gutter="20" class="shortcut-row">
       <el-col :span="24">
-        <el-card :class="{ 'dark-component-bg': isDark }">
+        <el-card>
           <template #header>
             <div class="card-header">
               <span>快捷入口</span>
@@ -50,7 +50,7 @@
                 class="shortcut-item"
                 @click="navigateTo(item.path)"
               >
-                <el-icon :size="30" :color="isDark ? '#cccccc' : item.color">
+                <el-icon :size="30" :color="item.color">
                   <component :is="item.icon" />
                 </el-icon>
                 <span>{{ item.title }}</span>
@@ -64,10 +64,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import { 
   User, 
   OfficeBuilding, 
@@ -95,9 +94,11 @@ interface ChartDataset {
 
 const router = useRouter()
 const loading = ref(true)
-const isDark = useDark()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
+
+// Inject isDark from parent instead
+const isDark = inject<boolean>('isDark', false)
 
 // Corrected: Define examTypeDistribution ref with explicit dataset type
 const examTypeDistribution = ref<{ labels: string[], datasets: ChartDataset[] }>({ 
@@ -321,24 +322,26 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-container {
+/* Remove .dark-component-bg and use .dark context from parent */
+
+/* ... styles for welcome-card, data-card, shortcut-row, shortcut-item ... */
+
+/* Keep other non-dark related styles */
+.dashboard-container { 
   padding: 20px;
   min-height: calc(100vh - 84px);
   transition: background-color 0.3s;
 }
-
 .welcome-card {
   margin-bottom: 20px;
   background: white;
   transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
-
 .welcome-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .welcome-text h2 {
   font-size: 26px;
   margin-bottom: 10px;
@@ -350,75 +353,62 @@ onMounted(() => {
   'Microsoft YaHei', Arial, sans-serif;
   transition: color 0.3s;
 }
-
 .welcome-text p {
   font-size: 16px;
   color: #606266;
   transition: color 0.3s;
 }
-
 .welcome-image img {
   max-width: 200px;
   height: auto;
 }
-
 .data-row {
   margin-bottom: 20px;
 }
-
 .data-card {
   height: 100%;
   transition: all 0.3s;
   background: white;
 }
-
 .data-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
-
 .card-content {
   display: flex;
   align-items: center;
   gap: 15px;
 }
-
 .card-info {
   flex: 1;
 }
-
 .card-title {
   font-size: 14px;
   color: #909399;
   margin-bottom: 5px;
   transition: color 0.3s;
 }
-
 .card-value {
   font-size: 24px;
   font-weight: bold;
   color: #303133;
   transition: color 0.3s;
 }
-
 .card-header {
   font-size: 18px;
   font-weight: bold;
   color: #303133;
   transition: color 0.3s;
 }
-
 .shortcut-row .el-card {
   background: white;
   transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
-
 .shortcut-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 20px;
 }
-
 .shortcut-item {
   display: flex;
   flex-direction: column;
@@ -431,13 +421,11 @@ onMounted(() => {
   transition: all 0.3s;
   color: #606266;
 }
-
 .shortcut-item:hover {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   background-color: #ecf5ff;
 }
-
 .shortcut-item span {
   margin-top: 10px;
   font-size: 14px;
@@ -458,45 +446,97 @@ onMounted(() => {
   }
 }
 
-.dark-component-bg {
+/* Example: Welcome Card */
+.dark .welcome-card {
+  background-color: #1f2937 !important; 
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+.dark .welcome-card .welcome-text h2 {
+  color: #e0e0e0;
+}
+.dark .welcome-card .welcome-text p {
+  color: #a0a0a0;
+}
+.dark .welcome-card .welcome-image img {
+  filter: brightness(0.8) contrast(1.2);
+}
+
+/* Example: Data Card */
+.dark .data-card {
+  background-color: #1f2937 !important; 
+  border-color: var(--el-border-color-lighter) !important;
+  box-shadow: var(--el-box-shadow-light) !important;
+}
+.dark .data-card .card-title {
+  color: #a0a0a0;
+}
+.dark .data-card .card-value {
+  color: #e0e0e0;
+}
+/* Adjust icon color if needed */
+.dark .data-card .el-icon {
+   color: #cccccc !important; /* Ensure icons are visible */
+}
+
+/* Example: Shortcut Row Card */
+.dark .shortcut-row .el-card {
   background-color: #1f2937 !important;
   border-color: var(--el-border-color-lighter) !important;
   box-shadow: var(--el-box-shadow-light) !important;
 }
-
-:deep(.app-wrapper.dark) .dashboard-container {
-   background-color: var(--el-bg-color-page);
-}
-
-.welcome-card.dark-component-bg .welcome-text h2 {
-  color: #e0e0e0;
-}
-.welcome-card.dark-component-bg .welcome-text p {
-  color: #a0a0a0;
-}
-.welcome-card.dark-component-bg .welcome-image img {
-  filter: brightness(0.8) contrast(1.2);
-}
-
-.data-card.dark-component-bg .card-title {
-  color: #a0a0a0;
-}
-.data-card.dark-component-bg .card-value {
+.dark .shortcut-row .el-card .card-header {
   color: #e0e0e0;
 }
 
-.shortcut-row .el-card.dark-component-bg .card-header {
-  color: #e0e0e0;
-}
-
-.dark-component-bg .shortcut-item {
+/* Example: Shortcut Item */
+.dark .shortcut-item {
   background-color: #263445;
   color: #a0a0a0;
 }
-
-.dark-component-bg .shortcut-item:hover {
+.dark .shortcut-item:hover {
   background-color: #374151;
   box-shadow: 0 5px 15px rgba(255, 255, 255, 0.05);
   color: #ffffff;
 }
+/* Adjust icon color if needed */
+.dark .shortcut-item .el-icon {
+   color: #cccccc !important; /* Ensure icons are visible */
+}
+
+/* Dark Mode Overrides for Dashboard (inner elements) */
+html.dark {
+  /* Removed: .dashboard-container rule */
+
+  .welcome-card,
+  .data-card,
+  .shortcut-row .el-card {
+    background-color: #263445; /* Use a consistent dark card background */
+    border-color: var(--el-border-color-darker); /* Adjust border if needed */
+    box-shadow: var(--el-box-shadow-dark); /* Use dark shadow */
+  }
+
+  .data-card:hover,
+  .shortcut-item:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Darker hover shadow */
+    background-color: #2c3e50; /* Slightly lighter on hover? */
+  }
+
+  .welcome-text h2,
+  .card-value,
+  .card-header,
+  .shortcut-text {
+    color: #E0E0E0; /* Lighter text for primary elements */
+  }
+
+  .welcome-text p,
+  .card-title {
+    color: #A0A0A0; /* Secondary text color */
+  }
+
+  .shortcut-icon {
+    color: var(--el-color-primary-light-3); /* Lighter primary for icon */
+  }
+}
+
 </style> 

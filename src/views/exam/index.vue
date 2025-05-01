@@ -1,7 +1,7 @@
 <template>
   <div class="exam-container">
     <!-- 页面标题区域 -->
-    <div class="page-header-area" :class="{ 'dark-component-bg': isDark }">
+    <div class="page-header-area">
       <div class="page-header">
         <el-icon :size="24"><Calendar /></el-icon>
         <div class="header-content">
@@ -16,7 +16,7 @@
     </div>
     
     <!-- 搜索和筛选区域 -->
-    <el-card class="filter-card" :class="{ 'dark-component-bg': isDark }">
+    <el-card class="filter-card">
       <template #header>
         <div class="filter-header">
           <span>搜索与筛选</span>
@@ -156,7 +156,7 @@
     </el-card>
     
     <!-- 考试列表 -->
-    <el-card class="exam-list-card" :class="{ 'dark-component-bg': isDark }">
+    <el-card class="exam-list-card">
       <template #header>
         <div class="list-header">
           <span>考试列表</span>
@@ -252,26 +252,25 @@
         </el-table-column>
       </el-table>
       
-      <!-- 分页 -->
-      <div class="pagination-container" :class="{ 'dark-component-bg': isDark }">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="filteredExamList.length"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </div>
+      <!-- 分页器 -->
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="filteredExamList.length"
+        :page-sizes="[10, 20, 30, 50]"
+        layout="total, sizes, prev, pager, next, jumper"
+        class="pagination"
+      />
     </el-card>
     
-    <!-- 考试表单对话框 -->
+    <!-- 新增/编辑考试对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? '新增考试' : '编辑考试'"
-      width="600px"
-      destroy-on-close
+      :title="isEditMode ? '编辑考试' : '新增考试'"
+      width="800px"
+      top="5vh" 
+      :close-on-click-modal="false"
+      @close="handleDialogClose"
     >
       <el-form
         ref="formRef"
@@ -335,7 +334,7 @@
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" @click="submitExamForm" :loading="submitLoading">
-            {{ dialogType === 'add' ? '创建' : '保存' }}
+            {{ isEditMode ? '保存' : '创建' }}
           </el-button>
         </div>
       </template>
@@ -346,13 +345,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useDark } from '@vueuse/core'
-import type { FormInstance } from 'element-plus'
-import { 
-  Calendar, Search, Plus, Edit, Delete, Refresh,
-  SuccessFilled, WarningFilled, CircleCheckFilled,
-  Filter, InfoFilled
-} from '@element-plus/icons-vue'
+import { Plus, Calendar, Search, Edit, Delete, Filter, InfoFilled } from '@element-plus/icons-vue'
 import { 
   getExamList, 
   addExam, 
@@ -369,9 +362,6 @@ import type { ExamInfo, ExamQueryParams } from '@/types/exam'
 import type { ExamItem, ExamItemResponse, Subject, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
-
-// Dark mode state
-const isDark = useDark()
 
 // 考试类型选项
 const dynamicExamTypeOptions = ref<string[]>([])
@@ -469,7 +459,7 @@ const emptyText = ref('暂无考试数据')
 
 // 对话框相关
 const dialogVisible = ref(false)
-const dialogType = ref<'add' | 'edit'>('add')
+const isEditMode = ref(false)
 const formRef = ref<FormInstance>()
 
 // 考试表单
@@ -557,19 +547,6 @@ const handleSearch = () => {
   fetchExamList();
 }
 
-// 页码变化处理
-const handleCurrentChange = (page: number) => {
-  currentPage.value = page;
-  fetchExamList();
-}
-
-// 每页条数变化处理
-const handleSizeChange = (size: number) => {
-  pageSize.value = size;
-  currentPage.value = 1;
-  fetchExamList();
-}
-
 // 获取考试列表
 const fetchExamList = async () => {
   loading.value = true;
@@ -640,14 +617,14 @@ const fetchExamTypes = async () => {
 
 // 新增考试
 const handleAddExam = () => {
-  dialogType.value = 'add'
+  isEditMode.value = false
   resetForm()
   dialogVisible.value = true
 }
 
 // 编辑考试
 const handleEditExam = (row: ExamItem) => {
-  dialogType.value = 'edit'
+  isEditMode.value = true
   dialogVisible.value = true
   
   // 将 ExamItem 数据填充到 examForm
@@ -748,31 +725,25 @@ const submitExamForm = async () => {
     }
 
     let res: ApiResponse<any>;
-    if (dialogType.value === 'add') {
-      // addExam 可能需要移除 id
+    if (isEditMode.value) {
+      // updateExam 第一个参数是 id, 第二个是数据
+      res = await updateExam(backendData.id, backendData)
+    } else {
       const addData = { ...backendData };
       delete addData.id;
       res = await addExam(addData)
-    } else {
-      if (!backendData.id) {
-        ElMessage.error('缺少考试ID，无法更新')
-        submitLoading.value = false
-        return
-      }
-      // updateExam 第一个参数是 id, 第二个是数据
-      res = await updateExam(backendData.id, backendData)
     }
 
     if (res?.code === 200 || res?.code === 201) {
-      ElMessage.success(dialogType.value === 'add' ? '创建成功' : '更新成功')
+      ElMessage.success(isEditMode.value ? '更新成功' : '创建成功')
       dialogVisible.value = false
       fetchExamList()
     } else {
-      ElMessage.error(res?.message || (dialogType.value === 'add' ? '创建失败' : '更新失败'))
+      ElMessage.error(res?.message || (isEditMode.value ? '更新失败' : '创建失败'))
     }
   } catch (error: any) {
-    console.error(dialogType.value === 'add' ? '创建考试失败:' : '更新考试失败:', error)
-    const errorMsg = error.response?.data?.message || error.message || (dialogType.value === 'add' ? '创建失败' : '更新失败')
+    console.error(isEditMode.value ? '更新考试失败:' : '创建考试失败:', error)
+    const errorMsg = error.response?.data?.message || error.message || (isEditMode.value ? '更新失败' : '创建失败')
     ElMessage.error(errorMsg)
   } finally {
     submitLoading.value = false
@@ -852,26 +823,29 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .exam-container {
   padding: 20px;
-  min-height: calc(100vh - 84px);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: background-color 0.3s;
+  background-color: var(--el-bg-color-page); /* Use variable for light mode */
+  min-height: calc(100vh - 84px); /* Ensure full height minus header/nav */
+  transition: background-color 0.3s ease; /* Smooth transition */
 }
 
-/* 页面标题区域样式 */
+/* Page Header */
 .page-header-area {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: white;
   padding: 20px;
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  margin-bottom: 20px;
+  border: 1px solid var(--el-border-color-lighter);
+  transition: background-color 0.3s, border-color 0.3s;
+}
+.dark .page-header-area {
+  background-color: #263445;
+  border-color: var(--el-border-color-darker);
 }
 
 .page-header {
@@ -880,36 +854,34 @@ onMounted(async () => {
   gap: 15px;
 }
 
-.header-content {
-  display: flex;
-  flex-direction: column;
-}
-
 .header-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: bold;
+  color: var(--el-text-color-primary);
   margin: 0;
-  color: #303133;
-  transition: color 0.3s;
+}
+.dark .header-title {
+  color: #E0E0E0;
 }
 
 .header-desc {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 14px;
-  margin-top: 2px;
-  transition: color 0.3s;
+}
+.dark .header-desc {
+  color: #A0A0A0;
 }
 
-.header-actions {
-  display: flex;
-  gap: 10px;
-}
-
-/* 筛选卡片样式 */
+/* Filter Card */
 .filter-card {
-  margin-bottom: 0;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  margin-bottom: 20px;
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  border: 1px solid var(--el-border-color-lighter);
+  transition: background-color 0.3s, border-color 0.3s;
+}
+.dark .filter-card {
+  background-color: #2c3e50; /* Slightly different dark */
+  border-color: var(--el-border-color-darker);
 }
 
 .filter-header {
@@ -917,62 +889,89 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
+  color: var(--el-text-color-primary);
+}
+.dark .filter-header {
+  color: #E0E0E0;
 }
 
 .filter-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Adjust based on content */
+  gap: 30px;
+  padding: 10px 0;
+}
+
+.search-section, .filter-section {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
 }
 
 .section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
-  color: #606266;
   font-weight: 500;
-  transition: color 0.3s;
+  color: var(--el-text-color-regular);
+  margin-bottom: 5px;
+}
+.dark .section-title {
+  color: #C0C0C0;
 }
 
 .filter-layout {
   display: flex;
-  flex-direction: column; /* 确保行是垂直排列的 */
-  gap: 15px; /* 行之间的间距 */
+  flex-direction: column;
+  gap: 15px;
 }
 
 .filter-row {
-  display: flex;
-  flex-wrap: wrap; /* 允许内容换行 */
-  gap: 15px; /* 行内元素之间的间距 */
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
 }
 
-.filter-item { 
-  flex-grow: 1; /* 允许项目在行内扩展 */
-  min-width: 180px; /* 保留最小宽度 */
+.filter-item {
+  width: 100%;
 }
 
 .date-picker-full-width {
-  width: 100%; /* 让日期选择器占满整行 */
-  min-width: 350px; /* 保留一个合理的最小宽度 */
+  width: 100%;
 }
 
-/* 筛选结果显示 */
+/* Adjust grid for single column on smaller screens if needed */
+@media (max-width: 992px) {
+  .filter-content {
+    grid-template-columns: 1fr;
+  }
+  .filter-row {
+    grid-template-columns: 1fr; /* Stack filters on smaller screens */
+  }
+}
+
 .filter-results {
   margin-top: 20px;
   padding-top: 15px;
-  border-top: 1px dashed #e0e0e0;
-  transition: border-color 0.3s;
+  border-top: 1px dashed var(--el-border-color-lighter);
+}
+.dark .filter-results {
+  border-top-color: var(--el-border-color-darker);
 }
 
 .results-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #409EFF;
+  gap: 5px;
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
   margin-bottom: 10px;
+}
+.dark .results-info {
+  color: #A0A0A0;
+}
+.results-info strong {
+  color: var(--el-color-primary);
 }
 
 .active-filters {
@@ -981,336 +980,117 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.filter-tag {
-  margin: 0;
+/* Exam List Card */
+.exam-list-card {
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  border: 1px solid var(--el-border-color-lighter);
+  transition: background-color 0.3s, border-color 0.3s;
+}
+.dark .exam-list-card {
+  background-color: #263445;
+  border-color: var(--el-border-color-darker);
 }
 
-/* 列表卡片样式 */
 .list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #303133;
-  transition: color 0.3s;
+  font-weight: bold;
+  color: var(--el-text-color-primary);
 }
-
+.dark .list-header {
+  color: #E0E0E0;
+}
 .data-count {
   font-size: 14px;
-  color: #909399;
   font-weight: normal;
-  transition: color 0.3s;
+  color: var(--el-text-color-secondary);
+}
+.dark .data-count {
+  color: #A0A0A0;
 }
 
-.exam-list-card {
-  margin-bottom: 0;
-  flex: 1;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
-}
-
-/* 其他样式保持不变 */
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-  padding: 15px 0;
-  background: white;
-  border-radius: 0 0 8px 8px;
-  transition: background-color 0.3s;
-}
-
+/* Exam table specific styles */
 .exam-name {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.subject-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.subject-tag {
-  margin-right: 0;
-}
-
 .operation-buttons {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: center; /* Center buttons in the cell */
+  gap: 10px;
 }
 
-/* 美化表格样式 */
-:deep(.el-table) {
-  --el-table-border-color: #ebeef5;
-  --el-table-header-bg-color: #f5f7fa;
-  --el-table-row-hover-bg-color: #f0f9ff;
-}
-
-:deep(.el-table th) {
-  font-weight: bold;
-  color: #303133;
-  background-color: #f5f7fa;
-}
-
-:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
-  background-color: #fafafa;
-}
-
-/* Add styles to unify filter input fonts */
-.filter-item :deep(.el-input__inner),
-.filter-item :deep(.el-range-input), /* Target date range inputs too */
-/* Also target placeholders */
-.filter-item :deep(.el-input__inner::placeholder),
-.filter-item :deep(.el-range-input::placeholder) {
-  font-family: 
-    -apple-system, BlinkMacSystemFont, 
-    'Helvetica Neue', Helvetica, 
-    'PingFang SC',
-    'Microsoft YaHei', Arial, sans-serif;
-}
-
-/* Unify button fonts within this component */
-:deep(.el-button) { 
-  font-family: 
-    -apple-system, BlinkMacSystemFont, 
-    'Helvetica Neue', Helvetica, 
-    'PingFang SC',
-    'Microsoft YaHei', Arial, sans-serif;
-}
-
-.dialog-footer {
+/* Pagination */
+.pagination {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
   margin-top: 20px;
+  background-color: var(--el-bg-color-overlay);
+  padding: 10px 15px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+.dark .pagination {
+  background-color: #263445;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .page-header-area {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
+/* Dialog Styles */
+.dark :deep(.el-dialog) {
+  background-color: #263445;
+}
+.dark :deep(.el-dialog__header) {
+  color: #E0E0E0;
+}
+.dark :deep(.el-dialog__title) {
+   color: #E0E0E0;
+}
+.dark :deep(.el-dialog__body) {
+  color: var(--el-text-color-primary); 
+  background-color: #2c3e50; /* Darker background for body */
+}
+.dark :deep(.el-dialog__footer) {
+  background-color: #2c3e50; /* Darker background for footer */
+}
+
+.dark :deep(.el-form-item__label) {
+  color: #C0C0C0;
+}
+
+.dark :deep(.el-transfer-panel) {
+  background-color: #374151;
+  border-color: var(--el-border-color-darker);
+}
+.dark :deep(.el-transfer-panel__header) {
+   background-color: #4b5563;
+   color: #E0E0E0;
+}
+
+.dark :deep(.el-transfer-panel .el-checkbox__label) {
+   color: #C0C0C0;
+}
+.dark :deep(.el-transfer-panel .el-checkbox__input.is-checked .el-checkbox__inner) {
+   background-color: var(--el-color-primary);
+   border-color: var(--el-color-primary);
+}
+
+/* Remove specific dark-component-bg rules */
+
+.operation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+  gap: 10px; /* Add gap between items */
+
+  .filter-items {
+    display: flex;
+    flex-wrap: wrap; /* Allow filter items to wrap */
+    gap: 10px;
+    align-items: center;
   }
-  
-  .filter-options {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .filter-item, .date-picker {
-    width: 100%;
-  }
-  
-  .header-actions {
-    justify-content: flex-end;
-  }
 }
-
-/* 居中表格内容 */
-:deep(.el-table .el-table__cell),
-:deep(.el-table th.el-table__cell > .cell) {
-  text-align: center;
-}
-
-/* --- Dark Mode Styles using Conditional Class --- */
-
-.dark-component-bg {
-  background-color: #1f2937 !important;
-  border-color: var(--el-border-color-lighter) !important;
-  box-shadow: var(--el-box-shadow-light) !important;
-}
-
-/* Container background */
-:deep(.app-wrapper.dark) .exam-container {
-   background-color: var(--el-bg-color-page);
-}
-
-/* Header Area */
-.page-header-area.dark-component-bg .header-title {
-  color: #e0e0e0;
-}
-.page-header-area.dark-component-bg .header-desc {
-  color: #a0a0a0;
-}
-.page-header-area.dark-component-bg :deep(.el-button:not(.el-button--primary)) { /* Style non-primary buttons */
-  background-color: var(--el-button-bg-color);
-  color: var(--el-button-text-color);
-  border-color: var(--el-button-border-color);
-}
-
-/* Filter Card */
-.filter-card.dark-component-bg .filter-header {
-  color: #e0e0e0;
-}
-.filter-card.dark-component-bg .section-title {
-  color: #a0a0a0;
-}
-.filter-card.dark-component-bg .filter-results {
-  border-top-color: #4b5563;
-}
-.filter-card.dark-component-bg .results-info {
-  color: #66b1ff; /* Lighter blue */
-}
-.filter-card.dark-component-bg :deep(.el-input__wrapper),
-.filter-card.dark-component-bg :deep(.el-select .el-input__wrapper),
-.filter-card.dark-component-bg :deep(.el-date-editor .el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: none !important;
-}
-.filter-card.dark-component-bg :deep(.el-input__inner),
-.filter-card.dark-component-bg :deep(.el-range-input),
-.filter-card.dark-component-bg :deep(.el-input-group__append .el-button) {
-   color: var(--el-text-color-primary) !important;
-}
-.filter-card.dark-component-bg :deep(.el-input__inner::placeholder),
-.filter-card.dark-component-bg :deep(.el-range-input::placeholder) {
-    color: var(--el-text-color-placeholder) !important;
-}
-.filter-card.dark-component-bg :deep(.el-input-group__append) {
-   background-color: transparent;
-   box-shadow: none;
-}
-.filter-card.dark-component-bg :deep(.el-button--text) { /* Clear filter button */
-   color: var(--el-color-primary-light-3);
-}
-/* Adjust tag colors for dark mode if needed */
-.dark-component-bg :deep(.el-tag) {
-   background-color: #374151;
-   color: #a0a0a0;
-   border-color: #4b5563;
-}
-.dark-component-bg :deep(.el-tag .el-tag__close) {
-    color: #a0a0a0;
-}
-.dark-component-bg :deep(.el-tag .el-tag__close:hover) {
-    background-color: #4b5563;
-}
-
-
-/* List Card */
-.exam-list-card.dark-component-bg .list-header {
-  color: #e0e0e0;
-}
-.exam-list-card.dark-component-bg .data-count {
-  color: #a0a0a0;
-}
-.exam-list-card.dark-component-bg :deep(.el-table__header-wrapper th) {
-  color: #e0e0e0;
-}
-.exam-list-card.dark-component-bg :deep(.el-table) {
-  --el-table-border-color: #4b5563;
-  --el-table-header-bg-color: #263445;
-  --el-table-tr-bg-color: #1f2937;
-  --el-table-row-hover-bg-color: #263445;
-}
-.exam-list-card.dark-component-bg :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
-  background-color: #222e3e; /* Slightly different dark striped background */
-}
-.exam-list-card.dark-component-bg :deep(.el-table td),
-.exam-list-card.dark-component-bg :deep(.el-table th) {
-  color: #c0c4cc; /* Lighter text for table content */
-}
-.exam-list-card.dark-component-bg :deep(.el-table__empty-text) {
-  color: #a0a0a0;
-}
-/* Adjust table tags */
-.dark-component-bg :deep(.el-table .el-tag) {
-   background-color: #374151;
-   color: #a0a0a0;
-   border-color: #4b5563;
-}
-/* Example: Make dark mode status tags more distinct */
-.dark-component-bg :deep(.el-table .el-tag--success) { /* 已结束 */
-   background-color: #1e4620;
-   color: #a7f3d0;
-   border-color: #2f6f49;
-}
-.dark-component-bg :deep(.el-table .el-tag--primary) { /* 进行中 */
-   background-color: #1e3a8a;
-   color: #bfdbfe;
-   border-color: #3b82f6;
-}
-.dark-component-bg :deep(.el-table .el-tag--info) { /* 未开始 */
-   background-color: #374151;
-   color: #a0a0a0;
-   border-color: #4b5563;
-}
-
-
-.pagination-container.dark-component-bg :deep(button),
-.pagination-container.dark-component-bg :deep(.el-input__wrapper) {
-   background-color: var(--el-fill-color-blank) !important;
-   color: var(--el-text-color-primary) !important;
-}
-.pagination-container.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-.pagination-container.dark-component-bg :deep(.el-pager li) {
-  background-color: transparent !important;
-  color: var(--el-text-color-primary) !important;
-}
-.pagination-container.dark-component-bg :deep(.el-pager li.is-active) {
-    background-color: var(--el-color-primary) !important;
-    color: var(--el-color-white) !important;
-}
-.pagination-container.dark-component-bg :deep(span:not([class])),
-.pagination-container.dark-component-bg :deep(.el-pagination__jump) {
-    color: var(--el-text-color-primary) !important;
-    background-color: transparent !important;
-}
-.pagination-container.dark-component-bg :deep(button:disabled) {
-    color: var(--el-text-color-disabled) !important;
-    background-color: transparent !important;
-}
-.pagination-container.dark-component-bg :deep(.btn-prev),
-.pagination-container.dark-component-bg :deep(.btn-next) {
-     background-color: transparent !important;
-}
-
-/* 为关键词搜索输入框在暗黑模式下添加边框 */
-.dark .keyword-search-input :deep(.el-input__wrapper) {
-  border: 1px solid #4b5563 !important;
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: none !important;
-}
-
-.dark .keyword-search-input :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--el-color-primary) !important;
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
-}
-
-/* 为日期范围选择器在暗黑模式下添加可见边框 - 终极尝试 */
-.dark .date-picker :deep(.el-range-editor.el-input__wrapper) { 
-  background-color: transparent !important; /* 尝试透明背景 */
-  border: 1px solid #4b5563 !important; /* 再次尝试 border */
-  box-shadow: none !important; /* 清除可能干扰的 shadow */
-}
-
-/* 定位到内部的 input 元素 */
-.dark .date-picker :deep(.el-range-input) { 
-  color: var(--el-text-color-primary) !important; /* 确保文字颜色可见 */
-  /* 这里不需要设置边框，边框应该在 wrapper 上 */
-  background-color: transparent !important; /* 确保输入框本身背景透明 */
-}
-
-/* 处理日期选择器焦点状态 */
-.dark .date-picker :deep(.el-range-editor.el-input__wrapper.is-focus),
-.dark .date-picker :deep(.el-range-editor.el-input__wrapper:focus-within) { 
-  border-color: var(--el-color-primary) !important; /* 尝试改变 border 颜色 */
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important; /* 保留焦点阴影 */
-}
-
-/* 移除之前尝试的 box-shadow 规则 */
-/* 
-.dark .date-picker :deep(.el-range-editor.el-input__wrapper) { 
-  box-shadow: 0 0 0 1px #4b5563 inset !important; 
-}
-.dark .date-picker :deep(.el-range-editor.el-input__wrapper.is-focus),
-.dark .date-picker :deep(.el-range-editor.el-input__wrapper:focus-within) { 
-  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important; 
-}
-*/
 </style> 

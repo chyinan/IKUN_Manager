@@ -1,7 +1,7 @@
 <template>
   <div class="emp-container">
     <!-- 头部搜索和操作区 -->
-    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
+    <div class="operation-header">
       <div class="search-group">
         <el-input
           v-model="searchKey"
@@ -109,8 +109,7 @@
       :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
-      class="pagination"
-      :class="{ 'dark-component-bg': isDark }" />
+      class="pagination" />
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -209,9 +208,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, reactive, onMounted, nextTick, watch, inject } from 'vue'
 import { ElMessage, ElMessageBox, ElTable, ElForm } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import {
   Search, Plus, Edit, Delete, Download, UploadFilled, Refresh, CircleCloseFilled, Picture, Upload
 } from '@element-plus/icons-vue'
@@ -234,8 +232,8 @@ import dayjs from 'dayjs'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
 import { getRegexConfig } from '@/api/config'
 
-// Dark mode state for conditional class binding
-const isDark = useDark()
+// Inject isDark from parent (optional, if needed in script)
+const isDark = inject<boolean>('isDark', false)
 
 // --- Regex Config ---
 const employeeIdRegexPattern = ref('')
@@ -1014,31 +1012,37 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
 };
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .emp-container {
   padding: 20px;
-  min-height: calc(100vh - 84px);
-  transition: background-color 0.3s; /* Optional: Added transition */
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 84px); /* Adjust based on layout */
+  transition: background-color 0.3s;
 }
 
 .operation-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  background: #ffffff; /* Base/Light Mode: White background */
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s; /* Add transitions */
+  flex-wrap: wrap; /* Allow wrapping */
+  gap: 10px;
+}
+
+.filter-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-group {
   display: flex;
-  gap: 15px;
+  gap: 10px;
 }
 
 .search-input {
-  width: 300px;
+  width: 250px;
 }
 
 .operation-buttons {
@@ -1047,155 +1051,48 @@ const beforeImportUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile)
 }
 
 .emp-table {
+  width: 100%;
   margin-bottom: 20px;
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .pagination {
   display: flex;
   justify-content: flex-end;
+  background-color: var(--el-bg-color-overlay); /* Light mode background */
+  padding: 10px 15px;
+  border-radius: 4px;
   margin-top: 20px;
-  background: #ffffff; /* Base/Light Mode: White background */
-  padding: 15px;
-  border-radius: 8px;
-  transition: background-color 0.3s, border-color 0.3s; /* Add transitions */
+  transition: background-color 0.3s;
 }
 
-:deep(.el-table) {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-}
-
-/* 居中表格内容 */
-:deep(.el-table .el-table__cell),
-:deep(.el-table th.el-table__cell > .cell) {
-  text-align: center;
-}
-
-/* --- New Dark Mode Styles using Conditional Class --- */
-
-.operation-header.dark-component-bg {
-  background-color: #1f2937; /* Explicit dark background color */
-  box-shadow: var(--el-box-shadow-light); /* Use EP variable for shadow */
-  border: 1px solid var(--el-border-color-lighter); /* Use EP variable */
-}
-
-.pagination.dark-component-bg {
-  background-color: #1f2937; /* Explicit dark background color */
-  border: 1px solid var(--el-border-color-lighter); /* Use EP variable */
-}
-
-/* Style internal elements when the dark class is applied */
-.dark-component-bg :deep(.el-input__wrapper),
-.dark-component-bg :deep(.el-select .el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important; /* Use EP variable, keep important if needed */
-  box-shadow: none !important;
-}
-
-.dark-component-bg :deep(.el-input__inner),
-.dark-component-bg :deep(.el-select .el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-
-.dark-component-bg :deep(.el-input__inner::placeholder) {
-    color: var(--el-text-color-placeholder) !important;
-}
-
-.dark-component-bg :deep(.el-button) {
-   /* Rely on Element Plus default dark mode for buttons or add specific vars */
-   background-color: var(--el-button-bg-color);
-   color: var(--el-button-text-color);
-   border-color: var(--el-button-border-color);
-}
-
-/* --- NEW: Specific styles for operation buttons in dark mode --- */
-/* Override primary button variables moved to global dark-overrides.css */
-/*
-.operation-header.dark-component-bg .operation-buttons .el-button--primary {
-  --el-button-text-color: var(--el-color-white) !important; 
-  --el-button-bg-color: #263445 !important; 
-  --el-button-border-color: #909399 !important; 
-}
-*/
-
-/* Optional: Add overrides for warning/success if needed */
-/*
-.operation-header.dark-component-bg .operation-buttons .el-button--warning {
-  --el-button-text-color: var(--el-color-white) !important; 
-  --el-button-bg-color: #some_dark_warning_bg !important; 
-  --el-button-border-color: #some_dark_warning_border !important; 
-}
-.operation-header.dark-component-bg .operation-buttons .el-button--success {
-  --el-button-text-color: var(--el-color-white) !important; 
-  --el-button-bg-color: #some_dark_success_bg !important; 
-  --el-button-border-color: #some_dark_success_border !important; 
-}
-*/
-
-/* REMOVED previous button override attempts */
-
-/* --- END NEW --- */
-
-/* Pagination internal elements in dark mode */
-.pagination.dark-component-bg :deep(button),
-.pagination.dark-component-bg :deep(.el-input__wrapper),
-.pagination.dark-component-bg :deep(.el-select .el-input__wrapper) {
-  /* Buttons and inputs might need specific backgrounds */
-   background-color: var(--el-fill-color-blank) !important;
-   color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-pager li) {
-  background-color: transparent !important;
-  color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-pager li.is-active) {
-    background-color: var(--el-color-primary) !important;
-    color: var(--el-color-white) !important;
-}
-.pagination.dark-component-bg :deep(span:not([class])),
-.pagination.dark-component-bg :deep(.el-pagination__jump) {
-    color: var(--el-text-color-primary) !important;
-    background-color: transparent !important;
-}
-.pagination.dark-component-bg :deep(button:disabled) {
-    color: var(--el-text-color-disabled) !important;
-    background-color: transparent !important;
-}
-.pagination.dark-component-bg :deep(.btn-prev),
-.pagination.dark-component-bg :deep(.btn-next) {
-     background-color: transparent !important;
-}
-
-/* Remove old :deep rules */
-/* :deep(.app-wrapper.dark) ... rules are removed */
-
-/* Add style for the regex tip */
 .regex-tip {
   font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-  line-height: 1.4;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
 }
-
-.dark-component-bg .regex-tip {
-  color: #737373; /* Adjust color for dark mode */
-}
-
-/* Style for the code tag inside the tip */
 .regex-tip code {
-  background-color: rgba(100, 100, 100, 0.1);
+  background-color: var(--el-fill-color-light);
   padding: 2px 4px;
   border-radius: 3px;
-  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-family: monospace;
 }
 
-.dark-component-bg .regex-tip code {
-   background-color: rgba(200, 200, 200, 0.2);
+/* Remove specific dark-component-bg rules for pagination and header */
+/* As they are now handled by .dark .operation-header and .dark .pagination */
+
+/* Ensure table adapts in dark mode (might be covered by global overrides) */
+.dark .emp-table {
+  /* Add specific table dark styles here if global overrides aren't enough */
+  /* e.g., --el-table-tr-bg-color: #263445; */
 }
 
+/* Dark mode specific adjustments if needed */
+.dark .operation-header {
+  /* Specific dark header styles if necessary */
+}
+
+/* Adjustments for form within dialog */
+.form-in-dialog {
+  padding-right: 20px; /* Add some padding */
+}
 </style>

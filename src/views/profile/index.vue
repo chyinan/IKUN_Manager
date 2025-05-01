@@ -1,6 +1,6 @@
 <template>
   <div class="profile-container">
-    <el-card class="profile-card" :class="{ 'dark-component-bg': isDark }">
+    <el-card class="profile-card">
       <template #header>
         <div class="card-header">
           <span>个人中心</span>
@@ -58,7 +58,7 @@
         <h3 class="section-title">账户安全</h3>
         
         <div class="security-options">
-          <div class="security-item" :class="{ 'dark-component-bg': isDark }" @click="passwordDialogVisible = true">
+          <div class="security-item" @click="passwordDialogVisible = true">
             <el-icon class="security-icon"><Lock /></el-icon>
             <div class="security-info">
               <h4>修改密码</h4>
@@ -67,7 +67,7 @@
             <el-icon><ArrowRight /></el-icon>
           </div>
           
-          <div class="security-item" :class="{ 'dark-component-bg': isDark }" @click="confirmLogout">
+          <div class="security-item" @click="confirmLogout">
             <el-icon class="security-icon"><SwitchButton /></el-icon>
             <div class="security-info">
               <h4>退出登录</h4>
@@ -76,7 +76,7 @@
             <el-icon><ArrowRight /></el-icon>
           </div>
           
-          <div class="security-item danger" :class="{ 'dark-component-bg': isDark }" @click="confirmDeactivate">
+          <div class="security-item danger" @click="confirmDeactivate">
             <el-icon class="security-icon"><Delete /></el-icon>
             <div class="security-info">
               <h4>注销账户</h4>
@@ -145,7 +145,6 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import { useUserStore } from '@/stores/user'
 import { updatePassword, uploadAvatar, updateUserInfo } from '@/api/user'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -367,9 +366,6 @@ const confirmDeactivate = () => {
   })
 }
 
-// Dark mode state
-const isDark = useDark()
-
 // 初始化数据
 onMounted(() => {
   if (userStore.username) {
@@ -384,37 +380,106 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .profile-container {
-  padding: 20px;
-  min-height: calc(100vh - 84px);
-  transition: background-color 0.3s;
+  padding: 30px;
+  background-color: var(--el-bg-color-page); /* Use variable for light mode */
+  min-height: calc(100vh - 84px); /* Ensure full height minus header/nav */
+  transition: background-color 0.3s ease; /* Smooth transition */
+
+  .profile-card {
+    max-width: 600px;
+    margin: 20px auto;
+  }
+
+  .avatar-section {
+    text-align: center;
+    margin-bottom: 30px;
+
+    .user-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid var(--el-border-color);
+      transition: border-color 0.3s;
+
+      &:hover {
+        border-color: var(--el-color-primary);
+      }
+    }
+
+    .upload-tip {
+      font-size: 12px;
+      color: var(--el-text-color-secondary);
+      margin-top: 10px;
+    }
+  }
+
+  .info-section {
+    .el-descriptions {
+      margin-top: 20px;
+    }
+
+    .el-descriptions__label {
+      font-weight: bold;
+      width: 100px; // Adjust label width if needed
+    }
+
+  }
+
+  .action-section {
+    text-align: center;
+    margin-top: 30px;
+  }
+
+  /* Hidden file input */
+  .avatar-uploader-input {
+    display: none;
+  }
 }
 
-.profile-card {
-  max-width: 800px;
-  margin: 0 auto;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+/* Dark mode specific overrides */
+html.dark {
+  .profile-container {
+    .profile-card {
+      background-color: #1f2937; /* Match container dark bg or slightly different */
+      border-color: var(--el-border-color-darker);
+    }
+
+    .avatar-section .user-avatar {
+      border-color: var(--el-border-color-darker);
+       &:hover {
+        border-color: var(--el-color-primary-light-3); /* Adjust hover color for dark */
+      }
+    }
+
+    .info-section .el-descriptions {
+       /* Element Plus dark variables should handle most description styles */
+       /* Adjust if necessary, e.g., for border color */
+       --el-descriptions-border-color: var(--el-border-color-darker);
+    }
+  }
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header span {
   font-size: 18px;
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
+  color: var(--el-text-color-primary);
+}
+.dark .card-header {
+  color: #E0E0E0;
 }
 
 .profile-content {
   display: flex;
   gap: 40px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
   margin-bottom: 30px;
+}
+.dark .profile-content {
+  border-bottom-color: var(--el-border-color-darker);
 }
 
 .avatar-container {
@@ -422,6 +487,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 15px;
+  flex-shrink: 0;
 }
 
 .upload-btn {
@@ -429,170 +495,124 @@ onMounted(() => {
 }
 
 .info-container {
-  flex: 1;
+  flex-grow: 1;
+}
+
+.dark .el-form-item__label {
+  color: #C0C0C0;
+}
+
+.security-container {
+  margin-top: 20px;
 }
 
 .section-title {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 20px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
-  color: #303133;
-  transition: color 0.3s, border-color 0.3s;
+  color: var(--el-text-color-primary);
 }
-
-.security-container {
-  margin-top: 30px;
+.dark .section-title {
+  color: #E0E0E0;
 }
 
 .security-options {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
 }
 
 .security-item {
   display: flex;
   align-items: center;
-  padding: 15px;
+  padding: 20px;
   border-radius: 8px;
-  background-color: #f9f9f9;
+  background-color: var(--el-fill-color-lighter);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.3s, box-shadow 0.3s, border-color 0.3s;
+  border: 1px solid var(--el-border-color-lighter);
+}
+.security-item:hover {
+  box-shadow: var(--el-box-shadow-light);
+  background-color: var(--el-color-primary-light-9);
 }
 
-.security-item:hover {
-  background-color: #f0f0f0;
+.dark .security-item {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: var(--el-border-color-darker);
+}
+.dark .security-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .security-icon {
   font-size: 24px;
-  color: #409EFF;
   margin-right: 15px;
-  transition: color 0.3s;
+  color: var(--el-text-color-secondary);
 }
-
-.security-info {
-  flex: 1;
+.dark .security-icon {
+  color: #A0A0A0;
 }
 
 .security-info h4 {
   margin: 0 0 5px 0;
-  font-size: 16px;
-  color: #303133;
-  transition: color 0.3s;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+.dark .security-info h4 {
+  color: #E0E0E0;
 }
 
 .security-info p {
   margin: 0;
-  color: #909399;
-  font-size: 14px;
-  transition: color 0.3s;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.dark .security-info p {
+  color: #A0A0A0;
 }
 
-.danger .security-icon {
-  color: #F56C6C;
+.security-item .el-icon:last-child {
+  margin-left: auto;
+  color: var(--el-text-color-placeholder);
+}
+.dark .security-item .el-icon:last-child {
+  color: #777;
 }
 
-.danger:hover {
-  background-color: #fef0f0;
+.security-item.danger {
+  border-left: 4px solid var(--el-color-danger);
+}
+.security-item.danger:hover {
+  background-color: var(--el-color-danger-light-9);
+}
+.dark .security-item.danger {
+   border-color: var(--el-color-danger);
+}
+.dark .security-item.danger:hover {
+  background-color: rgba(245, 108, 108, 0.1);
+}
+.security-item.danger .security-icon,
+.dark .security-item.danger .security-icon,
+.dark .security-item.danger h4 {
+  color: var(--el-color-danger);
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .profile-content {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .info-container {
-    width: 100%;
-  }
+/* Dialog Styles */
+.dark :deep(.el-dialog) {
+  background-color: #263445;
+}
+.dark :deep(.el-dialog__header) {
+  color: #E0E0E0;
+}
+.dark :deep(.el-dialog__title) {
+   color: #E0E0E0;
+}
+.dark :deep(.el-dialog__body) {
+  color: var(--el-text-color-primary);
 }
 
-/* --- Dark Mode Styles --- */
-
-.dark-component-bg {
-  background-color: #1f2937 !important;
-  border-color: var(--el-border-color-lighter) !important;
-  box-shadow: var(--el-box-shadow-light) !important;
-}
-
-/* Container background */
-:deep(.app-wrapper.dark) .profile-container {
-   background-color: var(--el-bg-color-page);
-}
-
-/* Profile Card */
-.profile-card.dark-component-bg .card-header span {
-  color: #e0e0e0;
-}
-
-.profile-card.dark-component-bg :deep(.el-form-item__label) {
-   color: #a0a0a0 !important;
-}
-.profile-card.dark-component-bg :deep(.el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: none !important;
-}
-.profile-card.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-/* Style disabled input */
-.profile-card.dark-component-bg :deep(.el-input.is-disabled .el-input__wrapper) {
-   background-color: var(--el-disabled-bg-color) !important;
-   cursor: not-allowed;
-}
-.profile-card.dark-component-bg :deep(.el-input.is-disabled .el-input__inner) {
-   color: var(--el-disabled-text-color) !important;
-   cursor: not-allowed;
-}
-/* Save button styling */
-.profile-card.dark-component-bg :deep(.el-form-item .el-button) {
-   background-color: var(--el-button-bg-color);
-   color: var(--el-button-text-color);
-   border-color: var(--el-button-border-color);
-}
-.profile-card.dark-component-bg :deep(.el-form-item .el-button:hover),
-.profile-card.dark-component-bg :deep(.el-form-item .el-button:focus) {
-   background-color: var(--el-button-hover-bg-color);
-   color: var(--el-button-hover-text-color);
-   border-color: var(--el-button-hover-border-color);
-}
-
-/* Security Section */
-.profile-card.dark-component-bg .section-title {
-  color: #e0e0e0;
-  border-bottom-color: #4b5563;
-}
-
-.security-item.dark-component-bg {
-  background-color: #263445 !important;
-}
-
-.security-item.dark-component-bg:hover {
-  background-color: #374151 !important;
-}
-
-.dark-component-bg .security-icon {
-  color: #66b1ff;
-}
-
-.dark-component-bg .security-info h4 {
-  color: #e0e0e0;
-}
-
-.dark-component-bg .security-info p {
-  color: #a0a0a0;
-}
-
-.dark-component-bg.danger .security-icon {
-  color: #ff7875;
-}
-
-.dark-component-bg.danger:hover {
-  background-color: #4d2d2d !important;
-}
+/* Remove specific dark-component-bg rules */
 
 </style> 

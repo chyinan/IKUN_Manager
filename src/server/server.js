@@ -373,7 +373,7 @@ async function runLogCleanup() {
         } else {
             console.log('[Cron Job] Log retention is disabled (0 days). Skipping cleanup.');
         }
-    } catch (error) {
+  } catch (error) {
         console.error('[Cron Job] Error during scheduled log cleanup:', error);
         // Log error via logService
         logService.addLogEntry({
@@ -1179,11 +1179,11 @@ app.post(`${apiPrefix}/student/add`, authenticateToken, async (req, res) => {
         res.status(400).json({ code: 400, message: error.message });
     } else {
       // 其他未知错误，返回 500 Internal Server Error
-      res.status(500).json({
-        code: 500,
+    res.status(500).json({
+      code: 500,
         message: '添加学生时发生服务器内部错误: ' + error.message,
-        data: null
-      });
+      data: null
+    });
     }
   }
 });
@@ -1326,22 +1326,22 @@ app.post(`${apiPrefix}/student/import`, authenticateToken, importUpload.single('
     console.log(`[Server Student Import] Validation complete. Valid: ${processedStudents.length}, Invalid: ${validationErrors.length}`);
 
     if (processedStudents.length === 0 && validationErrors.length > 0) {
-        return res.status(400).json({
-            code: 400,
+      return res.status(400).json({
+        code: 400,
             message: '导入失败：文件内容校验未通过',
             data: { errors: validationErrors }
-        });
+      });
     }
-
+    
     // --- Call Service to Batch Add/Update ---
     // studentService.batchAddStudents should handle className -> classId lookup
     const result = await studentService.batchAddStudents(processedStudents);
-
+    
     // --- Construct Response (Similar to Employee/Dept Import) ---
     const finalErrors = [...validationErrors, ...(result.errors || [])]; // Combine validation and DB errors
 
     if (result.success && finalErrors.length === 0) {
-      res.json({
+    res.json({
         code: 200, // Use 200 for success
         message: `导入成功！共处理 ${result.processedCount} 条记录。`,
         data: { processedCount: result.processedCount, errors: [] }
@@ -1376,14 +1376,14 @@ app.get(`${apiPrefix}/exam/list`, authenticateToken, async (req, res) => {
   try {
     console.log('获取考试列表, 参数:', req.query);
     const examData = await examService.getExamList(req.query);
-    res.json({ 
+    res.json({
       code: 200,
       message: '获取成功',
       data: examData
     });
   } catch (error) {
     console.error('获取考试列表失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       code: 500,
       message: '获取考试列表时发生内部错误: ' + error.message,
       data: null
@@ -1396,14 +1396,14 @@ app.get(`${apiPrefix}/exam/types`, authenticateToken, async (req, res) => {
   try {
     console.log('[Server] 获取不重复的考试类型 (for /api/exam/types)');
     const types = await examService.getDistinctExamTypes(); 
-    res.json({ 
+    res.json({
       code: 200,
       message: '获取考试类型成功',
       data: types // 直接返回字符串数组
     });
   } catch (error) {
     console.error('[Server] 获取考试类型失败 (for /api/exam/types):', error);
-    res.status(500).json({ 
+    res.status(500).json({
       code: 500,
       message: '获取考试类型失败: ' + error.message,
       data: null
@@ -1417,14 +1417,14 @@ app.get(`${apiPrefix}/score/exam-types`, authenticateToken, async (req, res) => 
     console.log('获取不重复的考试类型');
     // 注意：我们从 examService 获取数据，因为类型是考试的属性
     const types = await examService.getDistinctExamTypes(); 
-    res.json({
+    res.json({ 
       code: 200,
       message: '获取考试类型成功',
       data: types //直接返回字符串数组
     });
   } catch (error) {
     console.error('获取考试类型失败:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '获取考试类型失败: ' + error.message, // 返回更具体的错误信息
       data: null
@@ -1483,7 +1483,7 @@ app.delete(`${apiPrefix}/log/clear`, authenticateToken, isAdmin, async (req, res
       content: `尝试清空日志时发生错误: ${error.message}`,
       operator: req.user?.username || 'system' // Use optional chaining for req.user
     });
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '清空日志时发生服务器内部错误: ' + error.message,
       data: null
@@ -1497,14 +1497,14 @@ app.get(`${apiPrefix}/employee/stats`, authenticateToken, async (req, res) => {
     console.log('收到员工统计数据请求');
     const stats = await employeeService.getEmployeeStats();
     console.log('员工统计数据:', stats);
-    res.json({
+    res.json({ 
       code: 200,
       data: stats,
       message: 'success'
     });
   } catch (error) {
     console.error('获取员工统计数据失败:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '获取员工统计数据失败',
       data: null
@@ -1516,10 +1516,10 @@ app.get(`${apiPrefix}/exam/stats`, authenticateToken, async (req, res) => {
   try {
     console.log('获取考试统计数据');
     const stats = await examService.getExamStats();
-    res.json({
-      code: 200,
+  res.json({
+    code: 200,
       data: stats,
-      message: 'success'
+    message: 'success'
     });
   } catch (error) {
     console.error('获取考试统计数据失败:', error);
@@ -1679,8 +1679,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     code: 500,
     message: '服务器内部错误',
-    data: null
-  });
+        data: null
+      });
 });
 
 // 启动服务器
@@ -1777,12 +1777,12 @@ app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
     if (error.message && error.message.includes('不能为空')) {
         res.status(400).json({ code: 400, message: error.message });
     } else {
-      res.status(500).json({
-        code: 500,
+    res.status(500).json({
+      code: 500,
         message: '添加考试时发生服务器内部错误: ' + error.message,
-        data: null
-      });
-    }
+      data: null
+    });
+  }
   }
 });
 

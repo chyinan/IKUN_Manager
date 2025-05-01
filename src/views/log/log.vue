@@ -1,7 +1,7 @@
 <template>
   <div class="log-container">
     <!-- 顶部操作栏 -->
-    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
+    <div class="operation-header">
       <div class="log-title">
         <el-icon><Monitor /></el-icon>
         <span>系统日志监控</span>
@@ -17,8 +17,7 @@
     </div>
 
     <!-- 日志显示区域 -->
-    <div class="log-terminal" 
-      ref="terminalRef">
+    <div class="log-terminal" ref="terminalRef">
       <div 
         v-for="(log, index) in logs" 
         :key="index"
@@ -38,7 +37,7 @@
     </div>
 
     <!-- 统计信息 -->
-    <div class="log-stats" :class="{ 'dark-component-bg': isDark }">
+    <div class="log-stats">
       <el-tag type="info">总日志数: {{ logs.length }}</el-tag>
       <el-tag type="success">系统: {{ systemCount }}</el-tag>
       <el-tag type="warning">数据库: {{ dbCount }}</el-tag>
@@ -49,7 +48,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import { Monitor, Delete, Download } from '@element-plus/icons-vue'
 import { io, Socket } from 'socket.io-client'
 import type { LogEntry, LogType, LogResponse } from '@/types/log'
@@ -63,9 +61,6 @@ let socket: Socket
 // 统计数据
 const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length)
 const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length)
-
-// Dark mode state
-const isDark = useDark()
 
 // 格式化时间显示
 const formatTime = (timeStr: string | undefined | null) => {
@@ -265,13 +260,13 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .log-container {
-  padding: 20px;
-  height: calc(100vh - 124px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  height: calc(100vh - 84px); /* Adjust based on layout */
+  padding: 20px;
+  background-color: var(--el-bg-color-page); /* Default light background */
   transition: background-color 0.3s;
 }
 
@@ -280,10 +275,12 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background: white;
+  margin-bottom: 15px;
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  flex-shrink: 0;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .log-title {
@@ -292,8 +289,7 @@ onUnmounted(() => {
   gap: 10px;
   font-size: 18px;
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
+  color: var(--el-text-color-primary);
 }
 
 .operation-buttons {
@@ -302,182 +298,78 @@ onUnmounted(() => {
 }
 
 .log-terminal {
-  flex: 1;
-  background: #1e1e1e;
-  border-radius: 8px;
-  padding: 20px;
-  overflow-y: auto;
-  font-family: Consolas, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', monospace, sans-serif;
+  flex-grow: 1;
+  background-color: #1e1e1e; /* Dark background for terminal */
+  color: #d4d4d4; /* Light text */
+  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
   font-size: 14px;
-  line-height: 1.5;
-  border: 1px solid #333;
-  transition: border-color 0.3s;
+  padding: 15px;
+  border-radius: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-darker);
+  margin-bottom: 15px;
+}
+
+/* Adjust terminal for light mode */
+html:not(.dark) .log-terminal { /* More specific selector for light mode */
+  background-color: #f5f5f5; /* Light background */
+  color: #333; /* Dark text */
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+/* Specific light mode log colors (if needed, EP defaults might be okay) */
+html:not(.dark) .log-line.log-system .log-content {
+  color: #409EFF; /* Blue for system logs */
+}
+html:not(.dark) .log-line.log-database .log-content {
+  color: #67C23A; /* Green for database */
+}
+html:not(.dark) .log-line.log-error .log-content {
+  color: #F56C6C; /* Red for error */
 }
 
 .log-line {
-  margin: 4px 0;
-  color: #d4d4d4;
-  display: flex;
-  align-items: flex-start;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-bottom: 5px;
 }
 
 .log-time {
   color: #888;
   margin-right: 10px;
-  font-size: 0.9em;
-  min-width: 160px;
-  white-space: nowrap;
 }
-
-.log-content {
-  flex: 1;
-  display: flex;
-  gap: 8px;
-  word-break: break-all;
-  align-items: center;
+html:not(.dark) .log-time {
+  color: #999;
 }
 
 .log-operator {
-  color: #9cdcfe;
   font-weight: bold;
+  margin-right: 5px;
 }
 
-.log-message {
-  color: inherit;
+/* Specific dark mode log colors */
+.log-line.log-system .log-content {
+  color: #66b1ff; /* Lighter blue */
 }
-
-.log-info .log-content {
-  color: #4CAF50;
+.log-line.log-database .log-content {
+  color: #85dcb8; /* Lighter green */
 }
-
-.log-warn .log-content {
-  color: #FFC107;
-}
-
-.log-error .log-content {
-  color: #F44336;
-}
-
-.log-insert .log-content {
-  color: #4CAF50;
-}
-
-.log-update .log-content {
-  color: #FFC107;
-}
-
-.log-delete .log-content {
-  color: #F44336;
-}
-
-.log-query .log-content {
-  color: #2196F3;
+.log-line.log-error .log-content {
+  color: #ffa8a8; /* Lighter red */
 }
 
 .log-stats {
+  flex-shrink: 0;
+  padding: 10px 15px;
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
   display: flex;
   gap: 15px;
-  padding: 15px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-:deep(.el-tag) {
-  padding: 8px 12px;
-  font-size: 14px;
-}
+/* Remove specific dark-component-bg rules */
 
-.log-database {
-  color: #FFC107;
-}
-
-.log-system {
-  color: #4CAF50;
-}
-
-.log-vue {
-  color: #2196F3;
-}
-
-/* 添加操作类型的特殊样式 */
-.log-line[data-operation="查询列表"] .log-content,
-.log-line[data-operation="查询详情"] .log-content {
-  color: #2196F3;
-}
-
-.log-line[data-operation="新增"] .log-content {
-  color: #4CAF50;
-}
-
-.log-line[data-operation="更新"] .log-content {
-  color: #FFC107;
-}
-
-.log-line[data-operation="删除"] .log-content {
-  color: #F44336;
-}
-
-/* --- Dark Mode Styles using Conditional Class --- */
-
-.dark-component-bg {
-  background-color: #1f2937 !important;
-  border-color: var(--el-border-color-lighter) !important;
-  box-shadow: var(--el-box-shadow-light) !important;
-}
-
-/* Container background */
-:deep(.app-wrapper.dark) .log-container {
-   background-color: var(--el-bg-color-page);
-}
-
-/* Header */
-.operation-header.dark-component-bg .log-title {
-  color: #e0e0e0;
-}
-.operation-header.dark-component-bg :deep(.el-button) {
-   background-color: var(--el-button-bg-color);
-   color: var(--el-button-text-color);
-   border-color: var(--el-button-border-color);
-}
-.operation-header.dark-component-bg :deep(.el-button:hover),
-.operation-header.dark-component-bg :deep(.el-button:focus) {
-   background-color: var(--el-button-hover-bg-color);
-   color: var(--el-button-hover-text-color);
-   border-color: var(--el-button-hover-border-color);
-}
-
-/* Terminal (adjust border) */
-:deep(.app-wrapper.dark) .log-terminal {
-   border-color: #4b5563;
-}
-
-/* Stats */
-.log-stats.dark-component-bg :deep(.el-tag) {
-   background-color: #374151;
-   color: #a0a0a0;
-   border-color: #4b5563;
-}
-/* Optional: Adjust specific tag colors for better contrast if needed */
-.log-stats.dark-component-bg :deep(.el-tag--success) {
-   background-color: #1e4620;
-   color: #a7f3d0;
-   border-color: #2f6f49;
-}
-.log-stats.dark-component-bg :deep(.el-tag--warning) {
-   background-color: #573a00;
-   color: #fde047;
-   border-color: #8c6c00;
-}
-.log-stats.dark-component-bg :deep(.el-tag--danger) {
-   background-color: #5c1e1e;
-   color: #fecaca;
-   border-color: #992d2d;
-}
-.log-stats.dark-component-bg :deep(.el-tag--info) {
-   background-color: #374151;
-   color: #a0a0a0;
-   border-color: #4b5563;
-}
 </style>

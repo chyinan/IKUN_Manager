@@ -29,6 +29,24 @@ contextBridge.exposeInMainWorld(
             console.log('[Electron Preload] Received window-state-changed:', data);
             callback(data.isMaximized);
         });
+        // Return a function to remove the listener
+        return () => ipcRenderer.removeAllListeners('window-state-changed');
+    },
+
+    // Function to listen for backend log messages from main process
+    onBackendLog: (callback) => {
+      const listener = (event, logEntry) => {
+        // logEntry should be { type: 'stdout' | 'stderr', message: string }
+        console.log('[Electron Preload] Received backend-log:', logEntry);
+        callback(logEntry);
+      };
+      ipcRenderer.on('backend-log', listener);
+
+      // Return a cleanup function to remove the listener when the component unmounts
+      return () => {
+        console.log('[Electron Preload] Removing backend-log listener.');
+        ipcRenderer.removeListener('backend-log', listener);
+      };
     },
 
     // You can expose other Node.js modules or custom functions here

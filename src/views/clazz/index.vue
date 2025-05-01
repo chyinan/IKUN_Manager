@@ -1,7 +1,7 @@
 <template>
   <div class="class-container">
     <!-- 头部搜索和操作区 -->
-    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
+    <div class="operation-header">
       <el-input
         v-model="searchKey"
         placeholder="搜索班级名称..."
@@ -72,8 +72,7 @@
       :total="total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
-      class="pagination"
-      :class="{ 'dark-component-bg': isDark }" />
+      class="pagination" />
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -201,16 +200,14 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { Delete, Edit, Plus, Search, View, Download, Male, Female, Upload } from '@element-plus/icons-vue'
 import { getClassList, addClass, updateClass, deleteClass, importClasses } from '@/api/class'
 import type { ClassItem, ApiResponse } from '@/types/common'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
-
-// Dark mode state for conditional class binding
-const isDark = useDark()
+import type { StudentItem } from '@/types/student'
+import { getStudentList } from '@/api/student'
 
 // 表单数据类型
 interface ClassFormData {
@@ -490,96 +487,64 @@ const handleExport = () => {
 // 班级详情相关
 const detailDialogVisible = ref(false)
 const currentClass = ref<ClassItem | null>(null)
-const classStudents = ref<any[]>([])
+const classStudents = ref<StudentItem[]>([])
 const studentSearchKey = ref('')
 const studentLoading = ref(false)
 
-// 班级学生搜索过滤
+// Filtered students (ensure student has name/studentId)
 const filteredStudents = computed(() => {
-  if (!studentSearchKey.value) return classStudents.value
-  
-  const searchText = studentSearchKey.value.toLowerCase()
-  return classStudents.value.filter(student => {
-    return (
-      (student.name && student.name.toLowerCase().includes(searchText)) ||
-      (student.studentId && student.studentId.toString().includes(searchText))
-    )
-  })
-})
+  if (!studentSearchKey.value) return classStudents.value;
+  const searchText = studentSearchKey.value.toLowerCase();
+  return classStudents.value.filter(student => 
+    (student.name && student.name.toLowerCase().includes(searchText)) ||
+    (student.studentId && String(student.studentId).toLowerCase().includes(searchText))
+  );
+});
 
-// 处理查看详情
+// Handle detail view
 const handleDetail = async (row: ClassItem) => {
   currentClass.value = row
   detailDialogVisible.value = true
-  
-  // 获取班级学生数据
-  await fetchClassStudents(row.id)
-}
+  await fetchClassStudents(row.className); // Pass className for filtering
+};
 
-// 获取班级学生列表
-const fetchClassStudents = async (classId: number) => {
+// Fetch students for the selected class
+const fetchClassStudents = async (className: string) => {
   try {
-    studentLoading.value = true
-    classStudents.value = []
+    studentLoading.value = true;
+    classStudents.value = [];
     
-    // 实际项目中，这里应该调用API获取班级下的学生数据
-    // 模拟API请求延时
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // Call getStudentList with className filter
+    // Pass a high limit or handle pagination if necessary
+    const params = { className: className, page: 1, pageSize: 9999 }; 
+    const res = await getStudentList(params);
     
-    // 模拟生成学生数据
-    const studentCount = currentClass.value?.studentCount || 0
-    const mockStudents = []
-    
-    // 中国常见姓氏
-    const surnames = ['张', '王', '李', '赵', '陈', '刘', '杨', '黄', '周', '吴', '郑', '孙', '马', '朱', '胡', '林', '何', '高', '梁', '郭']
-    // 常见名字
-    const boyNames = ['伟', '强', '磊', '浩', '杰', '鹏', '宇', '博', '文', '波', '昊', '天', '明', '建', '勇', '龙', '海']
-    const girlNames = ['芳', '娜', '敏', '静', '婷', '玲', '华', '红', '娟', '秀', '英', '丽', '燕', '晶', '莉', '雪', '梅']
-    
-    for (let i = 0; i < studentCount; i++) {
-      // 随机生成姓名
-      const isMale = Math.random() > 0.5
-      const surname = surnames[Math.floor(Math.random() * surnames.length)]
-      const name = isMale 
-        ? boyNames[Math.floor(Math.random() * boyNames.length)]
-        : girlNames[Math.floor(Math.random() * girlNames.length)]
-      const fullName = surname + name
-      
-      // 生成学号 (班级id + 序号, 保证6位)
-      const studentIdPrefix = `${classId}`.padStart(2, '0')
-      const studentIdSuffix = `${i + 1}`.padStart(4, '0')
-      const studentId = `${studentIdPrefix}${studentIdSuffix}`
-      
-      // 生成手机号
-      const phonePrefix = ['138', '139', '135', '136', '137', '150', '151', '152', '157', '158', '159', '182', '183', '187']
-      const phone = phonePrefix[Math.floor(Math.random() * phonePrefix.length)] + 
-                   Math.floor(Math.random() * 100000000).toString().padStart(8, '0')
-      
-      // 生成邮箱
-      const emailDomains = ['qq.com', '163.com', 'gmail.com', 'outlook.com', 'hotmail.com']
-      const email = `${surname.toLowerCase()}${name.toLowerCase()}${Math.floor(Math.random() * 1000)}@${emailDomains[Math.floor(Math.random() * emailDomains.length)]}`
-      
-      mockStudents.push({
-        id: i + 1,
-        name: fullName,
-        studentId,
-        gender: isMale ? '男' : '女',
-        phone,
-        email,
-        className: currentClass.value?.className,
-        address: '模拟地址',
-        joinDate: new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toLocaleDateString('zh-CN')
-      })
+    console.log(`Students API response for class ${className}:`, res);
+
+    if (res.code === 200 && Array.isArray(res.data)) {
+      // Assuming res.data is an array of StudentItemResponse
+      // Map backend response (snake_case) to frontend (camelCase)
+      classStudents.value = res.data.map((s: any): StudentItem => ({
+        id: s.id,
+        studentId: s.student_id,
+        name: s.name,
+        gender: s.gender,
+        className: s.class_name, // Use class_name from student data
+        phone: s.phone,
+        email: s.email,
+        joinDate: s.join_date ? dayjs(s.join_date).format('YYYY-MM-DD') : '',
+        // Add other fields if available in StudentItemResponse and needed
+      }));
+    } else {
+      ElMessage.warning(res.message || '获取班级学生列表失败');
     }
-    
-    classStudents.value = mockStudents
-  } catch (error) {
-    console.error('获取班级学生失败:', error)
-    ElMessage.error('获取班级学生失败')
+  } catch (error: any) { 
+    console.error('获取班级学生失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '获取班级学生失败');
   } finally {
-    studentLoading.value = false
+    studentLoading.value = false;
   }
-}
+};
 
 // 导入文件上传处理
 const beforeUpload = (file: File) => {
@@ -670,206 +635,125 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .class-container {
   padding: 20px;
-  min-height: calc(100vh - 84px);
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 84px); /* Adjust based on layout */
   transition: background-color 0.3s;
 }
 
 .operation-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  flex-wrap: wrap; /* Allow wrapping */
+  gap: 10px;
+}
+
+.filter-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-input {
-  width: 300px;
+  width: 250px;
 }
 
 .operation-buttons {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 
 .class-table {
+  width: 100%;
   margin-bottom: 20px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.class-name {
-  font-weight: bold;
-  color: #409eff;
 }
 
 .pagination {
   display: flex;
   justify-content: flex-end;
+  background-color: var(--el-bg-color-overlay); /* Light mode background */
+  padding: 10px 15px;
+  border-radius: 4px;
   margin-top: 20px;
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  transition: background-color 0.3s, border-color 0.3s;
+  transition: background-color 0.3s;
 }
 
-:deep(.el-table) {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-}
-
-/* 班级详情样式 */
+/* Styles for Detail Dialog */
 .class-detail {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.info-card {
-  margin-bottom: 0;
+.info-card,
+.student-card {
+  border: 1px solid var(--el-border-color-lighter);
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-weight: bold;
+  color: var(--el-text-color-primary);
 }
 
 .info-content {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
+  padding: 10px 0;
 }
 
 .info-item {
-  display: flex;
-  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 14px;
 }
 
 .info-label {
-  font-weight: bold;
-  width: 80px;
-  flex-shrink: 0;
-  color: #606266;
+  color: var(--el-text-color-secondary);
+  display: inline-block;
+  width: 80px; /* Adjust as needed */
+  text-align: right;
+  margin-right: 10px;
 }
 
 .info-value {
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 .info-value.description {
-  grid-column: span 2;
-  color: #606266;
-  font-size: 14px;
+  white-space: pre-wrap; /* Keep formatting */
   line-height: 1.5;
-}
-
-.student-card {
-  margin-bottom: 0;
 }
 
 .empty-data {
   text-align: center;
-  color: #909399;
-  padding: 20px 0;
-  font-size: 14px;
+  color: var(--el-text-color-placeholder);
+  padding: 20px;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .info-content {
-    grid-template-columns: 1fr;
-  }
-  
-  .class-detail {
-    gap: 15px;
-  }
+/* Remove specific dark-component-bg rules */
+
+.dark .class-table {
+  /* Add specific table dark styles here if needed */
 }
 
-/* 居中表格内容 */
-:deep(.el-table .el-table__cell),
-:deep(.el-table th.el-table__cell > .cell) {
-  text-align: center;
+.dark :deep(.el-dialog) {
+  background-color: #263445; 
 }
-
-/* --- Dark Mode Styles using Conditional Class --- */
-
-.operation-header.dark-component-bg {
-  background-color: #1f2937;
-  box-shadow: var(--el-box-shadow-light);
-  border: 1px solid var(--el-border-color-lighter);
+.dark :deep(.el-dialog__header) {
+  color: #E0E0E0;
 }
-
-.pagination.dark-component-bg {
-  background-color: #1f2937;
-  border: 1px solid var(--el-border-color-lighter);
+.dark :deep(.el-dialog__title) {
+   color: #E0E0E0;
 }
-
-/* Style internal elements when the dark class is applied */
-.dark-component-bg :deep(.el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: none !important;
-}
-
-.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-
-.dark-component-bg :deep(.el-input__inner::placeholder) {
-    color: var(--el-text-color-placeholder) !important;
-}
-
-.dark-component-bg :deep(.el-button) {
-   background-color: var(--el-button-bg-color);
-   color: var(--el-button-text-color);
-   border-color: var(--el-button-border-color);
-}
-.dark-component-bg :deep(.el-button:hover),
-.dark-component-bg :deep(.el-button:focus) {
-   background-color: var(--el-button-hover-bg-color);
-   color: var(--el-button-hover-text-color);
-   border-color: var(--el-button-hover-border-color);
-}
-
-/* Pagination internal elements in dark mode */
-.pagination.dark-component-bg :deep(button),
-.pagination.dark-component-bg :deep(.el-input__wrapper) {
-   background-color: var(--el-fill-color-blank) !important;
-   color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-pager li) {
-  background-color: transparent !important;
-  color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-pager li.is-active) {
-    background-color: var(--el-color-primary) !important;
-    color: var(--el-color-white) !important;
-}
-.pagination.dark-component-bg :deep(span:not([class])),
-.pagination.dark-component-bg :deep(.el-pagination__jump) {
-    color: var(--el-text-color-primary) !important;
-    background-color: transparent !important;
-}
-.pagination.dark-component-bg :deep(button:disabled) {
-    color: var(--el-text-color-disabled) !important;
-    background-color: transparent !important;
-}
-.pagination.dark-component-bg :deep(.btn-prev),
-.pagination.dark-component-bg :deep(.btn-next) {
-     background-color: transparent !important;
-}
-
-:deep(.app-wrapper.dark) .class-container {
-   background-color: var(--el-bg-color-page);
+.dark :deep(.el-dialog__body) {
+  color: var(--el-text-color-primary);
 }
 
 </style>

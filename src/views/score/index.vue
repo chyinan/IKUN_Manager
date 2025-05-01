@@ -1,6 +1,6 @@
 <template>
   <div class="score-container">
-    <el-card class="header-card" :class="{ 'dark-component-bg': isDark }">
+    <el-card class="header-card">
       <template #header>
         <div class="page-header">
           <div class="header-title">
@@ -17,7 +17,7 @@
           <el-icon><User /></el-icon>
           <span>筛选</span>
         </div>
-        <el-form :inline="true" class="selection-form" :class="{ 'dark-component-bg': isDark }">
+        <el-form :inline="true" class="selection-form">
           <el-form-item label="班级">
             <el-select 
               v-model="selectedClass" 
@@ -94,7 +94,7 @@
     </el-card>
 
     <!-- 成绩编辑表单 -->
-    <el-card v-if="selectedStudent && selectedExamType && selectedExamName" class="score-form-card" :class="{ 'dark-component-bg': isDark }">
+    <el-card v-if="selectedStudent && selectedExamType && selectedExamName" class="score-form-card">
       <template #header>
         <div class="card-header">
           <div class="student-info">
@@ -105,7 +105,7 @@
             </div>
           </div>
           <div class="exam-info">
-            <el-tag effect="plain" type="info" class="exam-date-tag" :class="{ 'dark-component-bg': isDark }">
+            <el-tag effect="plain" type="info" class="exam-date-tag">
               <el-icon><Calendar /></el-icon>
               <span>考试日期: {{ formattedExamDate || '暂无记录' }}</span>
             </el-tag>
@@ -124,7 +124,7 @@
             v-for="subject in activeSubjects" 
             :key="subject"
             class="subject-card"
-            :class="{ 'high-score': (scoreForm[subject] ?? 0) >= 90, 'low-score': (scoreForm[subject] ?? 100) < 60, 'dark-component-bg': isDark }"
+            :class="{ 'high-score': (scoreForm[subject] ?? 0) >= 90, 'low-score': (scoreForm[subject] ?? 100) < 60 }"
             shadow="hover"
           >
             <template #header>
@@ -134,7 +134,6 @@
                   :type="getScoreTagType(scoreForm[subject])" 
                   effect="light"
                   size="small"
-                  :class="{ 'dark-component-bg': isDark }"
                 >
                   {{ getScoreLevel(scoreForm[subject]) }}
                 </el-tag>
@@ -163,7 +162,7 @@
 
         <!-- 总分和平均分统计 -->
         <div class="score-summary">
-          <el-card shadow="hover" class="summary-card" :class="{ 'dark-component-bg': isDark }">
+          <el-card shadow="hover" class="summary-card">
             <template #header>
               <div class="summary-header">
                 <span>总分</span>
@@ -172,7 +171,7 @@
             <div class="summary-value">{{ calculateTotalScore() }}</div>
           </el-card>
           
-          <el-card shadow="hover" class="summary-card" :class="{ 'dark-component-bg': isDark }">
+          <el-card shadow="hover" class="summary-card">
             <template #header>
               <div class="summary-header">
                 <span>平均分</span>
@@ -202,7 +201,6 @@
       description="请按照上方操作指引选择班级、学生和考试类型查看成绩" 
       :image-size="200"
       class="empty-placeholder"
-      :class="{ 'dark-empty': isDark }"
     />
   </div>
 </template>
@@ -211,7 +209,6 @@
 import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import { getClassList } from '@/api/class'
 import { getStudentList } from '@/api/student'
 import { createExamIfNotExists, getExamListByType } from '@/api/exam'
@@ -238,9 +235,6 @@ interface Pagination {
 }
 
 const router = useRouter()
-
-// Dark mode state
-const isDark = useDark()
 
 // 确保组件正确导出
 defineOptions({
@@ -756,92 +750,66 @@ const formattedExamDate = computed(() => {
 });
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .score-container {
   padding: 20px;
-  min-height: calc(100vh - 84px);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 84px); /* Adjust based on layout */
   transition: background-color 0.3s;
 }
 
-.header-card {
-  margin-bottom: 0;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+.header-card,
+.score-form-card {
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  border: 1px solid var(--el-border-color-lighter);
+  margin-bottom: 20px;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .page-header {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  /* Styles for page header */
 }
-
 .header-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 18px;
+  font-size: 1.5em;
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
+  color: var(--el-text-color-primary);
+  margin-bottom: 5px;
 }
-
+.header-title .el-icon {
+  margin-right: 10px;
+}
 .header-desc {
-  color: #909399;
-  font-size: 14px;
-  transition: color 0.3s;
+  font-size: 0.9em;
+  color: var(--el-text-color-secondary);
 }
 
 .student-select-area {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  margin-top: 15px;
+  padding: 15px;
+  background-color: var(--el-fill-color-lighter);
+  border-radius: 4px;
+  transition: background-color 0.3s;
 }
 
 .area-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 5px;
-  border-left: 4px solid #409EFF;
-  padding-left: 10px;
-  transition: color 0.3s;
+  margin-bottom: 15px;
+  font-weight: bold;
+  color: var(--el-text-color-regular);
+}
+.area-title .el-icon {
+  margin-right: 5px;
 }
 
 .selection-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  padding: 15px;
-  border-radius: 6px;
-  transition: background-color 0.3s;
+  /* Remove background, rely on parent */
 }
 
-.student-option {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.student-id {
-  color: #909399;
-  font-size: 12px;
-}
-
-.score-form-card {
-  flex: 1;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
-}
-
-.card-header {
+/* Card header inside score-form-card */
+.score-form-card .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -850,291 +818,134 @@ const formattedExamDate = computed(() => {
 .student-info {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
-
 .student-details {
   display: flex;
   flex-direction: column;
 }
-
 .student-name {
-  font-size: 16px;
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
+  color: var(--el-text-color-primary);
 }
-
 .exam-type {
-  font-size: 14px;
-  color: #606266;
-  transition: color 0.3s;
+  font-size: 0.9em;
+  color: var(--el-text-color-secondary);
 }
 
+.exam-info {
+  /* Styles for exam info */
+}
 .exam-date-tag {
-  display: flex;
+  background-color: var(--el-bg-color-page);
+  border-color: var(--el-border-color);
+  color: var(--el-text-color-secondary);
+  display: inline-flex; 
   align-items: center;
   gap: 5px;
 }
 
 .score-form {
-  margin-top: 20px;
+  padding-top: 20px;
 }
 
 .score-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   margin-bottom: 20px;
 }
 
 .subject-card {
-  transition: all 0.3s;
-  border: 1px solid #EBEEF5;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  border: 1px solid var(--el-border-color-lighter);
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
-.subject-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.high-score {
-  border-top: 3px solid #67C23A;
-}
-
-.low-score {
-  border-top: 3px solid #F56C6C;
-}
-
+/* Subject card specific styles */
 .subject-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.subject-name {
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
+  color: var(--el-text-color-primary);
 }
 
 .subject-score {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  margin-top: 10px;
 }
-
-.score-input {
-  width: 100%;
+.score-input :deep(.el-input-number__decrease),
+.score-input :deep(.el-input-number__increase) {
+  background-color: var(--el-fill-color-light) !important;
+  color: var(--el-text-color-regular) !important;
 }
 
 .score-visual {
-  height: 8px;
-  background-color: #EBEEF5;
-  border-radius: 4px;
+  height: 6px;
+  background-color: var(--el-fill-color-light);
+  border-radius: 3px;
+  margin-top: 8px;
   overflow: hidden;
-  margin-top: 5px;
-  transition: background-color 0.3s;
 }
 
 .score-bar {
   height: 100%;
-  transition: width 0.3s, background-color 0.3s;
+  border-radius: 3px;
+  transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
 }
 
+.subject-card.high-score {
+  border-left: 4px solid #67C23A;
+}
+.subject-card.low-score {
+  border-left: 4px solid #F56C6C;
+}
+
+/* Score summary styles */
 .score-summary {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
   gap: 20px;
+  margin-top: 30px;
   margin-bottom: 20px;
 }
-
 .summary-card {
+  flex: 1;
   text-align: center;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
+  border: 1px solid var(--el-border-color-lighter);
 }
 
 .summary-header {
-  font-weight: bold;
-  text-align: center;
-  color: #303133;
-  transition: color 0.3s;
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
 }
-
 .summary-value {
   font-size: 24px;
   font-weight: bold;
-  color: #409EFF;
+  margin-top: 10px;
+  color: var(--el-text-color-primary);
 }
 
+/* Form footer */
 .form-footer {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  text-align: right;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
+/* Empty state */
 .empty-placeholder {
-  margin-top: 40px;
-  background-color: #fcfcfc;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s;
+  margin-top: 50px;
+  /* rely on EP default dark mode */
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .score-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .score-summary {
-    grid-template-columns: 1fr;
-  }
-  
-  .selection-form {
-    flex-direction: column;
-  }
+/* Optional: Adjust specific element styles if needed in dark mode */
+.dark :deep(.el-select .el-input__wrapper) {
+  /* Example: Adjust select background if needed */
+}
+.dark :deep(.el-input-number .el-input__wrapper) {
+  /* Example: Adjust number input background if needed */
 }
 
-/* --- Dark Mode Styles using Conditional Class --- */
-
-.dark-component-bg {
-  background-color: #1f2937 !important;
-  border-color: var(--el-border-color-lighter) !important;
-  box-shadow: var(--el-box-shadow-light) !important;
-}
-
-/* Container background */
-:deep(.app-wrapper.dark) .score-container {
-   background-color: var(--el-bg-color-page);
-}
-
-/* Header card */
-.header-card.dark-component-bg .header-title {
-  color: #e0e0e0;
-}
-.header-card.dark-component-bg .header-desc {
-  color: #a0a0a0;
-}
-.header-card.dark-component-bg .area-title {
-  color: #e0e0e0;
-  border-left-color: #66b1ff;
-}
-
-/* Selection form */
-.selection-form.dark-component-bg {
-  background-color: #263445 !important;
-}
-.dark-component-bg :deep(.el-form-item__label) {
-   color: #a0a0a0 !important;
-}
-.dark-component-bg :deep(.el-select .el-input__wrapper),
-.dark-component-bg :deep(.el-input-number .el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: none !important;
-}
-.dark-component-bg :deep(.el-input__inner),
-.dark-component-bg :deep(.el-input-number__increase),
-.dark-component-bg :deep(.el-input-number__decrease) {
-   color: var(--el-text-color-primary) !important;
-}
-.dark-component-bg :deep(.el-select .el-input__inner::placeholder) {
-    color: var(--el-text-color-placeholder) !important;
-}
-.dark-component-bg .student-id {
-  color: #777;
-}
-
-/* Score form card */
-.score-form-card.dark-component-bg .student-name {
-  color: #e0e0e0;
-}
-.score-form-card.dark-component-bg .exam-type {
-  color: #a0a0a0;
-}
-.score-form-card.dark-component-bg :deep(.el-tag--info) {
-  background-color: #374151;
-  color: #a0a0a0;
-  border-color: #4b5563;
-}
-.score-form-card.dark-component-bg :deep(.el-tag--info .el-icon) {
-   color: #a0a0a0;
-}
-
-/* Subject cards */
-.subject-card.dark-component-bg {
-   border-color: #4b5563 !important;
-}
-.dark-component-bg .subject-name {
-   color: #e0e0e0;
-}
-.dark-component-bg .score-visual {
-   background-color: #374151;
-}
-/* Adjust score tag colors for dark mode if needed */
-.dark-component-bg :deep(.el-tag--success) {
-   background-color: #1e4620;
-   color: #a7f3d0;
-   border-color: #2f6f49;
-}
-.dark-component-bg :deep(.el-tag--warning) {
-   background-color: #573a00;
-   color: #fde047;
-   border-color: #8c6c00;
-}
-.dark-component-bg :deep(.el-tag--danger) {
-   background-color: #5c1e1e;
-   color: #fecaca;
-   border-color: #992d2d;
-}
-.dark-component-bg :deep(.el-tag--primary) {
-   background-color: #1e3a8a;
-   color: #bfdbfe;
-   border-color: #3b82f6;
-}
-.dark-component-bg :deep(.el-tag--info) {
-   background-color: #374151;
-   color: #a0a0a0;
-   border-color: #4b5563;
-}
-
-/* Summary cards */
-.summary-card.dark-component-bg .summary-header {
-  color: #e0e0e0;
-}
-.summary-card.dark-component-bg .summary-value {
-  color: #66b1ff;
-}
-
-/* Footer buttons */
-.dark-component-bg .form-footer :deep(.el-button) {
-   background-color: var(--el-button-bg-color);
-   color: var(--el-button-text-color);
-   border-color: var(--el-button-border-color);
-}
-.dark-component-bg .form-footer :deep(.el-button:hover),
-.dark-component-bg .form-footer :deep(.el-button:focus) {
-   background-color: var(--el-button-hover-bg-color);
-   color: var(--el-button-hover-text-color);
-   border-color: var(--el-button-hover-border-color);
-}
-
-/* Empty placeholder */
-.empty-placeholder.dark-empty {
-    background-color: #1f2937 !important;
-    border: 1px solid #4b5563;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.03);
-}
-.empty-placeholder.dark-empty :deep(.el-empty__description p) {
-    color: #a0a0a0 !important;
-}
-/* Make empty image SVG filter grayscale or less prominent */
-.empty-placeholder.dark-empty :deep(.el-empty__image) {
-   filter: grayscale(50%) opacity(70%);
-}
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div class="student-container">
     <!-- 头部搜索和操作区 -->
-    <div class="operation-header" :class="{ 'dark-component-bg': isDark }">
+    <div class="operation-header">
       <el-input
         v-model="searchKey"
         placeholder="搜索学号/姓名..."
@@ -80,8 +80,7 @@
       :total="pagination.total"
       :page-sizes="[10, 20, 30, 50]"
       layout="total, sizes, prev, pager, next, jumper"
-      class="pagination"
-      :class="{ 'dark-component-bg': isDark }" />
+      class="pagination" />
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -139,7 +138,6 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import { getStudentList, addStudent, updateStudent, deleteStudent, getMaxStudentId, importStudents } from '@/api/student'
 import { Delete, Edit, Plus, Search, Download, Male, Female, Upload } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
@@ -148,9 +146,6 @@ import { getClassList } from '@/api/class'
 import type { StudentItem, StudentItemResponse, StudentSubmitData, ClassItemResponse, ApiResponse } from '@/types/common'
 import type { Pagination } from '@/types/response'
 import dayjs from 'dayjs'
-
-// Dark mode state for conditional class binding
-const isDark = useDark()
 
 // 新增：班级选项列表
 const classList = ref<string[]>([])
@@ -700,137 +695,80 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .student-container {
   padding: 20px;
-  min-height: calc(100vh - 84px);
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 84px); /* Adjust based on layout */
   transition: background-color 0.3s;
 }
 
 .operation-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  flex-wrap: wrap; /* Allow wrapping */
+  gap: 10px;
+}
+
+.filter-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-input {
-  width: 300px;
+  width: 250px;
 }
 
 .operation-buttons {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 
 .student-table {
+  width: 100%;
   margin-bottom: 20px;
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .name-tag {
-  font-weight: bold;
+  cursor: pointer;
 }
 
 .pagination {
   display: flex;
   justify-content: flex-end;
+  background-color: var(--el-bg-color-overlay); /* Light mode background */
+  padding: 10px 15px;
+  border-radius: 4px;
   margin-top: 20px;
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  transition: background-color 0.3s, border-color 0.3s;
+  transition: background-color 0.3s;
 }
 
-:deep(.el-table) {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+.dark .pagination {
+  background-color: #263445; /* Dark mode background */
 }
 
-/* 居中表格内容 */
-:deep(.el-table .el-table__cell),
-:deep(.el-table th.el-table__cell > .cell) {
-  text-align: center;
+/* Remove specific dark-component-bg rules */
+
+.dark .student-table {
+  /* Add specific table dark styles here if needed */
 }
 
-/* --- Dark Mode Styles using Conditional Class --- */
-
-.operation-header.dark-component-bg {
-  background-color: #1f2937;
-  box-shadow: var(--el-box-shadow-light);
-  border: 1px solid var(--el-border-color-lighter);
+.dark :deep(.el-dialog) {
+  background-color: #263445;
 }
-
-.pagination.dark-component-bg {
-  background-color: #1f2937;
-  border: 1px solid var(--el-border-color-lighter);
+.dark :deep(.el-dialog__header) {
+  color: #E0E0E0;
 }
-
-/* Style internal elements when the dark class is applied */
-.dark-component-bg :deep(.el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: none !important;
+.dark :deep(.el-dialog__title) {
+   color: #E0E0E0;
 }
-
-.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-
-.dark-component-bg :deep(.el-input__inner::placeholder) {
-    color: var(--el-text-color-placeholder) !important;
-}
-
-.dark-component-bg :deep(.el-button) {
-   background-color: var(--el-button-bg-color);
-   color: var(--el-button-text-color);
-   border-color: var(--el-button-border-color);
-}
-.dark-component-bg :deep(.el-button:hover),
-.dark-component-bg :deep(.el-button:focus) {
-   background-color: var(--el-button-hover-bg-color);
-   color: var(--el-button-hover-text-color);
-   border-color: var(--el-button-hover-border-color);
-}
-
-/* Pagination internal elements in dark mode */
-.pagination.dark-component-bg :deep(button),
-.pagination.dark-component-bg :deep(.el-input__wrapper) {
-   background-color: var(--el-fill-color-blank) !important;
-   color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-pager li) {
-  background-color: transparent !important;
-  color: var(--el-text-color-primary) !important;
-}
-.pagination.dark-component-bg :deep(.el-pager li.is-active) {
-    background-color: var(--el-color-primary) !important;
-    color: var(--el-color-white) !important;
-}
-.pagination.dark-component-bg :deep(span:not([class])),
-.pagination.dark-component-bg :deep(.el-pagination__jump) {
-    color: var(--el-text-color-primary) !important;
-    background-color: transparent !important;
-}
-.pagination.dark-component-bg :deep(button:disabled) {
-    color: var(--el-text-color-disabled) !important;
-    background-color: transparent !important;
-}
-.pagination.dark-component-bg :deep(.btn-prev),
-.pagination.dark-component-bg :deep(.btn-next) {
-     background-color: transparent !important;
-}
-
-:deep(.app-wrapper.dark) .student-container {
-   background-color: var(--el-bg-color-page);
+.dark :deep(.el-dialog__body) {
+  color: var(--el-text-color-primary);
 }
 
 </style>

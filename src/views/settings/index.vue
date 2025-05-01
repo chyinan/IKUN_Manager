@@ -1,6 +1,6 @@
 <template>
   <div class="settings-container">
-    <el-card class="settings-card" :class="{ 'dark-component-bg': isDark }">
+    <el-card class="settings-card">
       <template #header>
         <div class="card-header">
           <span>系统设置 - 验证规则</span>
@@ -11,7 +11,7 @@
         <el-form-item label="学号验证正则表达式" prop="studentIdRegex">
           <el-input 
             v-model="regexForm.studentIdRegex" 
-            placeholder="例如: ^S\d{8}$ (S开头+8位数字)"
+            placeholder="例如: ^S\\d{8}$ (S开头+8位数字)"
             clearable
            />
            <div class="regex-tip">用于验证学生管理中输入的学号格式。</div>
@@ -20,7 +20,7 @@
         <el-form-item label="员工号验证正则表达式" prop="employeeIdRegex">
           <el-input 
             v-model="regexForm.employeeIdRegex" 
-            placeholder="例如: ^E\d{5}$ (E开头+5位数字)"
+            placeholder="例如: ^E\\d{5}$ (E开头+5位数字)"
             clearable
            />
            <div class="regex-tip">用于验证员工管理中输入的工号格式。</div>
@@ -29,13 +29,13 @@
         <el-form-item label="日志保留天数" prop="logRetentionDays">
           <el-input-number
             v-model="regexForm.logRetentionDays"
-            :min="1"
+            :min="0"
             :max="365"
             controls-position="right"
             placeholder="输入保留天数"
             style="width: 220px;"
           />
-          <div class="regex-tip">系统将自动删除超过此天数的旧日志 (0 或空表示不自动删除)。设为 0 或空则不启用自动删除。</div>
+          <div class="regex-tip">系统将自动删除超过此天数的旧日志 (0 或空表示不自动删除)。</div>
         </el-form-item>
         
         <el-form-item>
@@ -57,12 +57,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useDark } from '@vueuse/core'
 import { getRegexConfig, updateRegexConfig } from '@/api/config'
 import type { FormInstance } from 'element-plus'
-
-// 暗黑模式
-const isDark = useDark()
 
 // 表单引用
 const formRef = ref<FormInstance>()
@@ -169,71 +165,74 @@ onMounted(() => {
 
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .settings-container {
-  padding: 20px;
-  min-height: calc(100vh - 84px);
-  transition: background-color 0.3s;
+  padding: 30px;
+  background-color: var(--el-bg-color-page); /* Use variable for light mode */
+  min-height: calc(100vh - 84px); /* Ensure full height minus header/nav */
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+.settings-title {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: var(--el-text-color-primary);
 }
 
 .settings-card {
-  max-width: 800px;
-  margin: 0 auto;
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  margin-bottom: 20px;
 }
 
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-header span {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
-  color: #303133;
-  transition: color 0.3s;
 }
 
-.regex-tip {
+.setting-item {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setting-label {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+}
+
+.setting-description {
   font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-  line-height: 1.4;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
 }
 
-/* --- Dark Mode Styles --- */
-.dark-component-bg {
-  background-color: #1f2937 !important;
-  border-color: var(--el-border-color-lighter) !important;
-  box-shadow: var(--el-box-shadow-light) !important;
+.regex-input {
+  width: 250px; /* Adjust as needed */
 }
 
-:deep(.app-wrapper.dark) .settings-container {
-   background-color: var(--el-bg-color-page);
+.action-buttons {
+  margin-top: 20px;
+  text-align: right;
 }
 
-.settings-card.dark-component-bg .card-header span {
-  color: #e0e0e0;
+/* Dark Mode Adjustments */
+.dark .settings-container {
+  /* background-color handled globally */
 }
 
-.settings-card.dark-component-bg :deep(.el-form-item__label) {
-   color: #a0a0a0 !important;
+.dark .settings-title {
+  color: #E0E0E0;
 }
 
-.settings-card.dark-component-bg :deep(.el-input__wrapper) {
-  background-color: var(--el-fill-color-blank) !important;
-  box-shadow: var(--el-input-box-shadow, 0 0 0 1px rgba(75, 85, 99, 0.5)) !important; /* 使用修正后的边框 */
-  border: none !important;
+.dark .setting-label {
+  color: #C0C0C0;
 }
 
-.settings-card.dark-component-bg :deep(.el-input__inner) {
-   color: var(--el-text-color-primary) !important;
+.dark .setting-description {
+  color: #A0A0A0;
 }
 
-.settings-card.dark-component-bg .regex-tip {
-  color: #737373;
-}
+/* Ensure card header, input, switch styles are handled by Element Plus dark theme */
 
 </style> 

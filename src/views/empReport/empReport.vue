@@ -2,17 +2,17 @@
   <div class="report-container">
     <!-- 顶部数据卡片 -->
     <div class="data-cards">
-      <el-card v-for="(item, index) in summaryData" :key="index" shadow="hover" :class="{ 'dark-component-bg': isDark }">
+      <el-card v-for="(item, index) in summaryData" :key="index" shadow="hover">
         <template #header>
           <div class="card-header">
-            <el-icon :size="24" :color="isDark ? '#cccccc' : item.color">
+            <el-icon :size="24" :color="item.color">
               <component :is="item.icon" />
             </el-icon>
             <span>{{ item.title }}</span>
           </div>
         </template>
         <div class="card-content">
-          <div class="card-value" :style="{color: isDark ? '#ffffff' : item.color}">
+          <div class="card-value" :style="{color: item.color}">
             {{ item.value }}<span class="card-unit">{{ item.unit }}</span>
           </div>
           <div class="card-description">{{ item.description }}</div>
@@ -23,7 +23,7 @@
     <!-- 图表区域 -->
     <div class="charts-container">
       <!-- 左侧部门分布图 -->
-      <el-card class="chart-card" :class="{ 'dark-component-bg': isDark }">
+      <el-card class="chart-card">
         <template #header>
           <div class="chart-header">
             <span>部门人员分布</span>
@@ -33,7 +33,7 @@
       </el-card>
 
       <!-- 右侧薪资分布图 -->
-      <el-card class="chart-card" :class="{ 'dark-component-bg': isDark }">
+      <el-card class="chart-card">
         <template #header>
           <div class="chart-header">
             <span>部门平均薪资</span>
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated, watch, nextTick, provide, inject } from 'vue'
 import { ElMessage } from 'element-plus'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -58,8 +58,6 @@ import {
   GridComponent
 } from 'echarts/components'
 import VChart, { THEME_KEY } from 'vue-echarts'
-import { provide } from 'vue'
-import { useDark } from '@vueuse/core'
 import { UserFilled, Briefcase, Money, TrendCharts } from '@element-plus/icons-vue'
 import { getEmployeeList } from '@/api/employee'
 import { getDeptList } from '@/api/dept'
@@ -74,6 +72,7 @@ import type {
 } from '@/types/dept'
 import type { ApiResponse } from '@/types/common'
 import dayjs from 'dayjs'
+import type { Ref } from 'vue'
 
 // 扩展员工类型定义，添加deptId字段
 interface ExtendedEmployeeItem extends EmployeeItem {
@@ -95,10 +94,10 @@ use([
   GridComponent
 ])
 
-// Dark mode state
-const isDark = useDark()
+// Inject isDark state from parent
+const isDark = inject<Ref<boolean>>('isDark', ref(false))
 
-// Provide ECharts theme based on dark mode
+// Provide ECharts theme based on injected isDark state
 provide(THEME_KEY, computed(() => isDark.value ? 'dark' : 'light'))
 
 // 数据状态
@@ -165,13 +164,12 @@ const calculateActiveRate = () => {
   return ((activeCount / employeeData.value.length) * 100).toFixed(1)
 }
 
-// 多彩颜色配置 - Use brighter colors for better contrast in dark mode potentially
+// Update pieColors to use injected isDark
 const lightPieColors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
 const darkPieColors = ['#85a5ff', '#a0d911', '#ffd666', '#ff7875', '#adc6ff', '#5cdbd3', '#ff9c6e', '#d3adf7', '#ffadd2'];
-
 const pieColors = computed(() => isDark.value ? darkPieColors : lightPieColors);
 
-// 修改部门薪资分布图的配置 to react to theme change
+// Keep chart options simplified (relying on THEME_KEY)
 const salaryOption = computed(() => {
   // 先计算每个部门的平均薪资
   const deptSalaries = deptData.value.map((dept, index) => {
@@ -216,17 +214,8 @@ const salaryOption = computed(() => {
   // 确保与饼图使用相同排序
   deptSalaries.sort((a, b) => b.value - a.value);
 
-  const textColor = isDark.value ? '#ccc' : '#606266';
-  const axisLineColor = isDark.value ? '#555' : '#E0E0E0';
-  const splitLineColor = isDark.value ? '#333' : '#E0E0E0';
-
   return {
-    backgroundColor: 'transparent', // Ensure chart background is transparent
-    title: {
-      text: '部门平均薪资',
-      left: 'center',
-      textStyle: { fontFamily: "'Noto Sans SC', sans-serif", color: textColor }
-    },
+    backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
       formatter: (params: any) => {
@@ -236,10 +225,6 @@ const salaryOption = computed(() => {
       axisPointer: {
         type: 'shadow'
       },
-      textStyle: {
-        fontFamily: "'Noto Sans SC', sans-serif",
-        color: textColor
-      }
     },
     grid: {
       left: '5%',
@@ -255,11 +240,9 @@ const salaryOption = computed(() => {
         interval: 0,
         rotate: 30,
         fontSize: 12,
-        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       axisLine: {
-        lineStyle: { color: axisLineColor }
       }
     },
     yAxis: {
@@ -267,18 +250,15 @@ const salaryOption = computed(() => {
       name: '平均薪资(元)',
       nameTextStyle: {
         padding: [0, 0, 0, 40],
-        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       axisLabel: {
         formatter: (value: number) => `¥${value.toLocaleString('zh-CN')}`,
-        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       splitLine: {
         lineStyle: {
           type: 'dashed',
-          color: splitLineColor
         }
       }
     },
@@ -293,7 +273,6 @@ const salaryOption = computed(() => {
         formatter: (params: any) => `¥${params.value.toLocaleString('zh-CN')}`,
         fontSize: 12,
         fontWeight: 'bold',
-        color: textColor,
         fontFamily: "'Noto Sans SC', sans-serif"
       },
       itemStyle: {
@@ -310,7 +289,6 @@ const salaryOption = computed(() => {
   }
 })
 
-// 修改部门分布图配置 to react to theme change
 const deptDistOption = computed(() => {
   // 确保部门数据存在且被正确映射
   const pieData = deptData.value.map((dept, index) => ({
@@ -327,22 +305,11 @@ const deptDistOption = computed(() => {
   // 明确排序，确保最大的部门在前面
   pieData.sort((a, b) => b.value - a.value);
   
-  const textColor = isDark.value ? '#ccc' : '#606266';
-
   return {
-    backgroundColor: 'transparent', // Ensure chart background is transparent
-    title: {
-      text: '部门人员分布',
-      left: 'center',
-      textStyle: { fontFamily: "'Noto Sans SC', sans-serif", color: textColor }
-    },
+    backgroundColor: 'transparent',
     tooltip: {
       trigger: 'item',
-      formatter: '<strong>{b}</strong>: {c} 人 ({d}%)',  // 增强提示格式
-      textStyle: {
-        fontFamily: "'Noto Sans SC', sans-serif",
-        color: textColor
-      }
+      formatter: '<strong>{b}</strong>: {c} 人 ({d}%)',
     },
     legend: {
       orient: 'vertical',
@@ -353,7 +320,6 @@ const deptDistOption = computed(() => {
       textStyle: {
         fontSize: 12,
         fontFamily: "'Noto Sans SC', sans-serif",
-        color: textColor
       }
     },
     series: [{
@@ -364,7 +330,6 @@ const deptDistOption = computed(() => {
       avoidLabelOverlap: true,
       itemStyle: {
         borderRadius: 6, // 添加圆角
-        borderColor: isDark.value ? '#1f2937' : '#fff', // Adjust border color for theme
         borderWidth: 2
       },
       label: {
@@ -373,18 +338,16 @@ const deptDistOption = computed(() => {
         fontSize: 12,
         fontWeight: 'bold',
         fontFamily: "'Noto Sans SC', sans-serif",
-        color: textColor
       },
       labelLine: {
         length: 10,
         length2: 10,
-        smooth: true
+        smooth: true,
       },
       emphasis: {
         label: {
           fontSize: 14,
           fontWeight: 'bold',
-          color: textColor
         },
         itemStyle: {
           shadowBlur: 10,
@@ -538,146 +501,114 @@ const fetchInitialData = async () => {
 // Component Lifecycle Hooks
 onMounted(() => {
   fetchInitialData();
-  // Listener will be added in onActivated
 });
 
-// Use hooks for keep-alive components
 onActivated(() => {
   console.log('empReport component activated');
-  // Resize chart on activation to fit current container size
   nextTick(() => { 
     handleResize();
   });
-  // Add listener when component is active
-  window.addEventListener('resize', debouncedResizeHandler); 
+  window.addEventListener('resize', debouncedResizeHandler);
 });
 
 onDeactivated(() => {
   console.log('empReport component deactivated');
-  // Remove listener when component is inactive
-  window.removeEventListener('resize', debouncedResizeHandler); 
+  window.removeEventListener('resize', debouncedResizeHandler);
 });
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .report-container {
   padding: 20px;
+  background-color: var(--el-bg-color-page); /* Default light background */
   min-height: calc(100vh - 84px);
   transition: background-color 0.3s;
+}
+.dark .report-container {
+  background-color: #1f2937; /* Specific dark background */
 }
 
 .data-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
   margin-bottom: 20px;
 }
 
-.data-cards .el-card {
-  background: white;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+/* Styles for cards (light mode default) */
+.data-cards .el-card,
+.charts-container .el-card {
+  border: 1px solid var(--el-border-color-lighter);
+  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay)); /* Use card or overlay bg */
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+/* Dark mode styles for cards */
+.dark .data-cards .el-card,
+.dark .charts-container .el-card {
+  background-color: #263445; /* Specific dark background */
+  border-color: var(--el-border-color-darker);
 }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  color: #606266;
-  transition: color 0.3s;
+  justify-content: space-between;
+  font-weight: bold;
+  color: var(--el-text-color-primary);
+  padding-bottom: 10px; /* Add padding if header content is too close to border */
+  border-bottom: 1px solid var(--el-border-color-lighter); /* Optional: subtle separator */
+}
+
+.dark .card-header {
+   color: #E0E0E0; /* Lighter text for dark */
+   border-bottom-color: var(--el-border-color-darker);
+}
+
+.card-header .el-icon {
+  margin-right: 8px;
 }
 
 .card-content {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+  padding-top: 15px; /* Add padding if content is too close to header border */
 }
 
 .card-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: bold;
-  margin: 8px 0;
-  transition: all 0.3s;
+  margin-bottom: 8px;
+  color: var(--el-text-color-primary); /* Default text color */
+}
+
+.dark .card-value {
+  color: #ffffff; /* White text for dark card value */
 }
 
 .card-unit {
   font-size: 14px;
-  margin-left: 2px;
-  font-weight: normal;
+  margin-left: 5px;
+  color: var(--el-text-color-secondary);
 }
 
 .card-description {
-  font-size: 14px;
-  color: #909399;
-  margin-top: 5px;
-  transition: color 0.3s;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
-.card-compare {
-  font-size: 14px;
-  color: #909399;
-}
-
-.up {
-  color: #67C23A;
-}
-
-.down {
-  color: #F56C6C;
+.dark .card-description {
+  color: #A0A0A0; /* Lighter secondary text */
 }
 
 .charts-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 20px;
-  margin-bottom: 20px;
 }
 
-.chart-card {
-  background: white;
-  border-radius: 8px;
-  font-size: 16px;
-  color: #606266;
-  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
-}
-
-.chart-header {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  font-family: 'Noto Sans SC', sans-serif !important;
-}
 
 .chart {
   height: 400px;
   width: 100%;
 }
 
-:deep(.el-card) {
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-  border: none;
-}
-
-/* --- Dark Mode Styles using Conditional Class --- */
-
-.dark-component-bg {
-  background-color: #1f2937 !important;
-  border: 1px solid var(--el-border-color-lighter) !important;
-  box-shadow: var(--el-box-shadow-light) !important;
-}
-
-.dark-component-bg .card-header,
-.dark-component-bg .chart-header {
-  color: #e0e0e0;
-}
-
-.dark-component-bg .card-description {
-  color: #a0a0a0;
-}
-
-.dark-component-bg .chart {
-  background-color: transparent !important;
-}
 </style>

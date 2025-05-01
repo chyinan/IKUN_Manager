@@ -1,10 +1,88 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const url = require('url');
+const { spawn } = require('child_process'); // Import spawn
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow;
+let backendProcess = null; // Variable to hold the backend server process
+
+// Function to start the backend Node.js server
+function startBackendServer() {
+  if (backendProcess) {
+    console.log('[Electron Main] Backend server already running.');
+    return;
+  }
+
+  const serverPath = path.join(__dirname, '../src/server/server.js');
+  const serverDir = path.dirname(serverPath);
+
+  console.log(`[Electron Main] Starting backend server from: ${serverPath}`);
+  console.log(`[Electron Main] Backend server working directory: ${serverDir}`);
+
+  // Use spawn to run the Node.js server script
+  // Make sure Node is in the system's PATH or provide the full path to the Node executable
+  backendProcess = spawn('node', [serverPath], {
+    cwd: serverDir, // Set the working directory for the server process
+    stdio: ['pipe', 'pipe', 'pipe'], // Pipe stdin, stdout, stderr
+    env: { ...process.env, NODE_ENV: 'production' } // Ensure production env for server
+  });
+
+  // Handle stdout
+  backendProcess.stdout.on('data', (data) => {
+    const logMessage = data.toString();
+    console.log(`[Backend Server STDOUT]: ${logMessage.trim()}`);
+    // Send log to renderer process via IPC
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('backend-log', { type: 'stdout', message: logMessage });
+    }
+  });
+
+  // Handle stderr
+  backendProcess.stderr.on('data', (data) => {
+    const logMessage = data.toString();
+    console.error(`[Backend Server STDERR]: ${logMessage.trim()}`);
+    // Send log to renderer process via IPC
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send('backend-log', { type: 'stderr', message: logMessage });
+    }
+  });
+
+  // Handle errors (e.g., node command not found)
+  backendProcess.on('error', (error) => {
+    console.error('[Electron Main] Failed to start backend server:', error);
+    backendProcess = null; // Reset the process variable
+    // Optionally notify the user or try to restart
+  });
+
+  // Handle process exit
+  backendProcess.on('exit', (code, signal) => {
+    console.log(`[Electron Main] Backend server exited with code ${code}, signal ${signal}`);
+    backendProcess = null; // Reset the process variable
+    // Optionally notify the user or implement retry logic
+    if (code !== 0 && signal !== 'SIGTERM') { // Don't show error if intentionally stopped
+        if (mainWindow && mainWindow.webContents) {
+            mainWindow.webContents.send('backend-log', {
+                type: 'stderr',
+                message: `错误：后端服务意外退出！代码: ${code}, 信号: ${signal}. 请检查日志或尝试重启应用。`
+            });
+        }
+    }
+  });
+
+  console.log('[Electron Main] Backend server process started.');
+}
+
+// Function to stop the backend Node.js server
+function stopBackendServer() {
+  if (backendProcess) {
+    console.log('[Electron Main] Stopping backend server...');
+    backendProcess.kill('SIGTERM'); // Send termination signal
+    backendProcess = null;
+    console.log('[Electron Main] Backend server stopped.');
+  }
+}
 
 // Function to create the main application window
 function createWindow() {
@@ -54,6 +132,7 @@ function createWindow() {
     // in an array if your app supports multi windows, this is the time
     // when you should delete the corresponding element.
     mainWindow = null;
+    // Note: We don't stop the backend here, it stops when the app quits.
   });
 
   // Listen for maximize/unmaximize events and notify renderer
@@ -81,6 +160,7 @@ function createWindow() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  startBackendServer(); // Start the backend server first
   createWindow();
 
   app.on('activate', function () {
@@ -97,6 +177,12 @@ app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Quit the backend server when the Electron app quits
+app.on('will-quit', (event) => {
+  console.log('[Electron Main] App is about to quit.');
+  stopBackendServer(); // Ensure backend server is stopped before quitting
 });
 
 // In this file you can include the rest of your app's specific main process

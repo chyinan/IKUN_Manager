@@ -23,9 +23,9 @@
       <div :class="['sidebar-container', isDark ? 'dark' : '']">
         <!-- Logo -->
         <div class="logo-container">
-          <img v-if="!sidebarCollapse" src="/logo.png" alt="Logo" class="sidebar-logo" />
+          <img v-if="!sidebarCollapse" :src="logoSrc" alt="Logo" class="sidebar-logo" />
           <span v-if="!sidebarCollapse" class="sidebar-title">高校人事管理系统</span>
-          <img v-else src="/favicon.ico" alt="Logo" class="sidebar-logo-small" />
+          <img v-else :src="logoSrc" alt="Logo" class="sidebar-logo-small" />
         </div>
         
         <!-- 菜单 -->
@@ -40,33 +40,33 @@
             :collapse-transition="false"
             router
           >
-            <template v-for="(route, index) in menuList" :key="index">
+            <template v-for="(menuRoute, index) in menuList" :key="index">
               <!-- 无子菜单 -->
-              <el-menu-item v-if="!route.children" :index="route.path">
-                <el-icon v-if="route.meta && route.meta.icon">
-                  <component :is="route.meta.icon" />
+              <el-menu-item v-if="!menuRoute.children" :index="menuRoute.path">
+                <el-icon v-if="menuRoute.meta && menuRoute.meta.icon">
+                  <component :is="menuRoute.meta.icon" />
                 </el-icon>
-                <template #title>{{ route.meta.title }}</template>
+                <template #title>{{ getTitle(menuRoute) }}</template>
               </el-menu-item>
               
               <!-- 有子菜单 -->
-              <el-sub-menu v-else :index="route.path">
+              <el-sub-menu v-else :index="menuRoute.path">
                 <template #title>
-                  <el-icon v-if="route.meta && route.meta.icon">
-                    <component :is="route.meta.icon" />
+                  <el-icon v-if="menuRoute.meta && menuRoute.meta.icon">
+                    <component :is="menuRoute.meta.icon" />
                   </el-icon>
-                  <span>{{ route.meta.title }}</span>
+                  <span>{{ getTitle(menuRoute) }}</span>
                 </template>
                 
                 <el-menu-item
-                  v-for="child in route.children"
+                  v-for="child in menuRoute.children"
                   :key="child.path"
-                  :index="route.path + '/' + child.path"
+                  :index="menuRoute.path + '/' + child.path"
                 >
                   <el-icon v-if="child.meta && child.meta.icon">
                     <component :is="child.meta.icon" />
                   </el-icon>
-                  <template #title>{{ child.meta.title }}</template>
+                  <template #title>{{ getTitle(child) }}</template>
                 </el-menu-item>
               </el-sub-menu>
             </template>
@@ -89,11 +89,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, provide } from 'vue'
+import { computed, ref, onMounted, provide, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { useDark } from '@vueuse/core'
+import { useDark, useToggle } from '@vueuse/core'
 import { 
   Expand, 
   Fold, 
@@ -107,6 +107,8 @@ import Navbar from '@/components/Navbar.vue'
 import AppMain from '@/components/AppMain.vue'
 import defaultLogo from '@/assets/logo.png' 
 import favicon from '/favicon.png' // Import from public
+import { useAppStore } from '@/stores/app'
+import type { IElectronAPI } from '@/preload.d'; // Import IElectronAPI
 
 // 路由
 const route = useRoute()
@@ -130,27 +132,7 @@ const initializeIsDark = () => {
 
 const isDark = useDark()
 
-const toggleDark = () => {
-  isDark.value = !isDark.value;
-  const newPreference = isDark.value ? 'dark' : 'light';
-  console.log(`[DefaultLayout Local Toggle] Toggled local isDark to: ${isDark.value}, saving preference: ${newPreference}`);
-  
-  // Update HTML class
-  if (isDark.value) {
-    document.documentElement.classList.add('dark');
-    document.documentElement.classList.remove('light');
-  } else {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
-  }
-  
-  // Save preference to localStorage
-  try {
-    localStorage.setItem(STORAGE_KEY, newPreference);
-  } catch (e) {
-    console.error('Failed to save theme preference to localStorage:', e);
-  }
-};
+const toggleDark = useToggle(isDark)
 console.log('[DefaultLayout Top Level] Initial Local isDark:', isDark.value);
 console.log('[DefaultLayout Top Level] typeof local toggleDark:', typeof toggleDark);
 // *** End Local Implementation ***
@@ -160,22 +142,28 @@ const isElectron = ref(!!window.electronAPI)
 const isMacOS = ref(false)
 const isMaximized = ref(false)
 
-// 窗口控制函数
+// Move listener cleanup function declaration to the setup scope
+let removeWindowStateListener: (() => void) | null = null;
+
+// Window control functions (Use assertion here too)
 const minimizeWindow = () => {
-  if (window.electronAPI) {
-    window.electronAPI.minimizeWindow()
+  const electronAPI = window.electronAPI as IElectronAPI | undefined;
+  if (electronAPI) {
+    electronAPI.minimizeWindow()
   }
 }
 
 const maximizeWindow = () => {
-  if (window.electronAPI) {
-    window.electronAPI.maximizeWindow()
+  const electronAPI = window.electronAPI as IElectronAPI | undefined;
+  if (electronAPI) {
+    electronAPI.maximizeWindow()
   }
 }
 
 const closeWindow = () => {
-  if (window.electronAPI) {
-    window.electronAPI.closeWindow()
+  const electronAPI = window.electronAPI as IElectronAPI | undefined;
+  if (electronAPI) {
+    electronAPI.closeWindow()
   }
 }
 
@@ -198,34 +186,34 @@ onMounted(() => {
   }
 
   // --- Electron Initialization Logic --- 
-  if (isElectron.value && window.electronAPI) {
+  // Use type assertion here
+  const electronAPI = window.electronAPI as IElectronAPI | undefined;
+  if (isElectron.value && electronAPI && typeof electronAPI.onWindowStateChange === 'function') {
     console.log('[DefaultLayout Combined onMounted] Setting up Electron listeners...');
-    // Detect OS
-    window.electronAPI.getPlatform().then((platform: string) => {
-      isMacOS.value = platform === 'darwin'
+    // Assign to the variable declared in the outer scope
+    removeWindowStateListener = electronAPI.onWindowStateChange((maximized: boolean) => {
+      console.log('[Vue DefaultLayout] Received window state change:', maximized);
+      isMaximized.value = maximized;
     });
-    // Detect initial window state
-    window.electronAPI.isMaximized().then((maximized: boolean) => {
-      isMaximized.value = maximized
-    });
-    // Listen for maximize changes
-    window.electronAPI.onMaximizeChange((maximized: boolean) => {
-      isMaximized.value = maximized
-    });
-    // Listen for window state changes (for AppMain height adjustment in Electron)
-    window.electronAPI.onWindowStateChange?.((_, maximized) => { // Optional chaining for safety
-        isMaximized.value = maximized // Reuse existing isMaximized state if needed elsewhere
-    });
-    // Initial get window state (redundant if onWindowStateChange works reliably)
-    // window.electronAPI.getWindowState?.().then(state => {
-    //   isMaximized.value = state.maximized;
-    // }).catch(err => {
-    //   console.error('获取窗口状态失败:', err);
-    // });
+    
+    // Check initial maximized state (if needed, must be implemented in main/preload)
+    // For now, we rely on the event listener
+
+    // Also, need to get platform info if required for logic (e.g., hiding controls)
+    // Example: Assume main process sends platform info on request or startup
+    // ipcRenderer.invoke('get-platform').then(platform => { isDarwin.value = platform === 'darwin'; });
   } else {
       console.log('[DefaultLayout Combined onMounted] Not in Electron or API not available.');
   }
   console.log('[DefaultLayout Combined onMounted] END');
+});
+
+onBeforeUnmount(() => {
+  // Now this can access removeWindowStateListener
+  if (removeWindowStateListener) {
+    removeWindowStateListener();
+    console.log('[Vue DefaultLayout] Removed window state listener.');
+  }
 });
 
 // 提供给子组件的共享状态
@@ -293,6 +281,9 @@ const menuList = computed(() => {
 
 // Logo path based on sidebar state
 const logoSrc = computed(() => (sidebarCollapse.value ? favicon : defaultLogo))
+
+// Helper for template optional chaining
+const getTitle = (item: any) => item?.meta?.title ?? '';
 </script>
 
 <style lang="scss" scoped>

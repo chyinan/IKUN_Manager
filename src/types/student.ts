@@ -58,7 +58,7 @@ export interface StudentItem {
   phone: string
   email: string
   joinDate: string
-  createTime: string
+  createTime?: string
 }
 
 // 学生表单数据类型
@@ -75,3 +75,13 @@ export interface StudentFormData {
 
 // API 响应类型
 export type ApiStudentResponse = ApiResponse<StudentItemResponse[]>
+
+// Interface for student statistics (if needed)
+export interface StudentStats {
+  total: number
+  maleCount: number
+  femaleCount: number
+  classDistribution: { className: string; count: number }[]
+}
+
+// Add other student-related interfaces as needed

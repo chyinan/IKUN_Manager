@@ -1,19 +1,26 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
+import ElementPlus from 'unplugin-element-plus/vite'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    ElementPlus({})
+  ],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      'path': 'path-browserify'
+      'path': 'path-browserify',
+      'element-plus/lib/locale/lang/zh-cn': resolve(__dirname, 'node_modules/element-plus/lib/locale/lang/zh-cn.js')
     }
   },
   base: './',
   optimizeDeps: {
-    include: ['vue-router']
+    include: [
+      'vue-router'
+    ]
   },
   server: {
     host: '0.0.0.0',

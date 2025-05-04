@@ -345,6 +345,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance } from 'element-plus'
 import { Plus, Calendar, Search, Edit, Delete, Filter, InfoFilled } from '@element-plus/icons-vue'
 import { 
   getExamList, 
@@ -704,6 +705,13 @@ const resetForm = () => {
   }
 }
 
+// 处理对话框关闭 - 添加这个函数
+const handleDialogClose = () => {
+  console.log('Exam dialog closed');
+  // Add any cleanup logic here if needed, like resetting validation
+  formRef.value?.clearValidate(); // Example: clear validation on close
+};
+
 // 提交表单
 const submitExamForm = async () => {
   if (!formRef.value) return
@@ -712,7 +720,7 @@ const submitExamForm = async () => {
     await formRef.value.validate()
     submitLoading.value = true
 
-    // 准备提交的数据 - 假设后端需要 snake_case
+    // 准备提交的数据
     const backendData = {
       id: examForm.value.id || undefined,
       exam_name: examForm.value.examName,
@@ -721,12 +729,16 @@ const submitExamForm = async () => {
       end_time: examForm.value.endTime,
       status: examForm.value.status,
       description: examForm.value.description
-      // 不提交 createTime
     }
 
     let res: ApiResponse<any>;
     if (isEditMode.value) {
-      // updateExam 第一个参数是 id, 第二个是数据
+      // Add check for valid ID before calling updateExam
+      if (typeof backendData.id !== 'number' || backendData.id <= 0) {
+        ElMessage.error('无效的考试ID，无法更新');
+        submitLoading.value = false;
+        return;
+      }
       res = await updateExam(backendData.id, backendData)
     } else {
       const addData = { ...backendData };

@@ -11,7 +11,8 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import '@/styles/dark-overrides.css'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
+// Temporarily remove locale import entirely
+// import zhCn from 'element-plus/lib/locale/lang/zh-cn'; 
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 // 导入 Store
@@ -38,9 +39,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 const pinia = createPinia(); // 创建 Pinia 实例
 app.use(pinia) // 先使用 Pinia
 app.use(router)
-app.use(ElementPlus, {
-  locale: zhCn
-})
+// Use ElementPlus without locale configuration
+app.use(ElementPlus)
 
 // 全局错误处理
 app.config.errorHandler = (err, instance, info) => {

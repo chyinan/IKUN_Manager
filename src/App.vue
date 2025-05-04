@@ -1,40 +1,90 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useAppStore } from '@/stores/app'
+import zhCn from 'element-plus/lib/locale/lang/zh-cn'
+import { logger } from '@/utils/logger'; // Correct import name: logger (lowercase)
+import type { BackendLogEntry, IElectronAPI } from '@/preload.d'; // Import IElectronAPI too
 
-let cleanupBackendLogListener: (() => void) | null = null;
+const appStore = useAppStore()
+const locale = ref(zhCn)
+const logs = ref<string[]>([]) // Array to store log messages for display
+const showTerminal = ref(false) // Control terminal visibility
 
+let removeBackendLogListener: (() => void) | null = null;
+
+// Setup listener for backend logs if in Electron
 onMounted(() => {
-  // Check if the Electron API is available (i.e., running in Electron)
-  if (window.electronAPI && typeof window.electronAPI.onBackendLog === 'function') {
+  // Use type assertion for window.electronAPI
+  const electronAPI = window.electronAPI as IElectronAPI | undefined;
+  if (import.meta.env.MODE === 'electron' && electronAPI && typeof electronAPI.onBackendLog === 'function') {
     console.log('[App.vue] Setting up backend log listener...');
-    cleanupBackendLogListener = window.electronAPI.onBackendLog((logEntry: { type: string; message: string }) => {
-      // Simply log the received message to the renderer console
-      // You could also store these logs in a Vuex store or display them in a UI component
-      if (logEntry.type === 'stderr') {
-        console.error(`[Backend Log - STDERR]: ${logEntry.message.trim()}`);
-      } else {
-        console.log(`[Backend Log - STDOUT]: ${logEntry.message.trim()}`);
+    removeBackendLogListener = electronAPI.onBackendLog((logEntry: BackendLogEntry) => {
+      const formattedMessage = `[${logEntry.type || 'LOG'}] ${logEntry.message}`;
+      console.log('[App.vue] Received Backend Log:', formattedMessage);
+      logger.system(formattedMessage); // Use logger.system instead of logger.frontend
+      logs.value.push(formattedMessage);
+      if (logs.value.length > 100) {
+        logs.value.shift();
       }
     });
   } else {
-    console.warn('[App.vue] Electron API for backend logs not found. Logs will not be forwarded to renderer console.');
+    console.log('[App.vue] Not in Electron or electronAPI.onBackendLog not available, skipping listener.');
   }
 });
 
-onUnmounted(() => {
-  // Clean up the listener when the App component is unmounted
-  if (cleanupBackendLogListener) {
-    console.log('[App.vue] Cleaning up backend log listener...');
-    cleanupBackendLogListener();
+// Cleanup listener on component unmount
+onBeforeUnmount(() => {
+  if (removeBackendLogListener) {
+    console.log('[App.vue] Removing backend log listener.');
+    removeBackendLogListener();
   }
 });
 
 </script>
 
 <template>
-  <router-view />
+  <el-config-provider :locale="locale">
+    <router-view />
+
+    <!-- Simple Terminal Overlay (Optional) -->
+    <div v-if="showTerminal" class="terminal-overlay">
+      <button @click="showTerminal = false">Close</button>
+      <pre>{{ logs.join('\n') }}</pre>
+    </div>
+    <!-- Button to toggle terminal (Optional) -->
+    <!-- <button @click="showTerminal = !showTerminal" class="toggle-terminal">Toggle Logs</button> -->
+
+  </el-config-provider>
 </template>
 
-<style>
-/* 全局样式可以在这里添加，但主要样式已经在main.css中定义 */
+<style scoped>
+/* Add styles for terminal overlay if used */
+.terminal-overlay {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px;
+  overflow-y: auto;
+  font-family: monospace;
+  z-index: 9999;
+}
+.terminal-overlay button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: #555;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+.toggle-terminal {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 10000;
+}
 </style>

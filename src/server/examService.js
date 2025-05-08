@@ -1,5 +1,6 @@
 // 考试服务
 const db = require('./db');
+const logService = require('./logService'); // Ensure logService is imported
 
 /**
  * 获取考试统计数据
@@ -227,40 +228,28 @@ async function getExamDetail(id) {
  * 更新考试信息
  * @param {number} id 考试ID
  * @param {Object} examData 考试更新数据
+ * @param {string} operator 操作人
  * @returns {Promise<Object>} 更新后的考试信息
  */
-async function updateExam(id, examData) {
+async function updateExam(id, examData, operator) {
+  let connection;
   try {
-    // 1. 校验并格式化 examData
     const allowedFields = ['exam_name', 'exam_type', 'exam_date', 'duration', 'subjects', 'status', 'remark'];
     const fieldsToUpdate = {};
-    const values = [];
-
+    
     for (const field of allowedFields) {
-      if (examData[field] !== undefined && examData[field] !== null) {
+      if (examData[field] !== undefined) { // Allow null to be set, but not undefined
         if (field === 'subjects' && Array.isArray(examData[field])) {
-          // 处理科目数组
           fieldsToUpdate[field] = examData[field].join(',');
         } else if (field === 'exam_date') {
-          // 处理日期格式
           try {
             const date = new Date(examData[field]);
-            if (isNaN(date.getTime())) {
-              throw new Error(`无效的日期值: ${examData[field]}`);
-            }
-            // 格式化为 YYYY-MM-DD HH:MM:SS
-            const year = date.getFullYear();
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const day = date.getDate().toString().padStart(2, '0');
-            // MySQL DATETIME 不关心时分秒，但为了完整性可以设为 00:00:00 或保留原时分秒（如果需要）
-            // 这里我们设为 00:00:00，因为前端选择的是日期
-            fieldsToUpdate[field] = `${year}-${month}-${day} 00:00:00`;
+            if (isNaN(date.getTime())) throw new Error(`无效日期值: ${examData[field]}`);
+            fieldsToUpdate[field] = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
           } catch (dateError) {
-            console.error(`处理日期字段 '${field}' 时出错:`, dateError);
-            throw new Error(`日期格式错误: ${dateError.message}`);
+            throw new Error(`日期格式错误 for ${field}: ${dateError.message}`);
           }
         } else {
-          // 其他字段直接赋值
           fieldsToUpdate[field] = examData[field];
         }
       }
@@ -270,29 +259,59 @@ async function updateExam(id, examData) {
       throw new Error('没有提供有效的更新字段');
     }
 
-    // 2. 构建 UPDATE SQL 语句
-    const setClauses = Object.keys(fieldsToUpdate).map(key => `${key} = ?`).join(', ');
-    const sql = `UPDATE exam SET ${setClauses}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
-    
-    // 将更新值和 ID 添加到 values 数组
-    const updateValues = [...Object.values(fieldsToUpdate), id];
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    // 3. 执行更新操作
-    console.log('Executing Exam Update Query:', sql, updateValues); // 调试日志
-    const result = await db.query(sql, updateValues);
-
-    // 4. 检查更新是否影响了行
-    if (result.affectedRows === 0) {
-      throw new Error(`未找到 ID 为 ${id} 的考试记录`);
+    // Fetch current exam_name if it's not being updated, for logging purposes
+    let currentExamName = fieldsToUpdate.exam_name; // Use new name if being updated
+    if (!currentExamName) {
+        const [currentExamRows] = await connection.query('SELECT exam_name FROM exam WHERE id = ?', [id]);
+        if (currentExamRows && currentExamRows.length > 0) {
+            currentExamName = currentExamRows[0].exam_name;
+        } else {
+             throw new Error(`更新失败：未找到考试 ID: ${id}`); // Exam not found
+        }
     }
 
-    // 5. 返回更新后的考试信息 (可选，可以重新查询或基于更新数据)
-    console.log(`考试 ID ${id} 更新成功`);
-    return { id, ...fieldsToUpdate }; // 返回包含ID和已更新字段的对象
+    const setClauses = Object.keys(fieldsToUpdate).map(key => `${key} = ?`).join(', ');
+    const sql = `UPDATE exam SET ${setClauses}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
+    const updateValues = [...Object.values(fieldsToUpdate), id];
+
+    const [result] = await connection.query(sql, updateValues);
+
+    if (result.affectedRows === 0) {
+      // This might occur if the WHERE id = ? doesn't match, though we check above.
+      // Or if the data being set is identical to existing data in some DBs.
+      await connection.rollback(); // Rollback as no actual change or exam not found
+      throw new Error(`更新考试失败，未找到记录或数据无变化 (ID: ${id})`);
+    }
+
+    await connection.commit();
+    console.log(`[examService] 更新考试记录 (ID: ${id}) 已成功提交到数据库.`);
+
+    await logService.addLogEntry({
+        type: 'database',
+        operation: '修改考试',
+        content: `${operator} 修改了考试 "${currentExamName}" (ID: ${id}) 的信息. 更新字段: ${Object.keys(fieldsToUpdate).join(', ')}`,
+        operator: operator
+    });
+    console.log(`[examService] 修改考试日志已记录.`);
+
+    return { id, ...fieldsToUpdate };
 
   } catch (error) {
-    console.error(`更新考试 ID ${id} 失败:`, error);
-    throw error; // 将错误向上抛出，由路由处理
+    if (connection) await connection.rollback();
+    console.error(`[examService] 更新考试 ID ${id} 失败:`, error);
+    const examNameToLogForError = (typeof currentExamName !== 'undefined' && currentExamName) ? currentExamName : `ID ${id}`;
+    await logService.addLogEntry({
+        type: 'database',
+        operation: '修改考试失败',
+        content: `${operator || '系统'} 尝试修改考试 "${examNameToLogForError}" 失败: ${error.message}`,
+        operator: operator || 'system'
+    });
+    throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -357,14 +376,19 @@ async function getDistinctExamTypes() {
 /**
  * 新增考试
  * @param {Object} examData 考试数据 { exam_name, exam_type, exam_date, duration, subjects, status, remark }
+ * @param {string} operator 操作人
  * @returns {Promise<Object>} 新增的考试对象 (包含ID)
  */
-async function addExam(examData) {
+async function addExam(examData, operator) {
+  let connection;
   try {
-    // Basic validation: Only check essential fields for now
-    if (!examData.exam_name || !examData.exam_type || !examData.exam_date) { // Removed check for subjects
-      throw new Error('考试名称、类型和日期不能为空'); // Updated error message
+    // Basic validation (can be expanded)
+    if (!examData.exam_name || !examData.exam_type || !examData.exam_date) {
+      throw new Error('考试名称、类型和日期不能为空');
     }
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
     const query = `
       INSERT INTO exam (exam_name, exam_type, exam_date, duration, subjects, status, remark)
@@ -374,53 +398,101 @@ async function addExam(examData) {
       examData.exam_name,
       examData.exam_type,
       examData.exam_date, 
-      examData.duration || 120, // Default duration
-      examData.subjects,
-      examData.status !== undefined ? examData.status : 0, // Default status: 未开始
+      examData.duration || 120, 
+      examData.subjects || '', // Ensure subjects is not undefined
+      examData.status !== undefined ? examData.status : 0, 
       examData.remark || null
     ];
 
-    const result = await db.query(query, values);
-    const insertId = result.insertId;
+    const [result] = await connection.query(query, values);
+    const newExamId = result.insertId;
 
-    if (!insertId) {
+    if (!newExamId) {
         throw new Error('数据库插入失败，未能获取新考试ID');
     }
+    
+    await connection.commit();
+    console.log(`[examService] 新增考试记录 (ID: ${newExamId}, 名称: ${examData.exam_name}) 已成功提交到数据库.`);
 
-    console.log(`考试新增成功, ID: ${insertId}`);
-    // Return the new exam object including the ID
-    return { id: insertId, ...examData }; 
+    await logService.addLogEntry({
+        type: 'database',
+        operation: '新增考试',
+        content: `${operator} 新增了考试 "${examData.exam_name}" (类型: ${examData.exam_type}, ID: ${newExamId})`,
+        operator: operator 
+    });
+    console.log(`[examService] 新增考试日志已记录.`);
+    
+    return { id: newExamId, ...examData }; 
 
   } catch (error) {
-    console.error('新增考试数据库操作失败:', error);
-    throw error; // Re-throw the error to be handled by the route handler
+    if (connection) await connection.rollback();
+    console.error('[examService] 新增考试数据库操作失败:', error);
+    // Log error with operator if available
+    await logService.addLogEntry({
+        type: 'database',
+        operation: '新增考试失败',
+        content: `${operator || '系统'} 尝试新增考试 "${examData.exam_name || '未知'}" 失败: ${error.message}`,
+        operator: operator || 'system' 
+    });
+    throw error; 
+  } finally {
+    if (connection) connection.release();
   }
 }
 
 /**
  * 删除考试
  * @param {number} id 考试ID
+ * @param {string} operator 操作人
  * @returns {Promise<boolean>} 是否删除成功
  */
-async function deleteExam(id) {
+async function deleteExam(id, operator) {
+  let connection;
   try {
     if (!id || isNaN(id)) {
       throw new Error('无效的考试ID');
     }
+    
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // Fetch exam_name and exam_type for logging before deletion
+    const [examRows] = await connection.query('SELECT exam_name, exam_type FROM exam WHERE id = ?', [id]);
+    const exam_name = (examRows && examRows.length > 0) ? examRows[0].exam_name : '未知考试';
+    const exam_type = (examRows && examRows.length > 0) ? examRows[0].exam_type : '未知类型'; // Get exam type
+
     const query = 'DELETE FROM exam WHERE id = ?';
-    const result = await db.query(query, [id]);
-    // Check affectedRows directly on the result object
+    const [result] = await connection.query(query, [id]);
     const success = result.affectedRows > 0;
+    
+    await connection.commit();
+    console.log(`[examService] 删除考试操作 (ID: ${id}, 名称: ${exam_name}) 已成功提交到数据库.`);
+
     if (success) {
-      console.log(`考试删除成功, ID: ${id}`);
+      await logService.addLogEntry({
+        type: 'database',
+        operation: '删除考试',
+        content: `${operator} 删除了考试 "${exam_name}" (类型: ${exam_type}, ID: ${id})`,
+        operator: operator
+      });
+      console.log(`[examService] 删除考试日志已记录.`);
     } else {
-      console.log(`尝试删除考试失败或未找到记录, ID: ${id}`);
+       console.log(`[examService] 尝试删除考试 (ID: ${id}) 未影响任何行，但事务已提交。`);
     }
     return success;
   } catch (error) {
-    // Handle potential foreign key constraint errors etc. if needed
-    console.error(`删除考试数据库操作失败 (ID: ${id}):`, error);
-    throw error; // Re-throw to be handled by the route handler
+    if (connection) await connection.rollback();
+    console.error(`[examService] 删除考试数据库操作失败 (ID: ${id}):`, error);
+    const examNameToLog = (typeof exam_name !== 'undefined') ? exam_name : `ID ${id}`;
+    await logService.addLogEntry({
+        type: 'database',
+        operation: '删除考试失败',
+        content: `${operator || '系统'} 尝试删除考试 "${examNameToLog}" (类型: ${exam_type || '未知'}) 失败: ${error.message}`,
+        operator: operator || 'system'
+    });
+    throw error; 
+  } finally {
+    if (connection) connection.release();
   }
 }
 

@@ -121,48 +121,42 @@ async function getEmployeeDetail(id) {
  */
 async function addEmployee(employeeData) {
   console.log('准备添加员工数据:', employeeData);
+  let connection;
 
-  // --- Hardcoded Validation using Regex Literal ---
-  const employeeIdRegex = /^EMP.{3}$/; // Use literal directly
-  const empIdToTest = employeeData.emp_id ? String(employeeData.emp_id).trim() : '';
+  // --- Regex Validation ---
+  const employeeIdRegex = /^EMP.{3}$/;
+  const empIdFromData = employeeData.empId || employeeData.emp_id;
+  const empIdToTest = empIdFromData ? String(empIdFromData).trim() : '';
   console.log(`Employee Service: Validating trimmed ID '${empIdToTest}' against hardcoded regex ${employeeIdRegex}`);
-  
   if (!empIdToTest || !employeeIdRegex.test(empIdToTest)) {
-    console.log(`工号 '${empIdToTest}' (原始: '${employeeData.emp_id}') 格式无效 (硬编码规则: /^EMP.{3}$/)`);
+    console.log(`工号 '${empIdToTest}' (原始: '${empIdFromData}') 格式无效 (硬编码规则: /^EMP.{3}$/)`);
     throw new Error('工号格式无效');
   }
-  // --- End Hardcoded Validation ---
+  // --- End Regex Validation ---
 
   try {
-    // 先查询部门ID
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. 先查询部门ID
     let deptId = null;
     if (employeeData.deptName) {
       const deptQuery = 'SELECT id FROM department WHERE dept_name = ?';
-      const depts = await db.query(deptQuery, [employeeData.deptName]);
-      if (depts.length > 0) {
+      const [depts] = await connection.query(deptQuery, [employeeData.deptName]);
+      if (depts && depts.length > 0) {
         deptId = depts[0].id;
       } else {
         throw new Error(`部门 "${employeeData.deptName}" 不存在`);
       }
     }
 
-    // 插入员工数据
-    const query = `
+    // 2. 插入员工数据
+    const insertSql = `
       INSERT INTO employee (
-        emp_id, 
-        name, 
-        gender, 
-        age, 
-        position, 
-        dept_id, 
-        salary, 
-        status, 
-        phone, 
-        email, 
-        join_date
+        emp_id, name, gender, age, position, dept_id, 
+        salary, status, phone, email, join_date
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    
     const values = [
       empIdToTest,
       employeeData.name,
@@ -177,17 +171,38 @@ async function addEmployee(employeeData) {
       employeeData.joinDate
     ];
     
-    const result = await db.query(query, values);
-    
-    // 获取新添加的员工详情
-    if (result.insertId) {
-      return getEmployeeDetail(result.insertId);
+    const [insertResult] = await connection.query(insertSql, values);
+    const newEmployeeId = insertResult.insertId;
+
+    if (!newEmployeeId) {
+      throw new Error('新增员工失败，数据库未返回插入ID');
     }
-    
-    return null;
+
+    // Commit the transaction FIRST
+    await connection.commit();
+    console.log(`[employeeService] 新增员工记录 (ID: ${newEmployeeId}, 工号: ${empIdToTest}) 已成功提交到数据库.`);
+
+    // Log AFTER successful commit
+    await logService.addLogEntry({
+      type: 'database',
+      operation: '新增',
+      content: `新增员工: ${employeeData.name} (工号: ${empIdToTest}, 部门: ${employeeData.deptName})`,
+      operator: 'system' // Or context-based operator
+    });
+    console.log(`[employeeService] 新增员工日志已记录.`);
+
+    // Fetch the newly created employee to return complete info
+    return getEmployeeDetail(newEmployeeId); // getEmployeeDetail uses its own connection
+
   } catch (error) {
-    console.error('添加员工失败:', error);
-    throw error;
+    if (connection) await connection.rollback();
+    console.error('[employeeService] 添加员工失败:', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      throw new Error('员工工号已存在');
+    }
+    throw error; 
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -202,15 +217,20 @@ async function updateEmployee(id, employeeData) {
 
   // --- Hardcoded Validation (if emp_id is being updated) ---
   let empIdToTest = null;
-  if (employeeData.emp_id !== undefined) {
-    empIdToTest = String(employeeData.emp_id).trim();
+  // Use employeeData.empId (camelCase) from frontend, fall back to emp_id if needed for other callers
+  const empIdFromDataForUpdate = employeeData.empId || employeeData.emp_id;
+  if (empIdFromDataForUpdate !== undefined) { // Check if empId was provided for update
+    empIdToTest = String(empIdFromDataForUpdate).trim();
     const employeeIdRegex = /^EMP.{3}$/; // Use literal directly
     console.log(`Employee Service Update: Validating trimmed ID '${empIdToTest}' against hardcoded regex ${employeeIdRegex}`);
     if (!empIdToTest || !employeeIdRegex.test(empIdToTest)) {
-      console.log(`工号 '${empIdToTest}' (原始: '${employeeData.emp_id}') 格式无效 (硬编码规则: /^EMP.{3}$/)`);
+      console.log(`工号 '${empIdToTest}' (原始: '${empIdFromDataForUpdate}') 格式无效 (硬编码规则: /^EMP.{3}$/)`);
       throw new Error('工号格式无效');
     }
-    employeeData.emp_id = empIdToTest; // Use the validated & trimmed ID
+    // If we validated empId, ensure the object being used for DB has the correct field name if service expects emp_id
+    // However, the INSERT/UPDATE query uses emp_id, so this might not be needed if empIdToTest is used directly.
+    // For clarity, if your DB insert/update logic strictly expects `emp_id`, you might need to map it.
+    // But since `empIdToTest` is used in `values` array for `addEmployee` which corresponds to `emp_id` in SQL, this should be fine.
   }
   // --- End Hardcoded Validation ---
 
@@ -282,31 +302,48 @@ async function deleteEmployee(id) {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. 先查询员工工号
-    const selectQuery = 'SELECT emp_id FROM employee WHERE id = ?';
+    // 1. 先查询员工工号、姓名和部门名称 (for logging)
+    const selectQuery = `
+      SELECT e.emp_id, e.name, d.dept_name 
+      FROM employee e
+      LEFT JOIN department d ON e.dept_id = d.id
+      WHERE e.id = ?
+    `;
     const [rows] = await connection.query(selectQuery, [id]);
     const emp_id = rows.length > 0 ? rows[0].emp_id : null;
+    const emp_name = rows.length > 0 ? rows[0].name : '未知员工';
+    const dept_name = rows.length > 0 ? rows[0].dept_name : '未知部门'; // Get department name
 
     // 2. 执行删除操作
     const deleteQuery = 'DELETE FROM employee WHERE id = ?';
     const [result] = await connection.query(deleteQuery, [id]);
     const success = result.affectedRows > 0;
 
+    // Commit the transaction FIRST
     await connection.commit();
+    console.log(`[employeeService] 删除员工操作 (ID: ${id}, 工号: ${emp_id}) 已成功提交到数据库.`);
 
-    if (success) {
-      console.log(`员工删除成功, ID: ${id}, 工号: ${emp_id}`);
+    // Log AFTER successful commit and if deletion was successful
+    if (success && emp_id) {
+      await logService.addLogEntry({
+        type: 'database',
+        operation: '删除',
+        content: `删除员工: ${emp_name} (工号: ${emp_id}, 部门: ${dept_name})`,
+        operator: 'system' // Or context-based operator
+      });
+      console.log(`[employeeService] 删除员工日志已记录 (工号: ${emp_id}).`);
+    } else if (success) {
+      console.log(`[employeeService] 员工 (ID: ${id}) 已删除，但未找到工号或部门用于完整日志记录。`);
     } else {
-      console.log(`尝试删除员工失败或未找到记录, ID: ${id}`);
+      console.log(`[employeeService] 尝试删除员工失败或未找到记录, ID: ${id}`);
     }
 
-    // 返回包含成功状态和工号的对象
     return { success, emp_id }; 
 
   } catch (error) {
     if (connection) await connection.rollback();
-    console.error(`删除员工数据库操作失败 (ID: ${id}):`, error);
-    throw error; // Re-throw
+    console.error(`[employeeService] 删除员工数据库操作失败 (ID: ${id}):`, error);
+    throw error;
   } finally {
     if (connection) connection.release();
   }

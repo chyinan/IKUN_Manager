@@ -1580,33 +1580,37 @@ app.get(`${apiPrefix}/score/student/:studentId`, authenticateToken, async (req, 
 // 新增：保存学生成绩
 app.post(`${apiPrefix}/score/save`, authenticateToken, async (req, res) => {
   try {
-    const { studentId, examId, scores } = req.body;
-    console.log(`[Server] 收到保存成绩请求: studentId=${studentId}, examId=${examId}, scores:`, scores);
+    const scoreData = req.body; // Frontend sends { studentId, examId, scores: { subject: score, ... } }
+    const operator = req.user.username; // Get operator
+    console.log(`[Server] 收到保存成绩请求:`, scoreData, `操作人: ${operator}`);
 
-    if (!studentId || !examId || !scores || typeof scores !== 'object') {
+    // Basic validation on the request body structure
+    if (!scoreData.studentId || !scoreData.examId || !scoreData.scores || typeof scoreData.scores !== 'object') {
       return res.status(400).json({ code: 400, message: '无效的请求数据：缺少学生ID、考试ID或成绩信息' });
     }
 
-    // 转换数据格式以匹配 scoreService.saveStudentScore 的期望
+    // Prepare data for the service layer (Map studentId to student_id, examId to exam_id if needed by service)
+    // Current service saveStudentScore expects student_id and exam_id in the data object.
     const serviceData = {
-      student_id: studentId,
-      exam_id: examId,
-      ...scores // 将 scores 对象中的键值对直接展开
+      student_id: scoreData.studentId,
+      exam_id: scoreData.examId,
+      ...scoreData.scores // Spread the scores object
     };
 
     console.log('[Server] 调用 scoreService.saveStudentScore 的数据:', serviceData);
-    const success = await scoreService.saveStudentScore(serviceData);
+    // Pass operator to the service function
+    const success = await scoreService.saveStudentScore(serviceData, operator);
 
     if (success) {
       res.json({ code: 200, message: '成绩保存成功' });
     } else {
-      // Service 层内部应该已经处理了错误，这里返回通用错误
+      // If service returns false, it likely means transaction failed internally
       res.status(500).json({ code: 500, message: '保存成绩时发生服务器内部错误' });
     }
 
   } catch (error) {
     console.error('[Server] 保存成绩失败 (路由处理):', error);
-    // 可以根据 service 抛出的具体错误类型进一步细化响应
+    // Handle specific errors if the service throws them
     res.status(500).json({
       code: 500,
       message: '保存成绩时发生服务器内部错误: ' + error.message,
@@ -1620,34 +1624,30 @@ app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
   try {
     const examId = parseInt(req.params.id, 10);
     const examData = req.body;
+    const operator = req.user.username; // Get operator
 
-    console.log(`[Server] 收到更新考试请求: ID=${examId}, 数据:`, examData);
+    console.log(`[Server] 收到更新考试请求: ID=${examId}, 操作人: ${operator}, 数据:`, examData);
 
     if (isNaN(examId)) {
       return res.status(400).json({ code: 400, message: '无效的考试ID' });
     }
-
-    // 移除 ID，防止尝试更新主键
-    delete examData.id; 
-    // 确保 subjects 是字符串
-    if (Array.isArray(examData.subjects)) {
-       examData.subjects = examData.subjects.join(',');
-    }
     
-    // 调用 service 函数更新
-    const updatedExam = await examService.updateExam(examId, examData);
+    // delete examData.id; // examService.updateExam handles this
+    // if (Array.isArray(examData.subjects)) { // examService.updateExam handles this
+    //    examData.subjects = examData.subjects.join(',');
+    // }
+    
+    const updatedExam = await examService.updateExam(examId, examData, operator);
 
     if (updatedExam) {
       res.json({ code: 200, message: '考试信息更新成功', data: updatedExam });
     } else {
-      // 可能因为 ID 不存在而更新失败
       res.status(404).json({ code: 404, message: '更新考试失败，未找到指定ID的考试' });
     }
 
   } catch (error) {
     console.error(`[Server] 更新考试失败 (ID: ${req.params.id}):`, error);
-    // 可以根据 service 抛出的具体错误类型进一步细化响应
-     if (error.message && error.message.includes('格式无效')) {
+     if (error.message && (error.message.includes('格式无效') || error.message.includes('不能为空'))) {
        res.status(400).json({ code: 400, message: error.message });
      } else {
     res.status(500).json({
@@ -1706,17 +1706,35 @@ async function startServer() {
     // Socket.IO connection handling
     io.on('connection', (socket) => {
       console.log(`客户端已连接: ${socket.id}`);
-      logService.addLogEntry('system', 'connect', `客户端连接: ${socket.id}`, 'System');
+      // Fix: Pass log data as an object
+      logService.addLogEntry({
+        type: 'system', 
+        operation: 'connect', 
+        content: `客户端连接: ${socket.id}`,
+        operator: 'System'
+      });
       socket.emit('connectionSuccess', { message: '成功连接到服务器 Socket.IO' });
 
       socket.on('disconnect', (reason) => {
         console.log(`客户端已断开: ${socket.id}, 原因: ${reason}`);
-        logService.addLogEntry('system', 'disconnect', `客户端断开: ${socket.id}, 原因: ${reason}`, 'System');
+        // Fix: Pass log data as an object
+        logService.addLogEntry({
+          type: 'system',
+          operation: 'disconnect',
+          content: `客户端断开: ${socket.id}, 原因: ${reason}`,
+          operator: 'System'
+        });
       });
 
       socket.on('error', (error) => {
         console.error(`Socket.IO 错误 from ${socket.id}:`, error);
-        logService.addLogEntry('system', 'error', `Socket.IO 错误: ${error.message}`, 'System');
+        // Fix: Pass log data as an object
+        logService.addLogEntry({
+          type: 'error', 
+          operation: 'socket_error', 
+          content: `Socket.IO 错误: ${error.message}`,
+          operator: 'System'
+        });
       });
     });
 
@@ -1732,49 +1750,49 @@ startServer();
 // **新增：添加考试 (需要认证)**
 app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
   try {
-    const { exam_name, exam_type, start_time, end_time, status, description } = req.body;
-    console.log('[Server] 收到添加考试请求:', req.body);
+    const examDataFromRequest = req.body;
+    const operator = req.user.username;
+    console.log('[Server] 收到添加考试请求:', examDataFromRequest, '操作人:', operator);
 
-    // --- Basic Validation --- 
-    if (!exam_name || !exam_type || !start_time || !end_time) {
+    // --- Basic Validation (using frontend field names) ---
+    if (!examDataFromRequest.exam_name || !examDataFromRequest.exam_type || !examDataFromRequest.start_time || !examDataFromRequest.end_time) {
       return res.status(400).json({ code: 400, message: '考试名称、类型、开始时间和结束时间不能为空' });
     }
-
-    // --- Data Transformation --- 
+    
+    // --- Data Transformation for Service Layer ---
     let duration = null;
-    if (start_time && end_time) {
-      const start = dayjs(start_time);
-      const end = dayjs(end_time);
-      if (start.isValid() && end.isValid() && end.isAfter(start)) {
-        duration = end.diff(start, 'minute'); // Calculate duration in minutes
-      } else {
-        return res.status(400).json({ code: 400, message: '结束时间必须晚于开始时间' });
-      }
+    try {
+        const start = dayjs(examDataFromRequest.start_time);
+        const end = dayjs(examDataFromRequest.end_time);
+        if (start.isValid() && end.isValid() && end.isAfter(start)) {
+            duration = end.diff(start, 'minute'); // Calculate duration in minutes
+        } else {
+            return res.status(400).json({ code: 400, message: '结束时间必须晚于开始时间或日期格式无效' });
+        }
+    } catch (e) {
+        return res.status(400).json({ code: 400, message: '处理日期时出错，请检查格式' });
     }
 
     const examDataForService = {
-      exam_name: exam_name,
-      exam_type: exam_type,
-      exam_date: start_time, // Use start_time as exam_date
-      duration: duration, // Use calculated duration
-      subjects: '', // Temporary placeholder for subjects
-      status: status !== undefined ? status : 0, // Default to 0 if not provided
-      remark: description || null // Use description as remark
+        exam_name: examDataFromRequest.exam_name,
+        exam_type: examDataFromRequest.exam_type,
+        exam_date: examDataFromRequest.start_time, // Map start_time to exam_date
+        duration: duration,                         // Use calculated duration
+        subjects: examDataFromRequest.subjects || '', // Pass subjects if available, default to empty string
+        status: examDataFromRequest.status !== undefined ? examDataFromRequest.status : 0, // Pass status or default
+        remark: examDataFromRequest.description || null // Map description to remark
     };
+    console.log('[Server] 准备传递给 examService.addExam 的数据:', examDataForService);
 
-    console.log('[Server] 调用 examService.addExam 的数据:', examDataForService);
+    // --- Call Service with transformed data ---
+    const newExam = await examService.addExam(examDataForService, operator); 
 
-    // --- Call Service --- 
-    const newExam = await examService.addExam(examDataForService); 
-
-    // --- Respond --- 
-    // addExam returns the new exam object including ID on success
     res.status(201).json({ code: 201, message: '考试添加成功', data: newExam });
 
   } catch (error) {
     console.error('[Server] 添加考试失败:', error);
-    // Handle specific errors (e.g., validation from service) or generic 500
-    if (error.message && error.message.includes('不能为空')) {
+    // Keep existing error handling for validation/DB errors from service
+    if (error.message && (error.message.includes('不能为空') || error.message.includes('格式无效'))) {
         res.status(400).json({ code: 400, message: error.message });
     } else {
     res.status(500).json({
@@ -1790,32 +1808,29 @@ app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
 app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
   try {
     const examId = parseInt(req.params.id, 10);
-    console.log(`[Server] 收到删除考试请求: ID=${examId}`);
+    const operator = req.user.username; // Get operator
+    console.log(`[Server] 收到删除考试请求: ID=${examId}, 操作人: ${operator}`);
 
     if (isNaN(examId)) {
       return res.status(400).json({ code: 400, message: '无效的考试ID' });
     }
 
-    // 调用 service 函数删除 (examService.deleteExam 返回 boolean)
-    const success = await examService.deleteExam(examId); 
+    const success = await examService.deleteExam(examId, operator); 
 
     if (success) {
       res.json({ code: 200, message: `考试 ID ${examId} 删除成功` });
     } else {
-      // 如果 service 返回 false，通常意味着未找到记录
       res.status(404).json({ code: 404, message: `删除考试失败，未找到ID为 ${examId} 的考试` });
     }
 
   } catch (error) {
     console.error(`[Server] 删除考试失败 (ID: ${req.params.id}):`, error);
-    // 处理特定数据库错误，例如外键约束 (如果 service 层没有处理)
-    // if (error.code === 'ER_ROW_IS_REFERENCED_2') { ... }
     res.status(500).json({
       code: 500,
       message: '删除考试时发生服务器内部错误: ' + error.message,
       data: null
     });
   }
-}); // Added missing closing brace
+}); 
 
 // ... (Rest of the routes)

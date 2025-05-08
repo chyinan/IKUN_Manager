@@ -1,4 +1,5 @@
 const db = require('./db');
+const logService = require('./logService'); // Import logService
 
 /**
  * 获取班级列表
@@ -118,9 +119,10 @@ async function getStudentsInClass(classId) {
 /**
  * 新增班级
  * @param {Object} classData 班级数据 { class_name, teacher, description }
- * @returns {Promise<Object>} 包含新增班级ID的对象
+ * @returns {Promise<Object>} 包含新增班级ID和完整信息的对象
  */
 async function addClass(classData) {
+  let connection;
   try {
     const { class_name, teacher, description } = classData;
 
@@ -128,27 +130,49 @@ async function addClass(classData) {
       throw new Error('班级名称和班主任不能为空');
     }
 
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
     const sql = `
       INSERT INTO class (class_name, teacher, description)
       VALUES (?, ?, ?)
     `;
+    const [insertResult] = await connection.query(sql, [class_name, teacher, description]);
+    const newClassId = insertResult.insertId;
 
-    const result = await db.query(sql, [class_name, teacher, description]);
-
-    if (result.insertId) {
-      console.log(`新增班级成功, ID: ${result.insertId}`);
-      // 返回包含ID和传入数据的新对象
-      return { id: result.insertId, class_name, teacher, description }; 
-    } else {
+    if (!newClassId) {
       throw new Error('新增班级失败，数据库未返回插入ID');
     }
+
+    // Commit the transaction FIRST
+    await connection.commit();
+    console.log(`[classService] 班级记录 (ID: ${newClassId}) 已成功提交到数据库.`);
+
+    // Log AFTER successful commit
+    await logService.addLogEntry({
+      type: 'database',
+      operation: '新增',
+      content: `新增班级: ${class_name} (ID: ${newClassId}, 班主任: ${teacher})`,
+      operator: 'system' // Or get operator from request context if available
+    });
+    console.log(`[classService] 新增班级日志已记录.`);
+
+    // Fetch the newly created class to return complete info (optional but good practice)
+    const [rows] = await connection.query('SELECT * FROM class WHERE id = ?', [newClassId]);
+    
+    // Return the fetched class data
+    return rows[0]; 
+
   } catch (error) {
-    console.error('新增班级失败:', error);
-    // 检查是否是唯一性约束错误 (uk_class_name)
+    if (connection) await connection.rollback();
+    console.error('[classService] 新增班级失败:', error);
+    // Check for unique constraint error
     if (error.code === 'ER_DUP_ENTRY') {
       throw new Error('班级名称已存在');
     }
-    throw error; // 重新抛出其他错误
+    throw error; // Re-throw other errors
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -167,7 +191,7 @@ async function deleteClass(id) {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. 先查询班级名称
+    // 1. 先查询班级名称 (keep this)
     const selectQuery = 'SELECT class_name FROM class WHERE id = ?';
     const [rows] = await connection.query(selectQuery, [id]);
     const class_name = rows.length > 0 ? rows[0].class_name : null;
@@ -177,23 +201,34 @@ async function deleteClass(id) {
     const [result] = await connection.query(deleteQuery, [id]);
     const success = result.affectedRows > 0;
 
+    // Commit the transaction FIRST
     await connection.commit();
+    console.log(`[classService] 删除班级操作 (ID: ${id}) 已成功提交到数据库.`);
 
-    if (success) {
-      console.log(`班级删除成功, ID: ${id}, 名称: ${class_name}`);
+    // Log AFTER successful commit and if deletion was successful
+    if (success && class_name) {
+      await logService.addLogEntry({
+        type: 'database',
+        operation: '删除',
+        content: `删除班级: ${class_name} (ID: ${id})`,
+        operator: 'system' // Or get operator from context
+      });
+      console.log(`[classService] 删除班级日志已记录.`);
+    } else if (success) {
+      console.log(`[classService] 班级 (ID: ${id}) 已删除，但未找到名称用于日志记录。`);
     } else {
-      console.log(`尝试删除班级失败或未找到记录, ID: ${id}`);
+      console.log(`[classService] 尝试删除班级失败或未找到记录, ID: ${id}`);
     }
 
     return { success, class_name };
 
   } catch (error) {
     if (connection) await connection.rollback();
-    // Check for foreign key constraint (students in class)
+    // Keep existing foreign key check
     if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
         throw new Error('无法删除：该班级下仍有学生');
     }
-    console.error(`删除班级数据库操作失败 (ID: ${id}):`, error);
+    console.error(`[classService] 删除班级数据库操作失败 (ID: ${id}):`, error);
     throw error;
   } finally {
     if (connection) connection.release();

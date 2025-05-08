@@ -113,44 +113,49 @@ async function getStudentDetail(id) {
 
 /**
  * 添加学生
- * @param {Object} studentData 学生数据
- * @returns {Promise<Object>} 添加的学生
+ * @param {Object} studentData 学生数据 { student_id, name, gender, className, phone, email, join_date }
+ * @returns {Promise<Object>} 添加的学生完整信息
  */
 async function addStudent(studentData) {
   console.log('准备添加学生数据:', studentData);
+  let connection;
   
-  // --- Hardcoded Validation using Regex Literal ---
-  const studentIdRegex = /^S\d{7}$/; // Use literal directly
-  const studentIdToTest = studentData.student_id ? String(studentData.student_id).trim() : ''; 
+  // --- Regex Validation ---
+  const studentIdRegex = /^S\d{7}$/;
+  // Frontend might send studentId (camelCase) or student_id (snake_case from other backend calls)
+  const studentIdFromData = studentData.studentId || studentData.student_id;
+  const studentIdToTest = studentIdFromData ? String(studentIdFromData).trim() : ''; 
   console.log(`Student Service: Validating trimmed ID '${studentIdToTest}' against hardcoded regex ${studentIdRegex}`);
-
   if (!studentIdToTest || !studentIdRegex.test(studentIdToTest)) { 
-    console.log(`学号 '${studentIdToTest}' (原始: '${studentData.student_id}') 格式无效 (硬编码规则: /^S\d{7}$/)`);
+    console.log(`学号 '${studentIdToTest}' (原始: '${studentIdFromData}') 格式无效 (硬编码规则: /^S\d{7}$/)`);
     throw new Error('学号格式无效');
   }
-  // --- End Hardcoded Validation ---
+  // --- End Regex Validation ---
 
   try {
-    // 先获取班级ID
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. 先获取班级ID (use className from studentData)
     let classId = null;
     if (studentData.className) {
       const classQuery = 'SELECT id FROM class WHERE class_name = ?';
-      const classResult = await db.query(classQuery, [studentData.className]);
-      if (classResult.length > 0) {
+      const [classResult] = await connection.query(classQuery, [studentData.className]);
+      if (classResult && classResult.length > 0) {
         classId = classResult[0].id;
       } else {
         throw new Error(`班级 "${studentData.className}" 不存在`);
       }
     }
 
-    // 检查学号是否已存在 (use trimmed ID for check)
+    // 2. 检查学号是否已存在 (use trimmed ID for check)
     const checkQuery = 'SELECT id FROM student WHERE student_id = ?';
-    const exists = await db.query(checkQuery, [studentIdToTest]); 
-    if (exists.length > 0) {
+    const [exists] = await connection.query(checkQuery, [studentIdToTest]); 
+    if (exists && exists.length > 0) {
       throw new Error(`学号 "${studentIdToTest}" 已存在`);
     }
 
-    // 插入学生记录 (use trimmed ID for insert)
+    // 3. 插入学生记录 (use trimmed ID for insert)
     const insertQuery = `
       INSERT INTO student 
         (student_id, name, gender, class_id, phone, email, join_date) 
@@ -158,7 +163,7 @@ async function addStudent(studentData) {
         (?, ?, ?, ?, ?, ?, ?)
     `;
     
-    const result = await db.query(insertQuery, [
+    const [insertResult] = await connection.query(insertQuery, [
       studentIdToTest, 
       studentData.name,
       studentData.gender,
@@ -167,14 +172,41 @@ async function addStudent(studentData) {
       studentData.email || null,
       studentData.join_date
     ]);
+    const newStudentId = insertResult.insertId;
+
+    if (!newStudentId) {
+      throw new Error('新增学生失败，数据库未返回插入ID');
+    }
     
-    // 返回新添加的学生信息
-    await logService.addLogEntry('database', 'create', `添加学生 ${studentData.name} (ID: ${result.insertId}, 学号: ${studentIdToTest})`, 'System');
-    return await getStudentDetail(result.insertId);
+    // Commit the transaction FIRST
+    await connection.commit();
+    console.log(`[studentService] 新增学生记录 (ID: ${newStudentId}, 学号: ${studentIdToTest}) 已成功提交到数据库.`);
+
+    // Log AFTER successful commit
+    await logService.addLogEntry({
+      type: 'database',
+      operation: '新增',
+      content: `新增学生: ${studentData.name} (学号: ${studentIdToTest}, 班级: ${studentData.className})`,
+      operator: 'system' // Or context-based operator
+    });
+    console.log(`[studentService] 新增学生日志已记录.`);
+
+    // Fetch and return the newly added student's complete information
+    return getStudentDetail(newStudentId); // getStudentDetail uses its own connection management
+
   } catch (error) {
-    console.error('添加学生失败:', error);
-    await logService.addLogEntry('database', 'error', `添加学生失败: ${error.message}`, 'System');
+    if (connection) await connection.rollback();
+    console.error('[studentService] 添加学生失败:', error);
+    // Log error using correct object structure
+    await logService.addLogEntry({
+        type: 'database', 
+        operation: '新增失败', 
+        content: `添加学生 ${studentData.name || '未知'} (学号: ${studentIdToTest || '未知'}) 失败: ${error.message}`,
+        operator: 'system'
+    });
     throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -249,7 +281,7 @@ async function updateStudent(id, studentData) {
 
 /**
  * 删除学生
- * @param {number} id 学生ID
+ * @param {number} id 学生ID (internal DB id)
  * @returns {Promise<{success: boolean, student_id_str: string | null}>} 删除结果及学生学号
  */
 async function deleteStudent(id) {
@@ -262,31 +294,54 @@ async function deleteStudent(id) {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. 先查询学生学号
-    const selectQuery = 'SELECT student_id FROM student WHERE id = ?';
+    // 1. 先查询学生学号、姓名和班级名称 (for logging)
+    const selectQuery = `
+      SELECT s.student_id, s.name, c.class_name 
+      FROM student s
+      LEFT JOIN class c ON s.class_id = c.id
+      WHERE s.id = ?
+    `;
     const [rows] = await connection.query(selectQuery, [id]);
     const student_id_str = rows.length > 0 ? rows[0].student_id : null;
+    const student_name = rows.length > 0 ? rows[0].name : '未知学生';
+    const class_name = rows.length > 0 ? rows[0].class_name : '未知班级';
 
     // 2. 执行删除操作
-    // 假设数据库已设置级联删除学生成绩（ON DELETE CASCADE）
     const deleteQuery = 'DELETE FROM student WHERE id = ?';
     const [result] = await connection.query(deleteQuery, [id]);
     const success = result.affectedRows > 0;
 
+    // Commit the transaction FIRST
     await connection.commit();
+    console.log(`[studentService] 删除学生操作 (ID: ${id}, 学号: ${student_id_str}) 已成功提交到数据库.`);
 
-    if (success) {
-      console.log(`学生删除成功, ID: ${id}, 学号: ${student_id_str}`);
+    // Log AFTER successful commit and if deletion was successful
+    if (success && student_id_str) {
+      await logService.addLogEntry({
+        type: 'database',
+        operation: '删除',
+        content: `删除学生: ${student_name} (学号: ${student_id_str}, 班级: ${class_name})`,
+        operator: 'system' // Or context-based operator
+      });
+      console.log(`[studentService] 删除学生日志已记录 (学号: ${student_id_str}).`);
+    } else if (success) {
+      console.log(`[studentService] 学生 (ID: ${id}) 已删除，但未找到足够信息用于完整日志记录。`);
     } else {
-      console.log(`尝试删除学生失败或未找到记录, ID: ${id}`);
+      console.log(`[studentService] 尝试删除学生失败或未找到记录, ID: ${id}`);
     }
 
     return { success, student_id_str };
 
   } catch (error) {
     if (connection) await connection.rollback();
-    // Handle potential foreign key constraints if cascade delete is not set
-    console.error(`删除学生数据库操作失败 (ID: ${id}):`, error);
+    console.error(`[studentService] 删除学生数据库操作失败 (ID: ${id}):`, error);
+    // Log error using correct object structure
+    await logService.addLogEntry({
+        type: 'database', 
+        operation: '删除失败', 
+        content: `删除学生 (ID: ${id}) 失败: ${error.message}`,
+        operator: 'system'
+    });
     throw error;
   } finally {
     if (connection) connection.release();

@@ -6,13 +6,13 @@
         <div class="drag-region"></div>
         <div class="window-controls">
           <button class="control-button minimize" @click="minimizeWindow">
-            <i class="el-icon-minus"></i>
+            <el-icon><Minus /></el-icon>
           </button>
           <button class="control-button maximize" @click="maximizeWindow">
-            <i :class="isMaximized ? 'el-icon-copy-document' : 'el-icon-full-screen'"></i>
+            <el-icon><component :is="isMaximized ? CopyDocument : FullScreen" /></el-icon>
           </button>
           <button class="control-button close" @click="closeWindow">
-            <i class="el-icon-close"></i>
+            <el-icon><Close /></el-icon>
           </button>
         </div>
       </div>
@@ -101,7 +101,12 @@ import {
   SwitchButton, 
   CaretBottom,
   Moon,
-  Sunny
+  Sunny,
+  // Import window control icons
+  Minus,
+  FullScreen,
+  CopyDocument,
+  Close
 } from '@element-plus/icons-vue'
 import Navbar from '@/components/Navbar.vue'
 import AppMain from '@/components/AppMain.vue'

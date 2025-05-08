@@ -1,4 +1,5 @@
 const db = require('./db');
+const logService = require('./logService');
 
 /**
  * 获取部门列表
@@ -84,9 +85,10 @@ async function getDeptDetail(id) {
 /**
  * 新增部门
  * @param {Object} deptData 部门数据 { dept_name, manager, description }
- * @returns {Promise<Object>} 包含新增部门ID的对象
+ * @returns {Promise<Object>} 包含新增部门ID和完整信息的对象
  */
 async function addDept(deptData) {
+  let connection;
   try {
     const { dept_name, manager, description } = deptData;
     
@@ -94,26 +96,47 @@ async function addDept(deptData) {
       throw new Error('部门名称和部门主管不能为空');
     }
 
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
     const sql = `
       INSERT INTO department (dept_name, manager, description)
       VALUES (?, ?, ?)
     `;
     
-    const result = await db.query(sql, [dept_name, manager, description]);
+    const [insertResult] = await connection.query(sql, [dept_name, manager, description]);
+    const newDeptId = insertResult.insertId;
 
-    if (result.insertId) {
-      console.log(`新增部门成功, ID: ${result.insertId}`);
-      return { id: result.insertId, ...deptData }; // 返回包含新ID的对象
-    } else {
+    if (!newDeptId) {
       throw new Error('新增部门失败，数据库未返回插入ID');
     }
+
+    // Commit the transaction FIRST
+    await connection.commit();
+    console.log(`[deptService] 新增部门记录 (ID: ${newDeptId}, 名称: ${dept_name}) 已成功提交到数据库.`);
+
+    // Log AFTER successful commit
+    await logService.addLogEntry({
+      type: 'database',
+      operation: '新增',
+      content: `新增部门: ${dept_name} (主管: ${manager}, ID: ${newDeptId})`,
+      operator: 'system' // Or context-based operator
+    });
+    console.log(`[deptService] 新增部门日志已记录.`);
+
+    // Fetch the newly created department to return complete info
+    // Re-use getDeptDetail which already handles member_count calculation
+    return getDeptDetail(newDeptId); 
+
   } catch (error) {
-    console.error('新增部门失败:', error);
-    // 检查是否是唯一性约束错误
+    if (connection) await connection.rollback();
+    console.error('[deptService] 新增部门失败:', error);
     if (error.code === 'ER_DUP_ENTRY') {
         throw new Error('部门名称已存在');
     }
-    throw error; // 将其他错误向上抛出
+    throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -132,33 +155,44 @@ async function deleteDept(id) {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. 先查询部门名称
-    const selectQuery = 'SELECT dept_name FROM department WHERE id = ?';
+    // 1. 先查询部门名称和主管 (for logging and return value)
+    const selectQuery = 'SELECT dept_name, manager FROM department WHERE id = ?';
     const [rows] = await connection.query(selectQuery, [id]);
     const dept_name = rows.length > 0 ? rows[0].dept_name : null;
+    const manager = rows.length > 0 ? rows[0].manager : '未知主管'; // Get manager
 
     // 2. 执行删除操作
     const deleteQuery = 'DELETE FROM department WHERE id = ?';
     const [result] = await connection.query(deleteQuery, [id]);
     const success = result.affectedRows > 0;
 
+    // Commit the transaction FIRST
     await connection.commit();
+    console.log(`[deptService] 删除部门操作 (ID: ${id}, 名称: ${dept_name}) 已成功提交到数据库.`);
 
-    if (success) {
-      console.log(`部门删除成功, ID: ${id}, 名称: ${dept_name}`);
+    // Log AFTER successful commit and if deletion was successful
+    if (success && dept_name) {
+      await logService.addLogEntry({
+        type: 'database',
+        operation: '删除',
+        content: `删除部门: ${dept_name} (主管: ${manager}, ID: ${id})`,
+        operator: 'system' // Or context-based operator
+      });
+      console.log(`[deptService] 删除部门日志已记录 (名称: ${dept_name}).`);
+    } else if (success) {
+      console.log(`[deptService] 部门 (ID: ${id}) 已删除，但未找到名称或主管用于日志记录。`);
     } else {
-      console.log(`尝试删除部门失败或未找到记录, ID: ${id}`);
+      console.log(`[deptService] 尝试删除部门失败或未找到记录, ID: ${id}`);
     }
 
     return { success, dept_name };
 
   } catch (error) {
     if (connection) await connection.rollback();
-    // Check for foreign key constraint error (e.g., employees still in dept)
     if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
         throw new Error('无法删除：该部门下仍有员工');
     }
-    console.error(`删除部门数据库操作失败 (ID: ${id}):`, error);
+    console.error(`[deptService] 删除部门数据库操作失败 (ID: ${id}):`, error);
     throw error;
   } finally {
     if (connection) connection.release();

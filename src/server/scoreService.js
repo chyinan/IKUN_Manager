@@ -1,4 +1,5 @@
 const db = require('./db');
+const logService = require('./logService');
 
 /**
  * 获取学生成绩列表
@@ -235,38 +236,50 @@ async function getStudentScore(studentId, examType) {
 
 /**
  * 保存学生成绩
- * @param {Object} data 成绩数据
+ * @param {Object} data 成绩数据, 包含 student_id, exam_id, 和各科成绩键值对
+ * @param {string} operator 操作人
  * @returns {Promise<boolean>} 保存结果
  */
-async function saveStudentScore(data) {
+async function saveStudentScore(data, operator) {
   if (!data || !data.student_id || !data.exam_id) {
-    console.log('保存学生成绩失败: 数据、学生ID或考试ID为空');
+    console.log('[scoreService] 保存学生成绩失败: 数据、学生ID或考试ID为空');
     return false;
   }
 
   const { student_id, exam_id, ...subjectsFromFrontend } = data;
   let successful = true;
   let connection;
+  let studentName = '未知学生';
+  let examName = '未知考试';
+  let subjectCount = 0;
 
   try {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
+    try {
+      const [[student]] = await connection.query('SELECT name FROM student WHERE id = ?', [student_id]);
+      if (student) studentName = student.name;
+
+      const [[exam]] = await connection.query('SELECT exam_name FROM exam WHERE id = ?', [exam_id]);
+      if (exam) examName = exam.exam_name;
+    } catch (queryError) {
+      console.warn(`[scoreService] 查询学生/考试名称时出错 (忽略): ${queryError.message}`);
+    }
+
     let upsertedCount = 0;
     const insertPromises = [];
 
-    // Iterate through subjects sent from the frontend
     for (const subject in subjectsFromFrontend) {
-      if (subjectsFromFrontend.hasOwnProperty(subject)) {
+      if (Object.prototype.hasOwnProperty.call(subjectsFromFrontend, subject)) {
         const score = subjectsFromFrontend[subject];
-        // Ensure score is a valid number before inserting
         if (typeof score === 'number' && !isNaN(score)) {
+          subjectCount++;
           const upsertQuery = `
             INSERT INTO student_score (student_id, exam_id, subject, score)
             VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE score = VALUES(score)
           `;
-          // Add the promise to the array
           insertPromises.push(
             connection.query(upsertQuery, [
               student_id,
@@ -276,31 +289,52 @@ async function saveStudentScore(data) {
             ])
           );
         } else {
-            console.warn(`Skipping subject '${subject}' due to invalid score value:`, score);
+          console.warn(`[scoreService] Student ID ${student_id}, Exam ID ${exam_id}: Skipping subject '${subject}' due to invalid score value:`, score);
         }
       }
     }
 
-    // Execute all insert/update queries concurrently within the transaction
-    const results = await Promise.all(insertPromises);
-    
-    // Count successful upserts (both inserts and updates)
-    results.forEach(([result]) => {
-        if (result.affectedRows > 0 || result.warningStatus === 0) { // affectedRows > 0 for INSERT, warningStatus=0 usually for UPDATE
-            upsertedCount++;
+    if (insertPromises.length > 0) {
+      const results = await Promise.all(insertPromises);
+      results.forEach(([result]) => {
+        if (result.affectedRows > 0 || result.warningStatus === 0) {
+          upsertedCount++;
         }
-    });
+      });
+      console.log(`[scoreService] Student ID ${student_id}, Exam ID ${exam_id}: Successfully executed ${insertPromises.length} upsert queries, ${upsertedCount} rows affected/updated.`);
+    } else {
+      console.log(`[scoreService] Student ID ${student_id}, Exam ID ${exam_id}: No valid subject scores provided to save.`);
+    }
 
-    console.log(`DEBUG: Upserted ${upsertedCount} score records for Student ID ${student_id}, Exam ID ${exam_id}.`);
     await connection.commit();
-    console.log(`成功保存/更新学生ID: ${student_id}, 考试ID: ${exam_id} 的成绩`);
+    console.log(`[scoreService] 成功保存/更新学生ID: ${student_id}, 考试ID: ${exam_id} 的成绩事务已提交.`);
+
+    await logService.addLogEntry({
+      type: 'database',
+      operation: '保存/更新成绩',
+      content: `${operator} 保存/更新了学生 "${studentName}" (ID: ${student_id}) 在考试 "${examName}" (ID: ${exam_id}) 的 ${subjectCount} 门科目成绩.`,
+      operator: operator
+    });
+    console.log(`[scoreService] 保存/更新成绩日志已记录.`);
 
   } catch (error) {
-    if (connection) await connection.rollback();
-    console.error(`保存/更新学生成绩事务失败 (Student: ${student_id}, Exam: ${exam_id}):`, error);
     successful = false;
+    if (connection) {
+      try { await connection.rollback(); } catch (rbError) { console.error('[scoreService] Rollback failed:', rbError); }
+    }
+    console.error(`[scoreService] 保存/更新学生成绩事务失败 (Student: ${student_id}, Exam: ${exam_id}):`, error);
+
+    await logService.addLogEntry({
+      type: 'database',
+      operation: '保存/更新成绩失败',
+      content: `${operator || '系统'} 尝试保存/更新学生 "${studentName}" (ID: ${student_id}) 在考试 "${examName}" (ID: ${exam_id}) 的成绩失败: ${error.message}`,
+      operator: operator || 'system'
+    });
+
   } finally {
-    if (connection) connection.release();
+    if (connection) {
+      try { connection.release(); } catch (rlError) { console.error('[scoreService] Release connection failed:', rlError); }
+    }
   }
 
   return successful;

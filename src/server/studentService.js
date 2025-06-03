@@ -368,70 +368,65 @@ async function batchDeleteStudent(ids) {
 
 /**
  * 获取学生统计数据
- * @returns {Promise<Object>} 统计数据
+ * @returns {Promise<Object>} 学生统计数据
  */
 async function getStudentStats() {
+  let connection;
   try {
-    // 获取学生总数
-    const totalQuery = 'SELECT COUNT(*) as total FROM student';
-    const totalResult = await db.query(totalQuery);
-    const total = totalResult[0].total;
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    // 获取班级分布
-    const classDistributionQuery = `
-      SELECT 
-        c.class_name,
-        COUNT(s.id) as count
-      FROM 
-        student s
-      JOIN
-        class c ON s.class_id = c.id
-      GROUP BY
-        c.class_name
-      ORDER BY
-        count DESC
-    `;
-    const classDistribution = await db.query(classDistributionQuery);
+    // 1. 学生总数
+    const [totalStudentsRows] = await connection.query('SELECT COUNT(*) as totalStudents FROM student');
+    const totalStudents = totalStudentsRows[0].totalStudents;
 
-    // 获取性别分布
-    const genderDistributionQuery = `
-      SELECT 
-        gender,
-        COUNT(*) as count
-      FROM 
-        student
-      GROUP BY
-        gender
-    `;
-    const genderDistribution = await db.query(genderDistributionQuery);
+    // 2. 按性别统计
+    const [genderCountsRows] = await connection.query('SELECT gender, COUNT(*) as count FROM student GROUP BY gender');
+    const genderCounts = genderCountsRows.reduce((acc, row) => {
+      acc[row.gender] = row.count;
+      return acc;
+    }, {});
 
-    // 获取最近入学学生
-    const recentStudentsQuery = `
-      SELECT 
-        s.id, 
-        s.student_id, 
-        s.name, 
-        c.class_name,
-        s.join_date
-      FROM 
-        student s
-      LEFT JOIN
-        class c ON s.class_id = c.id
-      ORDER BY
-        s.join_date DESC
-      LIMIT 5
-    `;
-    const recentStudents = await db.query(recentStudentsQuery);
+    // 3. 按班级统计 (显示班级名称)
+    const [classCountsRows] = await connection.query(`
+      SELECT c.class_name as className, COUNT(s.id) as count 
+      FROM student s
+      JOIN class c ON s.class_id = c.id
+      GROUP BY c.class_name
+      ORDER BY count DESC
+    `);
+    // classCounts is already an array of { className: string, count: number }
 
-    return {
-      total,
-      classDistribution,
-      genderDistribution,
-      recentStudents
+    await connection.commit();
+
+    const stats = {
+      totalStudents,
+      genderCounts,
+      classCounts: classCountsRows 
     };
+
+    // Log the operation
+    await logService.addLogEntry({
+      type: 'system',
+      operation: '统计查询',
+      content: '查询学生统计数据成功',
+      operator: 'system' 
+    });
+
+    return stats;
+
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('获取学生统计数据失败:', error);
+    await logService.addLogEntry({
+        type: 'error',
+        operation: '统计查询失败',
+        content: `查询学生统计数据时出错: ${error.message}`,
+        operator: 'system'
+    });
     throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 
@@ -587,7 +582,6 @@ module.exports = {
   updateStudent,
   deleteStudent,
   batchDeleteStudent,
-  getStudentStats,
-  getMaxStudentId,
-  batchAddStudents
+  batchAddStudents,
+  getStudentStats
 }; 

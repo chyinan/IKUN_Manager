@@ -754,10 +754,6 @@ onMounted(async () => {
 
 /* Remove specific dark-component-bg rules */
 
-.dark .student-table {
-  /* Add specific table dark styles here if needed */
-}
-
 .dark :deep(.el-dialog) {
   background-color: #263445;
 }

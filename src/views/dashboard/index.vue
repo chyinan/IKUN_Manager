@@ -512,8 +512,8 @@ html.dark {
   .data-card,
   .shortcut-row .el-card {
     background-color: #263445; /* Use a consistent dark card background */
-    border-color: var(--el-border-color-darker); /* Adjust border if needed */
-    box-shadow: var(--el-box-shadow-dark); /* Use dark shadow */
+    border-color: var(--el-border-color-lighter) !important; /* Adjust border if needed */
+    box-shadow: var(--el-box-shadow-light) !important; /* Use dark shadow */
   }
 
   .data-card:hover,
@@ -539,4 +539,42 @@ html.dark {
   }
 }
 
+/* Add transitions for main cards */
+.welcome-card,
+.data-card,
+.shortcut-row .el-card { /* Target el-card specifically within shortcut-row */
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Welcome Card Styles */
+.welcome-card {
+  margin-bottom: 20px;
+  background: white;
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.welcome-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.welcome-text h2 {
+  font-size: 26px;
+  margin-bottom: 10px;
+  color: #303133;
+  font-family:
+  -apple-system,BlinkMacSystemFont,
+  'PingFang SC', 'Hiragino Sans GB',
+  'Helvetica Neue', Helvetica,
+  'Microsoft YaHei', Arial, sans-serif;
+  transition: color 0.3s;
+}
+.welcome-text p {
+  font-size: 16px;
+  color: #606266;
+  transition: color 0.3s;
+}
+.welcome-image img {
+  max-width: 200px;
+  height: auto;
+}
 </style> 

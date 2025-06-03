@@ -173,7 +173,7 @@ export const saveStudentScore = (data: SaveScoreParams): Promise<ApiResponse<boo
 export function getClassScores(classId: number, examType: string): Promise<ApiResponse<any>> {
   return request.get<ApiResponse<any>>(`/score/class/${classId}`, {
     params: { examType }
-  }).then(res => res.data)
+  });
 }
 
 // 获取学生成绩详细统计

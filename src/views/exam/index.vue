@@ -836,14 +836,36 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-.exam-container {
-  padding: 20px;
-  background-color: var(--el-bg-color-page); /* Use variable for light mode */
-  min-height: calc(100vh - 84px); /* Ensure full height minus header/nav */
-  transition: background-color 0.3s ease; /* Smooth transition */
+/* Dark mode overrides for exam management page */
+html.dark .exam-container {
+  /* background is likely handled by dark-overrides.css for .exam-container */
 }
 
-/* Page Header */
+/* Specific rule for .page-header-area in dark mode */
+html.dark .page-header-area {
+  background-color: #263445 !important;
+  border: 1px solid #263445 !important; /* Border color matches background */
+  color: #d1d5db !important;
+}
+
+/* General card rules */
+html.dark .filter-card,
+html.dark .table-card,
+html.dark .exam-list-card { /* .exam-list-card was added for consistency */
+  background-color: #263445 !important; /* Card background */
+  border: 1px solid #263445 !important; /* Border color matches background */
+  color: #d1d5db !important; /* Default text color for card content */
+}
+
+html.dark .page-header-area .header-title, /* Target title within .page-header-area */
+html.dark .page-header-area .header-desc, /* Target description within .page-header-area */
+html.dark .filter-card .card-header span,
+html.dark .table-card .card-header span,
+html.dark .exam-list-card .list-header span { /* Added for .exam-list-card title */
+  color: #f3f4f6 !important; /* Lighter text for titles */
+}
+
+/* Page Header specific styles for light mode */
 .page-header-area {
   display: flex;
   justify-content: space-between;
@@ -854,10 +876,6 @@ onMounted(async () => {
   margin-bottom: 20px;
   border: 1px solid var(--el-border-color-lighter);
   transition: background-color 0.3s, border-color 0.3s;
-}
-.dark .page-header-area {
-  background-color: #263445;
-  border-color: var(--el-border-color-darker);
 }
 
 .page-header {
@@ -872,16 +890,10 @@ onMounted(async () => {
   color: var(--el-text-color-primary);
   margin: 0;
 }
-.dark .header-title {
-  color: #E0E0E0;
-}
 
 .header-desc {
   color: var(--el-text-color-secondary);
   font-size: 14px;
-}
-.dark .header-desc {
-  color: #A0A0A0;
 }
 
 /* Filter Card */
@@ -891,10 +903,6 @@ onMounted(async () => {
   border: 1px solid var(--el-border-color-lighter);
   transition: background-color 0.3s, border-color 0.3s;
 }
-.dark .filter-card {
-  background-color: #2c3e50; /* Slightly different dark */
-  border-color: var(--el-border-color-darker);
-}
 
 .filter-header {
   display: flex;
@@ -902,9 +910,6 @@ onMounted(async () => {
   align-items: center;
   font-weight: bold;
   color: var(--el-text-color-primary);
-}
-.dark .filter-header {
-  color: #E0E0E0;
 }
 
 .filter-content {
@@ -927,9 +932,6 @@ onMounted(async () => {
   font-weight: 500;
   color: var(--el-text-color-regular);
   margin-bottom: 5px;
-}
-.dark .section-title {
-  color: #C0C0C0;
 }
 
 .filter-layout {
@@ -967,9 +969,6 @@ onMounted(async () => {
   padding-top: 15px;
   border-top: 1px dashed var(--el-border-color-lighter);
 }
-.dark .filter-results {
-  border-top-color: var(--el-border-color-darker);
-}
 
 .results-info {
   display: flex;
@@ -978,9 +977,6 @@ onMounted(async () => {
   font-size: 14px;
   color: var(--el-text-color-secondary);
   margin-bottom: 10px;
-}
-.dark .results-info {
-  color: #A0A0A0;
 }
 .results-info strong {
   color: var(--el-color-primary);
@@ -998,10 +994,6 @@ onMounted(async () => {
   border: 1px solid var(--el-border-color-lighter);
   transition: background-color 0.3s, border-color 0.3s;
 }
-.dark .exam-list-card {
-  background-color: #263445;
-  border-color: var(--el-border-color-darker);
-}
 
 .list-header {
   display: flex;
@@ -1010,16 +1002,10 @@ onMounted(async () => {
   font-weight: bold;
   color: var(--el-text-color-primary);
 }
-.dark .list-header {
-  color: #E0E0E0;
-}
 .data-count {
   font-size: 14px;
   font-weight: normal;
   color: var(--el-text-color-secondary);
-}
-.dark .data-count {
-  color: #A0A0A0;
 }
 
 /* Exam table specific styles */
@@ -1044,9 +1030,6 @@ onMounted(async () => {
   padding: 10px 15px;
   border-radius: 4px;
   transition: background-color 0.3s;
-}
-.dark .pagination {
-  background-color: #263445;
 }
 
 /* Dialog Styles */

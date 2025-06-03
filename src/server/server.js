@@ -1354,8 +1354,8 @@ app.post(`${apiPrefix}/student/import`, authenticateToken, importUpload.single('
         });
     } else {
         // Complete failure from service
-        res.status(500).json({
-          code: 500,
+    res.status(500).json({
+      code: 500,
             message: '导入失败：服务器在处理数据时发生错误',
             data: { processedCount: result.processedCount || 0, errors: finalErrors }
         });
@@ -1498,9 +1498,9 @@ app.get(`${apiPrefix}/employee/stats`, authenticateToken, async (req, res) => {
     const stats = await employeeService.getEmployeeStats();
     console.log('员工统计数据:', stats);
     res.json({ 
-      code: 200,
+    code: 200,
       data: stats,
-      message: 'success'
+    message: 'success'
     });
   } catch (error) {
     console.error('获取员工统计数据失败:', error);
@@ -1526,6 +1526,27 @@ app.get(`${apiPrefix}/exam/stats`, authenticateToken, async (req, res) => {
     res.status(500).json({
       code: 500,
       message: '获取考试统计数据失败',
+      data: null
+    });
+  }
+});
+
+// 新增：获取学生统计数据 (需要认证)
+app.get(`${apiPrefix}/student/stats`, authenticateToken, async (req, res) => {
+  try {
+    console.log('收到学生统计数据请求');
+    const stats = await studentService.getStudentStats(); // 使用 studentService
+    console.log('学生统计数据:', stats);
+    res.json({
+      code: 200,
+      data: stats,
+      message: '获取学生统计数据成功'
+    });
+  } catch (error) {
+    console.error('获取学生统计数据失败:', error);
+    res.status(500).json({
+      code: 500,
+      message: '获取学生统计数据失败',
       data: null
     });
   }
@@ -1653,9 +1674,9 @@ app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
     res.status(500).json({
       code: 500,
          message: '更新考试信息时发生服务器内部错误: ' + error.message,
-      data: null
-    });
-  }
+        data: null
+      });
+    }
   }
 });
 
@@ -1766,7 +1787,7 @@ app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
         const end = dayjs(examDataFromRequest.end_time);
         if (start.isValid() && end.isValid() && end.isAfter(start)) {
             duration = end.diff(start, 'minute'); // Calculate duration in minutes
-        } else {
+    } else {
             return res.status(400).json({ code: 400, message: '结束时间必须晚于开始时间或日期格式无效' });
         }
     } catch (e) {
@@ -1832,5 +1853,44 @@ app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
     });
   }
 }); 
+
+// 新增：获取班级成绩 (用于学生报告页面)
+app.get(`${apiPrefix}/score/class/:classId`, authenticateToken, async (req, res) => {
+  try {
+    const classId = parseInt(req.params.classId, 10);
+    const examType = req.query.examType; // 从查询参数获取 examType (移除 as string)
+
+    console.log(`[Server] 收到获取班级成绩请求: classId=${classId}, examType=${examType}`);
+
+    if (isNaN(classId)) {
+      return res.status(400).json({ code: 400, message: '无效的班级ID' });
+    }
+    if (!examType) {
+      return res.status(400).json({ code: 400, message: '缺少考试类型参数' });
+    }
+
+    // 调用 service 函数获取数据
+    const scoreData = await scoreService.getClassScores(classId, examType);
+
+    if (scoreData) {
+      res.json({
+        code: 200,
+        message: '获取班级成绩成功',
+        data: scoreData
+      });
+    } else {
+      // getClassScores 可能会返回 null 或空数组，根据其实现处理
+      res.status(404).json({ code: 404, message: '未找到指定班级或考试类型的成绩数据' });
+    }
+
+  } catch (error) {
+    console.error(`[Server] 获取班级成绩失败 (classId: ${req.params.classId}):`, error);
+    res.status(500).json({
+      code: 500,
+      message: '获取班级成绩时发生服务器内部错误: ' + error.message,
+      data: null
+    });
+  }
+});
 
 // ... (Rest of the routes)

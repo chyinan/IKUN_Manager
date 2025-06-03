@@ -10,6 +10,7 @@ import Employee from '@/views/emp/index.vue'
 import EmployeeReport from '@/views/empReport/empReport.vue'
 import Class from '@/views/clazz/index.vue'
 import Student from '@/views/stu/index.vue'
+import StuReport from '@/views/stuReport/stuReport.vue'
 import Score from '@/views/score/index.vue'
 import Exam from '@/views/exam/index.vue'
 import Log from '@/views/log/log.vue'
@@ -62,6 +63,12 @@ const router = createRouter({
           name: 'Student',
           component: Student,
           meta: { title: '学生管理', icon: 'User' }
+        },
+        {
+          path: 'stu-report',
+          name: 'StuReport',
+          component: StuReport,
+          meta: { title: '学生信息统计', icon: 'PieChart' }
         },
         {
           path: 'score',

@@ -25,153 +25,152 @@ export const useUserStore = defineStore('user', () => {
   // Login Action (修正)
   const loginAction = async (credentials: { username: string; password: string }) => {
     try {
-      // login 返回 ApiResponse<LoginData>
       const res: ApiResponse<LoginData> = await login(credentials);
-      
-      console.log('[userStore loginAction] Received API response:', res);
+      console.log('[userStore loginAction] Received API response:', JSON.stringify(res)); // Log the full response
 
-      // 检查 res.code 和 res.data 是否存在，并检查 userInfo 而不是 user
+      // Log the values being checked in the condition
+      console.log(`[userStore loginAction] Checking condition: res.code === 200 (${res.code === 200})`);
+      console.log(`[userStore loginAction] Checking condition: res.data?.token exists (${!!res.data?.token})`);
+      console.log(`[userStore loginAction] Checking condition: res.data?.userInfo exists (${!!res.data?.userInfo})`);
+      console.log('[userStore loginAction] res.data.token value:', res.data?.token);
+      console.log('[userStore loginAction] res.data.userInfo value:', JSON.stringify(res.data?.userInfo));
+
       if (res.code === 200 && res.data?.token && res.data?.userInfo) {
-        // 从 res.data 中提取 token 和 userInfo
         const receivedToken = res.data.token;
-        const receivedUserInfo = res.data.userInfo;
+        const receivedApiUserInfo = res.data.userInfo; 
         
-        console.log('[userStore loginAction] Login successful, token received:', receivedToken);
-        console.log('[userStore loginAction] Received user info:', receivedUserInfo);
+        console.log('[userStore loginAction] Login successful, token received (inside if block):', receivedToken);
+        console.log('[userStore loginAction] Received user info from API (inside if block):', JSON.stringify(receivedApiUserInfo));
 
-        // Update store state
+        const userApiRole = receivedApiUserInfo.role; 
+        const userRolesArray = userApiRole ? [userApiRole] : []; 
+
         token.value = receivedToken;
         userInfo.value = {
-          id: receivedUserInfo.id,
-          username: receivedUserInfo.username,
-          email: receivedUserInfo.email || undefined,
-          avatar: receivedUserInfo.avatar || avatar.value || '',
-          roles: receivedUserInfo.roles || [], 
-          permissions: receivedUserInfo.permissions || [],
-          createTime: receivedUserInfo.createTime || new Date().toISOString()
+          id: receivedApiUserInfo.id,
+          username: receivedApiUserInfo.username,
+          email: receivedApiUserInfo.email || undefined,
+          avatar: receivedApiUserInfo.avatar || avatar.value || '',
+          role: receivedApiUserInfo.role, 
+          roles: userRolesArray,         
+          permissions: receivedApiUserInfo.permissions || [],
+          createTime: receivedApiUserInfo.createTime || new Date().toISOString()
         };
-        // Update derived state
-        username.value = receivedUserInfo.username;
-        avatar.value = receivedUserInfo.avatar || avatar.value || '';
-        roles.value = receivedUserInfo.roles || [];
-        permissions.value = receivedUserInfo.permissions || [];
         
-        // Save token and avatar to localStorage
+        username.value = receivedApiUserInfo.username;
+        avatar.value = userInfo.value.avatar; 
+        roles.value = userRolesArray; 
+
         localStorage.setItem('token', receivedToken);
         if (avatar.value) {
            localStorage.setItem('user_avatar_url', avatar.value);
         }
-        
-        // 不需要再显示 ElMessage，交给 request.ts 拦截器处理成功提示
-        // ElMessage.success('登录成功');
-        return true; // Indicate success
+        console.log('[userStore loginAction] Returning true from success path.');
+        return true;
       } else {
-        // Handle login failure using message from res
-        const errorMsg = res?.message || '登录失败: 无效的响应数据格式';
-        console.error('[userStore loginAction] Login failed:', errorMsg, 'Payload:', res);
-        // ElMessage.error(errorMsg); // 错误消息由 request.ts 拦截器处理
+        const errorMsg = res?.message || '登录失败: 无效的响应数据格式或缺少token/userInfo';
+        console.error('[userStore loginAction] Login condition failed. Error message:', errorMsg, 'Full Response Payload:', JSON.stringify(res));
+        console.log('[userStore loginAction] Returning false due to failed condition.');
         return false;
       }
     } catch (error: any) {
-      // 错误已在 request.ts 拦截器中处理并提示，这里只记录日志
-      console.error('登录 API 调用失败 (catch block in store):', error);
-      // 不需要再次 ElMessage.error
+      console.error('[userStore loginAction] Login API call failed (catch block in store):', error);
+      console.log('[userStore loginAction] Returning false due to exception.');
       return false;
     }
   }
 
-  // Get User Info Action (Keep existing logic for now)
+  // Get User Info Action
   const getUserInfoAction = async () => {
     if (!token.value) return false
     
     try {
-      // **移除开发环境模拟数据逻辑**
-      /*
-      if (import.meta.env.DEV) {
-        userInfo.value = { 
-          id: 1, 
-          username: 'admin', 
-          email: 'admin@example.com',
-          createTime: new Date().toISOString() // <-- Add createTime for mock
-        }; 
-        username.value = 'admin'
-        roles.value = ['admin']
-        permissions.value = ['*']
-        return true
-      }
-      */
-
-      // **始终尝试调用 API 获取用户信息**
       console.log('[userStore] Attempting to fetch user info via API...');
-      const res = await getUserInfo(); // res is ApiResponse<UserInfo>
+      const res = await getUserInfo(); 
       console.log('[userStore] API response for user info:', res);
 
-      // **res 的类型是 ApiResponse<UserInfo>**
       if (res.code === 200 && res.data) {
-        // 从 res.data 获取 UserInfo
-        const receivedUserInfo = res.data;
+        const receivedApiUserInfo = res.data; // UserInfo from API
+
+        const userApiRole = receivedApiUserInfo.role; // e.g., "admin"
+        const userRolesArray = userApiRole ? [userApiRole] : []; // e.g., ["admin"]
+
         userInfo.value = {
-          id: receivedUserInfo.id,
-          username: receivedUserInfo.username,
-          email: receivedUserInfo.email || undefined,
-          avatar: receivedUserInfo.avatar,
-          roles: receivedUserInfo.roles,
-          permissions: receivedUserInfo.permissions,
-          createTime: receivedUserInfo.createTime || new Date().toISOString() // Ensure createTime
+          id: receivedApiUserInfo.id,
+          username: receivedApiUserInfo.username,
+          email: receivedApiUserInfo.email || undefined,
+          avatar: receivedApiUserInfo.avatar,
+          role: receivedApiUserInfo.role, // Keep original role
+          roles: userRolesArray,         // Store derived roles array
+          permissions: receivedApiUserInfo.permissions || [], // Ensure permissions is an array
+          createTime: receivedApiUserInfo.createTime || new Date().toISOString()
         };
-        username.value = receivedUserInfo.username
-        if (receivedUserInfo.avatar) {
-          avatar.value = receivedUserInfo.avatar;
-        } else {
-          console.log('[userStore] No avatar in getUserInfo response, keeping existing avatar state:', avatar.value);
+        username.value = receivedApiUserInfo.username;
+        if (receivedApiUserInfo.avatar) {
+          avatar.value = receivedApiUserInfo.avatar;
         }
-        roles.value = receivedUserInfo.roles || []
-        permissions.value = receivedUserInfo.permissions || []
+        // CRITICAL FIX: Ensure the standalone roles ref is updated
+        roles.value = userRolesArray; 
+        
+        // Update standalone permissions ref as well, for consistency if it exists and is used elsewhere directly
+        // If you only use permissions via userInfo.value.permissions, this line is optional
+        if (typeof permissions !== 'undefined' && permissions.value !== undefined) { // Check if permissions ref exists
+            permissions.value = receivedApiUserInfo.permissions || [];
+        }
+
+        // Sync avatar to localStorage if fetched
+        if (avatar.value) {
+            localStorage.setItem('user_avatar_url', avatar.value);
+        }
         return true
       } else {
-        // Optionally clear state if fetching info fails after login
-        // resetState(); 
+        // Added log for failure case
+        console.warn('[userStore] getUserInfoAction failed or API returned non-200 code. Response:', res);
         return false
       }
     } catch (error) {
-      console.error('获取用户信息失败:', error)
-      // Optionally clear state on error
-      // resetState();
+      console.error('获取用户信息失败 (catch block in getUserInfoAction):', error)
       return false
     }
   }
 
   // Logout Action (Keep existing logic)
   const logoutAction = async () => {
+    console.log('[userStore logoutAction] Attempting to logout...');
     try {
+      console.log(`[userStore logoutAction] Current token: ${token.value}, Is DEV env: ${import.meta.env.DEV}`);
       if (token.value && !import.meta.env.DEV) {
-        // Call backend logout if it exists
-        await logout()
+        console.log('[userStore logoutAction] Calling API logout...');
+        await logout(); // Calls API: import { logout } from '@/api/user'
+        console.log('[userStore logoutAction] API logout call finished.');
       }
     } catch (error) {
-      console.error('登出 API 调用失败:', error)
+      console.error('[userStore logoutAction] Logout API call failed:', error);
       // Still proceed with local state reset even if API fails
     } finally {
-      resetState()
+      console.log('[userStore logoutAction] Entering finally block, calling resetState().');
+      resetState(); // CRITICAL: This should always run
     }
   }
 
   // Reset State (Updated)
   const resetState = () => {
+    console.log('[userStore resetState] Resetting user state...');
     token.value = ''
-    userInfo.value = null // Reset user info object
+    userInfo.value = null 
     username.value = ''
     avatar.value = ''
     roles.value = []
     permissions.value = []
     localStorage.removeItem('token')
     localStorage.removeItem('user_avatar_url') 
+    localStorage.removeItem('user-info'); // Ensure this is here from previous steps
 
-    // Add redirection to login page
+    console.log('[userStore resetState] State reset. Attempting to redirect to /login...');
     router.push('/login').catch(err => {
-      console.error('Redirect to login failed:', err);
+      console.error('[userStore resetState] Redirect to login failed:', err);
     });
-    console.log('User state reset and redirected to login.');
+    console.log('[userStore resetState] Redirection to login initiated (or failed if error above).');
   }
 
   // Attempt to load user info if token exists on initial store creation
@@ -266,21 +265,34 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // --- ADD isAdmin GETTER ---
+  const isAdmin = computed(() => {
+    console.log('[userStore] isAdmin computed. roles.value:', JSON.stringify(roles.value));
+    const result = roles.value.includes('admin');
+    console.log('[userStore] isAdmin result:', result);
+    return result;
+  });
+  const isStudent = computed(() => {
+    console.log('[userStore] isStudent computed. roles.value:', JSON.stringify(roles.value));
+    const result = roles.value.includes('student');
+    console.log('[userStore] isStudent result:', result);
+    return result;
+  });
+
   return {
     token,
-    userInfo, // Export new state
+    userInfo,
     username,
     avatar,
-    roles,
+    roles,     // Expose roles array
     permissions,
-    login: loginAction,
-    getUserInfo: getUserInfoAction,
-    logout: logoutAction,
+    loginAction,
+    getUserInfoAction,
+    logoutAction,
     resetState,
-    setAvatar, // <-- Export the new action
-    updateUserEmailAction, // <-- Export the new action
-    // Add a getter for easier checking of authentication status
-    isAuthenticated: computed(() => !!token.value && !!userInfo.value)
+    setAvatar,
+    isAdmin,  // Expose isAdmin
+    isStudent // Expose isStudent
   }
 }, {
   // Optional: Enable persistence if needed, though manual localStorage is used here

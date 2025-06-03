@@ -26,20 +26,16 @@ async function findUserByUsername(username) {
       console.log('[UserService] Username is empty, returning null.');
       return null;
     }
-    const query = 'SELECT id, username, password, email FROM user WHERE username = ?'; 
+    const query = 'SELECT id, username, password, email, role, avatar FROM user WHERE username = ?';
     console.log(`[UserService] Executing query: ${query} with username: ${username}`);
     
-    // Use destructuring - assuming [rows] might yield the first row object directly if one exists
     const [userObject] = await db.query(query, [username]);
     console.log(`[UserService] Result from db.query (destructured): ${JSON.stringify(userObject)}`); 
     
-    // --- Check if an object was actually returned --- 
     if (userObject) { 
-        // User found, return the user object directly
         console.log(`[UserService] User object found: ${JSON.stringify(userObject)}`); 
         return userObject;
     } else {
-        // No user object returned from destructuring
         console.log(`[UserService] No user object returned from query.`); 
         return null;
     }
@@ -85,29 +81,27 @@ async function findUserById(id) {
     return null;
   }
   try {
-    const query = 'SELECT id, username, password, email, create_time FROM user WHERE id = ?';
-    // Use destructuring, expecting a single user object if found
+    const query = 'SELECT id, username, password, email, role, avatar, create_time FROM user WHERE id = ?';
     const [userObject] = await db.query(query, [userId]); 
     console.log(`[UserService] Result from db.query for ID ${userId} (destructured): ${JSON.stringify(userObject)}`); 
 
-    // **** 添加强制日志 ****
     if (userObject) {
       console.log(`[UserService DEBUG] Email read from DB for ID ${userId}: ${userObject.email}`);
-      console.log(`[UserService DEBUG] CreateTime read from DB for ID ${userId}: ${userObject.create_time}`); // <-- 添加 create_time 日志
+      console.log(`[UserService DEBUG] Role read from DB for ID ${userId}: ${userObject.role}`);
+      console.log(`[UserService DEBUG] Avatar read from DB for ID ${userId}: ${userObject.avatar}`);
+      console.log(`[UserService DEBUG] CreateTime read from DB for ID ${userId}: ${userObject.create_time}`);
     }
-    // **** 结束强制日志 ****
 
-    // Check if the destructured object exists
     if (userObject) { 
       console.log(`[UserService] User found for ID: ${userId}`);
-      return userObject; // Return the user object found
+      return userObject;
     } else {
       console.log(`[UserService] User not found for ID: ${userId}`);
       return null;
     }
   } catch (error) {
     console.error(`[UserService] Error finding user by ID ${userId}:`, error);
-    throw error; // Re-throw the error for the caller to handle
+    throw error;
   }
 }
 
@@ -248,39 +242,44 @@ async function loginUser(username, password) {
     console.log(`[UserService] Login failed: User not found (${username})`);
     throw new Error('用户不存在');
   }
-  console.log(`[UserService] User found, comparing password for ${username}`);
-  const isPasswordValid = await comparePassword(password, user.password);
 
-  if (!isPasswordValid) {
-    console.log(`[UserService] Login failed: Invalid password for ${username}`);
+  const passwordMatch = await comparePassword(password, user.password);
+  if (!passwordMatch) {
+    console.log(`[UserService] Login failed: Password mismatch for user (${username})`);
+    await logService.addLogEntry({
+        type: 'auth',
+        operation: '登录失败',
+        content: `用户 '${username}' 尝试登录失败：密码错误。`,
+        operator: username 
+    });
     throw new Error('密码错误');
   }
 
-  // 密码验证成功，生成 JWT
-  console.log(`[UserService] Password valid for ${username}, generating token...`);
   const payload = {
     id: user.id,
-    username: user.username
-    // 可以根据需要添加更多信息到 payload，但不建议包含敏感信息
+    username: user.username,
+    role: user.role
   };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  console.log(`[UserService] Login successful for user: ${username}, Role: ${user.role}. Token generated.`);
+  
+  await logService.addLogEntry({
+      type: 'auth',
+      operation: '登录成功',
+      content: `用户 '${username}' (角色: ${user.role}) 登录成功。`,
+      operator: username
+  });
 
-  try {
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    console.log(`[UserService] Token generated successfully for ${username}`);
-    // 返回 Token 和用户信息（不包括密码）
-    return {
-      token,
-      userInfo: {
-        id: user.id,
-        username: user.username,
-        email: user.email // 假设 findUserByUsername 返回了 email
-        // avatar 可以在获取用户详情时再获取
-      }
-    };
-  } catch (error) {
-      console.error(`[UserService] Error generating token for ${username}:`, error);
-      throw new Error('生成认证令牌失败');
-  }
+  return {
+    token,
+    userInfo: { 
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role
+    }
+  };
 }
 
 /**

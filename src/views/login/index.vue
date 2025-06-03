@@ -114,16 +114,18 @@
       loading.value = true
       
       try {
-        const success = await userStore.login(loginForm.value)
+        const success = await userStore.loginAction(loginForm.value)
+        console.log('[LoginComponent] loginAction success status:', success);
         
         if (success) {
-          // 获取重定向地址
           const redirect = route.query.redirect as string
-          router.push(redirect || '/')
+          console.log('[LoginComponent] Redirect path from query:', redirect);
+          const targetPath = redirect || '/';
+          console.log('[LoginComponent] Navigating to target path:', targetPath);
+          router.push(targetPath);
         }
       } catch (error) {
-        console.error('登录失败:', error)
-        ElMessage.error('登录失败，请稍后重试')
+        console.error('[LoginComponent] Unknown error during login process:', error) 
       } finally {
         loading.value = false
       }

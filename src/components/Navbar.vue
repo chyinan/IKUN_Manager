@@ -104,9 +104,9 @@ const handleCommand = (command: string) => {
       cancelButtonText: '取消',
       type: 'warning'
     }).then(() => {
-      userStore.logout()
+      userStore.logoutAction()
     }).catch(() => {
-      // 取消操作
+      console.log('[Navbar] Logout cancelled by user.');
     })
   }
 }

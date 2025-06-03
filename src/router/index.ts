@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import StudentLayout from '@/views/student/StudentLayout.vue'
 
 // 导入视图组件
 import Dashboard from '@/views/dashboard/index.vue'
@@ -103,6 +104,44 @@ const router = createRouter({
       ]
     },
     {
+      path: '/student-portal',
+      component: StudentLayout,
+      redirect: '/student-portal/dashboard',
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: 'dashboard',
+          name: 'StudentDashboard',
+          component: () => import('@/views/student/StudentDashboard.vue'),
+          meta: { title: '学生首页', icon: 'House' }
+        },
+        {
+          path: 'my-scores',
+          name: 'MyScores',
+          component: () => import('@/views/student/MyScores.vue'),
+          meta: { title: '我的成绩', icon: 'Memo' }
+        },
+        {
+          path: 'upcoming-exams',
+          name: 'UpcomingExams',
+          component: () => import('@/views/student/UpcomingExams.vue'),
+          meta: { title: '待考考试', icon: 'Clock' }
+        },
+        {
+          path: 'announcements',
+          name: 'StudentAnnouncements',
+          component: () => import('@/views/student/Announcements.vue'),
+          meta: { title: '学校通知', icon: 'Bell' }
+        },
+        {
+          path: 'profile-settings',
+          name: 'StudentProfileSettings',
+          component: () => import('@/views/student/ProfileSettings.vue'),
+          meta: { title: '个人设置', icon: 'Setting' }
+        }
+      ]
+    },
+    {
       path: '/login',
       name: 'Login',
       component: Login,
@@ -136,10 +175,25 @@ router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   const token = userStore.token
   
+  console.log(`[Router Guard] Navigating to: ${to.path}`);
+  console.log(`[Router Guard] Token exists: ${!!token}`);
+  console.log(`[Router Guard] userStore.username (before getUserInfo check): ${userStore.username}`);
+  console.log(`[Router Guard] userStore.roles.value (before getUserInfo check): ${JSON.stringify(userStore.roles)}`);
+  console.log(`[Router Guard] userStore.isAdmin (before getUserInfo check): ${userStore.isAdmin}`);
+  
   // 如果是登录页，直接放行
   if (to.path === '/login') {
     if (token) {
-      next('/')
+      console.log('[Router Guard] On login page with token. Checking redirect...');
+      console.log(`[Router Guard] userStore.isAdmin (for login redirect): ${userStore.isAdmin}`);
+      console.log(`[Router Guard] userStore.isStudent (for login redirect): ${userStore.isStudent}`);
+      if (userStore.isAdmin) { 
+         next('/') 
+      } else if (userStore.isStudent) { 
+         next('/student-portal')
+      } else {
+         next('/') // Fallback
+      }
     } else {
       next()
     }
@@ -154,54 +208,80 @@ router.beforeEach(async (to, from, next) => {
   }
   
   // 如果有token但没有用户信息，获取用户信息
-  let userInfoFetched = !!userStore.username; // Check if username already exists
-  if (token && !userInfoFetched) {
+  if (!userStore.username) { // Simpler check: if no username, try fetching
+    console.log('[Router Guard] Username not found in store, attempting to fetch user info...');
     try {
-      userInfoFetched = await userStore.getUserInfo()
-      if (!userInfoFetched) {
-        // 获取用户信息失败，可能是token过期
-        console.log('getUserInfo failed, resetting state.')
+      const userInfoFetchedSuccess = await userStore.getUserInfoAction(); // Ensure this is the correct action name
+      console.log(`[Router Guard] getUserInfoAction success: ${userInfoFetchedSuccess}`);
+      if (!userInfoFetchedSuccess) {
         userStore.resetState()
         ElMessage.error('获取用户信息失败，请重新登录')
         next(`/login?redirect=${to.path}`)
         return;
       }
+      // After fetching, log the state again
+      console.log(`[Router Guard] userStore.username (after getUserInfo): ${userStore.username}`);
+      console.log(`[Router Guard] userStore.roles.value (after getUserInfo): ${JSON.stringify(userStore.roles)}`);
+      console.log(`[Router Guard] userStore.isAdmin (after getUserInfo): ${userStore.isAdmin}`);
     } catch (error) {
-      console.error('Error fetching user info:', error);
+      console.error('[Router Guard] Error fetching user info in guard:', error);
       userStore.resetState()
       ElMessage.error('获取用户信息异常，请重新登录')
       next(`/login?redirect=${to.path}`)
       return;
     }
   }
-  
-  // 检查Admin权限
+
+  // 角色和权限检查
+  // 1. 检查管理员权限 (已有逻辑)
   if (to.meta.requiresAdmin) {
-    console.log('Checking admin requirement for route:', to.path);
-    // Make sure user info is loaded before checking isAdmin
-    if (!userStore.username) {
-       // This case should ideally be handled by the previous block, but as a safeguard:
-       console.error('Attempting to access Admin page, but user info not loaded yet.');
-       // It might be a race condition, try fetching again or redirect
-       // For now, redirect to login as a safe measure
-       userStore.resetState()
-       ElMessage.error('用户信息加载失败，请重新登录');
-       next(`/login?redirect=${to.path}`)
+    console.log('[Router Guard] Route requires admin. Performing admin check...');
+    console.log(`[Router Guard] Current userStore.username: ${userStore.username}`);
+    console.log(`[Router Guard] Current userStore.roles.value: ${JSON.stringify(userStore.roles)}`);
+    console.log(`[Router Guard] Current userStore.isAdmin value: ${userStore.isAdmin}`);
+    
+    if (!userStore.username) { 
+       // This case should ideally be caught by the block above that fetches user info.
+       // If it's reached, means username is still not available after fetch attempt or if fetch was skipped.
+       console.warn('[Router Guard] Admin check: Username still not available!');
+       userStore.resetState();
+       ElMessage.error('用户信息加载异常，请重新登录（管理员检查处）');
+       next(`/login?redirect=${to.path}`);
        return;
     }
-
-    // Check if the user is admin 
-    const isAdminUser = userStore.username === 'admin'; // Direct check for simplicity
-    console.log(`Is user admin? (${userStore.username}): ${isAdminUser}`);
+    const isAdminUser = userStore.isAdmin; // 假设 userStore.isAdmin 已经是布尔值
     if (!isAdminUser) {
-      ElMessage.error('您没有权限访问此页面');
-      next('/404'); // Or redirect to a specific 'forbidden' page
+      ElMessage.error('您没有权限访问此页面 (来自路由守卫的 isAdmin 判断)');
+      console.log(`[Router Guard] Access denied to ${to.path} for user ${userStore.username} because isAdmin is false.`);
+      next('/404'); 
       return;
     }
   }
+
+  // 2. 检查是否是学生门户的路由，并且当前用户是否是学生
+  //    (这是一个简化的示例，实际应用中角色判断可能更复杂)
+  if (to.path.startsWith('/student-portal')) {
+    if (!userStore.username) { 
+       userStore.resetState();
+       ElMessage.error('用户信息加载失败，请重新登录');
+       next(`/login?redirect=${to.path}`);
+       return;
+    }
+    // 假设 userStore 中有 isStudent 属性或方法来判断是否为学生
+    // 或者后端返回的用户信息中有角色字段，如 userStore.userInfo.role === 'student'
+    const isStudentUser = userStore.isStudent; // 假设的属性
+    if (!isStudentUser && !userStore.isAdmin) { // 如果不是学生也不是管理员（防止管理员被锁在学生门户之外，如果他们偶然访问）
+      ElMessage.error('您没有权限访问学生门户');
+      next('/login'); // 或者跳转到管理员首页 next('/');
+      return;
+    }
+     // 如果是管理员，但不是学生，且访问学生门户，可以选择重定向或允许（取决于业务需求）
+     // if (userStore.isAdmin && !isStudentUser) {
+     //   ElMessage.info('管理员账户访问学生门户。');
+     // }
+  }
   
-  // 如果一切正常，允许导航
-  console.log('Navigation guard passed, allowing navigation to:', to.path);
+  console.log(`[Router Guard] Navigation guard passed, allowing navigation to: ${to.path}`);
   next()
 })
 

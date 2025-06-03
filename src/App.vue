@@ -45,7 +45,7 @@ onBeforeUnmount(() => {
 <template>
   <el-config-provider :locale="locale">
     <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
+      <transition name="page-slide-fade" mode="out-in">
         <component :is="Component" />
       </transition>
     </router-view>
@@ -63,13 +63,15 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* Transition Styles */
-.fade-enter-active,
-.fade-leave-active {
+.page-slide-fade-enter-active {
+  animation: slideInRight 0.3s ease-in-out; /* Uses global @keyframes slideInRight from main.css */
+}
+
+.page-slide-fade-leave-active {
   transition: opacity 0.3s ease;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.page-slide-fade-leave-to {
   opacity: 0;
 }
 

@@ -159,7 +159,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(403).json({ code: 403, message: '令牌验证失败' });
       }
     }
-    console.log('[Auth DEBUG] Token verified successfully. User:', user);
+    console.log('[Auth DEBUG] Token verified successfully. User:', user); // user here includes id, username, role
     req.user = user; // Attach user info to the request object
     next();
   });
@@ -171,11 +171,12 @@ const isAdmin = (req, res, next) => {
     console.log('[Admin Check] User not authenticated.');
     return res.status(401).json({ code: 401, message: '用户未认证' });
   }
-  if (req.user.username === 'admin') {
-    console.log('[Admin Check] User is admin.');
+  // MODIFIED: Check role for admin status
+  if (req.user.role === 'admin') { 
+    console.log(`[Admin Check] User ${req.user.username} with role ${req.user.role} is admin.`);
     next(); // User is admin, proceed
   } else {
-    console.log(`[Admin Check] User ${req.user.username} is not admin.`);
+    console.log(`[Admin Check] User ${req.user.username} with role ${req.user.role} is NOT admin.`);
     return res.status(403).json({ code: 403, message: '无权访问此资源，需要管理员权限' });
   }
 };
@@ -225,10 +226,9 @@ app.post(`${apiPrefix}/user/login`, async (req, res) => {
 // 获取用户信息 (需要认证)
 app.get(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
   try {
-    // req.user 包含从 authenticateToken 中解码的用户信息（如 id, username）
-    const userInfo = await userService.findUserById(req.user.id); 
-    if (!userInfo) {
-      // 即使用户在Token有效期内被删除，也返回404
+    // req.user 包含从 authenticateToken 中解码的用户信息（如 id, username, role）
+    const userInfoFromDb = await userService.findUserById(req.user.id); 
+    if (!userInfoFromDb) {
       console.warn(`[User Info] User ID ${req.user.id} found in token but not in DB.`);
       return res.status(404).json({ code: 404, message: '用户不存在' });
     }
@@ -236,10 +236,17 @@ app.get(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
     res.json({
       code: 200,
       data: {
-        id: userInfo.id,
-        username: userInfo.username,
-        email: userInfo.email,
-        avatar: userInfo.avatar ? `/uploads/${userInfo.avatar}` : null // 构造完整的头像URL
+        id: userInfoFromDb.id,
+        username: userInfoFromDb.username,
+        email: userInfoFromDb.email,
+        role: userInfoFromDb.role, // MODIFIED: Added role
+        avatar: userInfoFromDb.avatar ? `/uploads/${userInfoFromDb.avatar}` : null,
+        // Assuming studentId is not directly on the user table for all users
+        // but might be part of a student-specific join or profile later.
+        // For now, userStore on frontend will need to manage studentId if it's separate.
+        // If studentId is a direct column on the user table for student roles, 
+        // ensure userService.findUserById selects it.
+        // studentId: userInfoFromDb.student_id, // Example if it were on user table
       },
       message: '获取用户信息成功' 
     });
@@ -292,6 +299,71 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, avatarUpload.single('ava
           message: '头像上传失败: ' + error.message 
         });
     }
+  }
+});
+
+// 新增：用户更新自己的个人信息 (邮箱和电话)
+app.put(`${apiPrefix}/user/profile`, authenticateToken, async (req, res) => {
+  const userId = req.user.id; // Get user ID from authenticated token
+  const { email, phone } = req.body;
+  const operator = req.user.username; // For logging
+
+  console.log(`[User Profile Update] User ${operator} (ID: ${userId}) attempting to update profile with:`, { email, phone });
+
+  const dataToUpdate = {};
+  if (email !== undefined) {
+    // Optional: Add further validation for email format if not handled by userService
+    dataToUpdate.email = email;
+  }
+  if (phone !== undefined) {
+    // Optional: Add further validation for phone format if not handled by userService
+    dataToUpdate.phone = phone;
+  }
+
+  if (Object.keys(dataToUpdate).length === 0) {
+    return res.status(400).json({ code: 400, message: '未提供可更新的邮箱或电话信息' });
+  }
+
+  try {
+    // Using the generic updateUser service function from userService.js
+    // This service function should be able to handle partial updates (e.g., only email, only phone, or both)
+    // And it should only update fields that are present in dataToUpdate for the given userId.
+    const success = await userService.updateUser(userId, dataToUpdate);
+
+    if (success) {
+      console.log(`[User Profile Update] Profile updated successfully for user ID: ${userId}`);
+      await logService.addLogEntry({
+        type: 'user',
+        operation: '更新个人资料',
+        content: `用户 '${operator}' 更新了个人资料 (邮箱/电话)。`, // More specific log
+        operator: operator
+      });
+      
+      // Fetch the updated user info to return, ensuring it includes all relevant fields
+      const updatedUserInfo = await userService.findUserById(userId); // findUserById now returns role, avatar
+    
+    res.json({
+      code: 200,
+        message: '个人资料更新成功',
+        data: {
+          id: updatedUserInfo.id,
+          username: updatedUserInfo.username,
+          email: updatedUserInfo.email,
+          role: updatedUserInfo.role,
+          avatar: updatedUserInfo.avatar ? `/uploads/${updatedUserInfo.avatar}` : null,
+          phone: updatedUserInfo.phone // Assuming 'phone' is a field in the 'user' table and selected by findUserById
+        }
+      });
+    } else {
+      console.warn(`[User Profile Update] Profile update did not result in changes for user ID: ${userId}. User might not exist or data was same.`);
+      res.status(400).json({ code: 400, message: '个人资料更新失败或未更改任何信息' });
+    }
+  } catch (error) {
+    console.error(`[User Profile Update] Error updating profile for user ID ${userId}:`, error);
+    if (error.message && (error.message.includes('无效的邮箱格式') || error.message.includes('手机号码格式不正确') || error.message.includes('该邮箱已被其他用户注册'))) {
+        return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: '更新个人资料时发生服务器内部错误: ' + error.message });
   }
 });
 

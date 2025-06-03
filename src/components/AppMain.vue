@@ -1,7 +1,9 @@
 <template>
   <section class="app-main" :style="appMainStyle">
     <transition name="fade-transform" mode="out-in">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <component :is="Component" />
+      </router-view>
     </transition>
   </section>
 </template>

@@ -15,10 +15,12 @@ import StuReport from '@/views/stuReport/stuReport.vue'
 import Score from '@/views/score/index.vue'
 import Exam from '@/views/exam/index.vue'
 import Log from '@/views/log/log.vue'
+import SettingsLayout from '@/views/settings/SettingsLayout.vue'
+import ValidationRules from '@/views/settings/ValidationRules.vue'
 import Profile from '@/views/profile/index.vue'
-import Settings from '@/views/settings/index.vue'
 import Login from '@/views/login/index.vue'
 import NotFound from '@/views/error/404.vue'
+import CarouselManagement from '@/views/settings/CarouselManagement.vue'
 
 // 路由配置
 const router = createRouter({
@@ -91,9 +93,24 @@ const router = createRouter({
         },
         {
           path: 'settings',
-          name: 'Settings',
-          component: Settings,
-          meta: { title: '系统设置', icon: 'Setting', requiresAdmin: true }
+          name: 'SettingsLayout',
+          component: SettingsLayout,
+          redirect: '/settings/validation-rules',
+          meta: { title: '系统设置', icon: 'Setting', requiresAdmin: true },
+          children: [
+            {
+              path: 'validation-rules',
+              name: 'ValidationRules',
+              component: ValidationRules,
+              meta: { title: '验证规则', requiresAdmin: true }
+            },
+            {
+              path: 'carousel',
+              name: 'CarouselManagement',
+              component: CarouselManagement,
+              meta: { title: '轮播图管理', icon: 'Picture', requiresAdmin: true }
+            }
+          ]
         },
         {
           path: 'profile',

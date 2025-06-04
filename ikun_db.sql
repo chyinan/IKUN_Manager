@@ -218,4 +218,20 @@ CREATE TABLE `system_config`  (
 INSERT INTO `system_config` (`config_key`, `config_value`, `description`, `update_time`) VALUES ('employeeIdRegex', '^E\d{5}$', '员工号正则表达式 (示例: E+5位数字)', NOW());
 INSERT INTO `system_config` (`config_key`, `config_value`, `description`, `update_time`) VALUES ('studentIdRegex', '^S\d{8}$', '学号正则表达式 (示例: S+8位数字)', NOW());
 
+-- ----------------------------
+-- Table structure for carousel_images
+-- ----------------------------
+DROP TABLE IF EXISTS `carousel_images`;
+CREATE TABLE `carousel_images`  (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `image_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '图片存储路径',
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '图片标题',
+  `link_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '点击跳转链接',
+  `display_order` int(11) NULL DEFAULT 0 COMMENT '显示顺序，越小越靠前',
+  `is_active` tinyint(1) NULL DEFAULT 1 COMMENT '是否激活 (1=是, 0=否)',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = Dynamic;
+
 SET FOREIGN_KEY_CHECKS = 1;

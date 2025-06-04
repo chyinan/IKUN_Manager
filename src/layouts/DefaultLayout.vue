@@ -61,7 +61,8 @@
                 <el-menu-item
                   v-for="child in menuRoute.children"
                   :key="child.path"
-                  :index="menuRoute.path + '/' + child.path"
+                  :index="'/' + menuRoute.path + '/' + child.path"
+                  @click="logNavigationPath('/' + menuRoute.path + '/' + child.path, child)"
                 >
                   <el-icon v-if="child.meta && child.meta.icon">
                     <component :is="child.meta.icon" />
@@ -171,6 +172,11 @@ const closeWindow = () => {
     electronAPI.closeWindow()
   }
 }
+
+const logNavigationPath = (path: string, childRoute: any) => {
+  console.log(`[DefaultLayout Menu Click] Attempting to navigate to index: '${path}'`, JSON.parse(JSON.stringify(childRoute)));
+  // console.log(`[DefaultLayout Menu Click] Vue Router will attempt to push: router.push('${path}')`);
+};
 
 onMounted(() => {
   console.log('[DefaultLayout Combined onMounted] START');

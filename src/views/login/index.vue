@@ -118,11 +118,37 @@
         console.log('[LoginComponent] loginAction success status:', success);
         
         if (success) {
-          const redirect = route.query.redirect as string
-          console.log('[LoginComponent] Redirect path from query:', redirect);
-          const targetPath = redirect || '/';
-          console.log('[LoginComponent] Navigating to target path:', targetPath);
-          router.push(targetPath);
+          // Determine target path based on user role
+          let targetPath = '/dashboard'; // Default for admin or if role is not student
+          if (userStore.isStudent) { 
+            targetPath = '/student-portal/dashboard'; // Student portal dashboard
+          } else if (userStore.isAdmin) {
+            targetPath = '/dashboard'; // Admin dashboard (could also be just '/')
+          }
+          // Add more role checks here if needed, e.g., for 'teacher'
+
+          console.log(`[LoginComponent] Role check: isAdmin=${userStore.isAdmin}, isStudent=${userStore.isStudent}`);
+          console.log(`[LoginComponent] Determined targetPath after login: ${targetPath}`);
+
+          // Handle explicit redirect from query, but only if it's not the login page itself.
+          // Role-based targetPath takes precedence for initial navigation after login.
+          const redirectFromQuery = route.query.redirect as string;
+          let finalPath = targetPath; // Default to role-based path
+
+          if (redirectFromQuery && redirectFromQuery !== '/login' && redirectFromQuery !== targetPath) {
+            // Optional: Add logic here if you want to allow redirectFromQuery to override targetPath
+            // For example, if a student tried to access a specific student page before login.
+            // For now, we prioritize the role-based dashboard for simplicity after a fresh login.
+            // If redirectFromQuery is for a page within their allowed area, it might be fine.
+            // Let's keep it simple: role-based path for now.
+            console.log(`[LoginComponent] Redirect from query was: ${redirectFromQuery}, but using role-based path: ${targetPath}`);
+          }
+          
+          console.log(`[LoginComponent] Navigating to final path: ${finalPath}`);
+          router.push(finalPath);
+        } else {
+          // ElMessage already handled by request interceptor or loginAction for failure
+          console.log('[LoginComponent] Login success was false, not navigating.');
         }
       } catch (error) {
         console.error('[LoginComponent] Unknown error during login process:', error) 

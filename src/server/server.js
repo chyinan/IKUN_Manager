@@ -24,6 +24,7 @@ const dayjs = require('dayjs'); // Ensure dayjs is required
 const isSameOrBefore = require('dayjs/plugin/isSameOrBefore'); // For date validation
 dayjs.extend(isSameOrBefore);
 const cron = require('node-cron'); // <-- Add node-cron
+const carouselService = require('./carouselService'); // <-- Import Carousel Service
 
 // --- Simple Middleware for Debugging ---
 const simpleAuthLogger = (req, res, next) => {
@@ -125,6 +126,34 @@ const avatarUpload = multer({
   limits: { fileSize: 2 * 1024 * 1024 } // Limit avatar size to 2MB
 });
 // --- End Multer Configuration for Avatar Upload ---
+
+// --- Multer Configuration for Carousel Image Upload (New) ---
+const carouselImageStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, carouselService.UPLOADS_DIR); // Uses absolute path from service
+  },
+  filename: function (req, file, cb) {
+    const originalNameWithoutExt = path.parse(file.originalname).name;
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `${originalNameWithoutExt}-${uniqueSuffix}${extension}`);
+  }
+});
+
+const carouselImageFileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('仅支持上传图片文件 (jpeg, png, gif, webp等)'), false);
+  }
+};
+
+const carouselImageUpload = multer({
+  storage: carouselImageStorage,
+  fileFilter: carouselImageFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+// --- End Multer Configuration for Carousel Image Upload ---
 
 // --- JWT Secret (IMPORTANT: Use environment variable in production!) ---
 // 统一 JWT Secret 来源，优先从 config 文件读取
@@ -1838,7 +1867,7 @@ async function startServer() {
   }
 }
 
-startServer();
+// startServer(); // <--- 注释掉或删除此处的调用
 
 // **新增：添加考试 (需要认证)**
 app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
@@ -1966,3 +1995,135 @@ app.get(`${apiPrefix}/score/class/:classId`, authenticateToken, async (req, res)
 });
 
 // ... (Rest of the routes)
+
+// --- Carousel Routes (New) ---
+// GET /api/carousel (for public/student portal - only active images)
+app.get(`${apiPrefix}/carousel`, async (req, res) => {
+  try {
+    const images = await carouselService.getCarouselImages(true); // true for onlyActive
+    res.json({ code: 200, data: images, message: '获取轮播图成功' });
+  } catch (error) {
+    console.error('[API] Error fetching active carousel images:', error);
+    res.status(500).json({ code: 500, message: error.message, data: null });
+  }
+});
+
+// GET /api/carousel/all (for admin management - all images)
+app.get(`${apiPrefix}/carousel/all`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const images = await carouselService.getCarouselImages(false); // false for all images
+    res.json({ code: 200, data: images, message: '获取所有轮播图成功' });
+  } catch (error) {
+    console.error('[API] Error fetching all carousel images for admin:', error);
+    res.status(500).json({ code: 500, message: error.message, data: null });
+  }
+});
+
+// POST /api/carousel (for admin to upload and add a new image)
+// carouselImageUpload.single('imageFile') must match the FormData field name from frontend
+app.post(`${apiPrefix}/carousel`, authenticateToken, isAdmin, carouselImageUpload.single('imageFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ code: 400, message: '未收到图片文件' });
+    }
+
+    const { title, link_url, display_order, is_active } = req.body;
+    const operator = req.user.username;
+
+    const imageData = {
+      image_filename: req.file.filename, // Multer provides filename
+      title,
+      link_url,
+      display_order: display_order ? parseInt(display_order, 10) : 0,
+      is_active: is_active !== undefined ? (is_active === 'true' || is_active === true || is_active === '1' || parseInt(is_active) === 1) : true
+    };
+
+    const newImage = await carouselService.addCarouselImage(imageData, operator);
+    res.status(201).json({ code: 201, data: newImage, message: '轮播图添加成功' });
+  } catch (error) {
+    console.error('[API] Error adding carousel image:', error);
+    // Handle Multer or service errors
+    if (error.message && error.message.includes('仅支持上传图片文件')) {
+        return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: error.message, data: null });
+  }
+});
+
+// PUT /api/carousel/:id (for admin to update image details)
+app.put(`${apiPrefix}/carousel/:id`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.id, 10);
+    if (isNaN(imageId)) {
+      return res.status(400).json({ code: 400, message: '无效的轮播图ID' });
+    }
+
+    const { title, link_url, display_order, is_active } = req.body;
+    const operator = req.user.username;
+
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (link_url !== undefined) updateData.link_url = link_url;
+    if (display_order !== undefined) updateData.display_order = parseInt(display_order, 10);
+    if (is_active !== undefined) updateData.is_active = (is_active === 'true' || is_active === true || is_active === '1' || parseInt(is_active) === 1);
+
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ code: 400, message: '未提供任何更新数据' });
+    }
+
+    const updatedImage = await carouselService.updateCarouselImage(imageId, updateData, operator);
+    if (!updatedImage) {
+      return res.status(404).json({ code: 404, message: '轮播图未找到' });
+    }
+    res.json({ code: 200, data: updatedImage, message: '轮播图更新成功' });
+  } catch (error) {
+    console.error(`[API] Error updating carousel image ${req.params.id}:`, error);
+    res.status(500).json({ code: 500, message: error.message, data: null });
+  }
+});
+
+// DELETE /api/carousel/:id (for admin to delete an image)
+app.delete(`${apiPrefix}/carousel/:id`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const imageId = parseInt(req.params.id, 10);
+    if (isNaN(imageId)) {
+      return res.status(400).json({ code: 400, message: '无效的轮播图ID' });
+    }
+    const operator = req.user.username;
+
+    const success = await carouselService.deleteCarouselImage(imageId, operator);
+    if (!success) {
+      return res.status(404).json({ code: 404, message: '轮播图未找到或删除失败' });
+    }
+    res.json({ code: 200, message: '轮播图删除成功' });
+  } catch (error) {
+    console.error(`[API] Error deleting carousel image ${req.params.id}:`, error);
+    res.status(500).json({ code: 500, message: error.message, data: null });
+  }
+});
+
+// POST /api/carousel/order (for admin to update display order of multiple images)
+app.post(`${apiPrefix}/carousel/order`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const orderUpdates = req.body.order; // Expects an array like [{id: 1, display_order: 0}, {id: 2, display_order: 1}]
+    const operator = req.user.username;
+
+    if (!Array.isArray(orderUpdates)) {
+      return res.status(400).json({ code: 400, message: '请求体必须包含一个 \'order\' 数组' });
+    }
+
+    const success = await carouselService.updateCarouselOrder(orderUpdates, operator);
+    if (success) {
+      res.json({ code: 200, message: '轮播图顺序更新成功' });
+    } else {
+      // This case might be rare if service throws on actual failure
+      res.status(500).json({ code: 500, message: '轮播图顺序部分或全部更新失败' });
+    }
+  } catch (error) {
+    console.error('[API] Error updating carousel order:', error);
+    res.status(500).json({ code: 500, message: error.message, data: null });
+  }
+});
+
+// 调用 startServer 确保在所有路由定义之后
+startServer();

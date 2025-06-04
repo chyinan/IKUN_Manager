@@ -26,7 +26,7 @@ async function findUserByUsername(username) {
       console.log('[UserService] Username is empty, returning null.');
       return null;
     }
-    const query = 'SELECT id, username, password, email, role, avatar FROM user WHERE username = ?';
+    const query = 'SELECT id, username, password, email, role, avatar, create_time, display_name FROM user WHERE username = ?';
     console.log(`[UserService] Executing query: ${query} with username: ${username}`);
     
     const [userObject] = await db.query(query, [username]);
@@ -74,34 +74,56 @@ async function comparePassword(plainPassword, hashedPassword) {
  * @returns {Promise<Object|null>} User object or null if not found
  */
 async function findUserById(id) {
-  const userId = parseInt(id, 10); // Ensure ID is an integer
-  console.log(`[UserService] Finding user by ID: ${userId} (type: ${typeof userId})`);
+  const userId = parseInt(id, 10);
   if (isNaN(userId)) {
-    console.error(`[UserService] Invalid ID passed: ${id}`);
+    console.error(`[UserService] Invalid ID passed to findUserById: ${id}`);
     return null;
   }
   try {
-    const query = 'SELECT id, username, password, email, role, avatar, create_time FROM user WHERE id = ?';
-    const [userObject] = await db.query(query, [userId]); 
-    console.log(`[UserService] Result from db.query for ID ${userId} (destructured): ${JSON.stringify(userObject)}`); 
+    const [userFromDb] = await db.query('SELECT id, username, password, email, role, avatar, create_time, display_name FROM user WHERE id = ?', [userId]);
 
-    if (userObject) {
-      console.log(`[UserService DEBUG] Email read from DB for ID ${userId}: ${userObject.email}`);
-      console.log(`[UserService DEBUG] Role read from DB for ID ${userId}: ${userObject.role}`);
-      console.log(`[UserService DEBUG] Avatar read from DB for ID ${userId}: ${userObject.avatar}`);
-      console.log(`[UserService DEBUG] CreateTime read from DB for ID ${userId}: ${userObject.create_time}`);
-    }
-
-    if (userObject) { 
-      console.log(`[UserService] User found for ID: ${userId}`);
-      return userObject;
-    } else {
-      console.log(`[UserService] User not found for ID: ${userId}`);
+    if (!userFromDb) {
       return null;
     }
+
+    let studentSpecificInfo = null;
+    let studentPhone = null; 
+    let studentEmail = null; 
+
+    if (userFromDb.role === 'student') {
+      const [studentProfile] = await db.query('SELECT id AS student_pk, student_id, name, email, phone FROM student WHERE user_id = ?', [userId]);
+      if (studentProfile) {
+        studentSpecificInfo = {
+          student_pk: studentProfile.student_pk,
+          studentIdStr: studentProfile.student_id,
+          name: studentProfile.name,
+          email: studentProfile.email, 
+          phone: studentProfile.phone  
+        };
+        studentPhone = studentProfile.phone; 
+        studentEmail = studentProfile.email; 
+
+        if (!userFromDb.display_name && studentProfile.name) {
+            userFromDb.display_name = studentProfile.name;
+        }
+      } else {
+        console.warn(`[UserService] User ID ${userId} has role 'student' but no matching profile in 'student' table via user_id.`);
+      }
+    }
+    
+    const finalEmail = (userFromDb.role === 'student' && studentEmail !== null && studentEmail !== undefined) ? studentEmail : userFromDb.email;
+    const finalPhone = (userFromDb.role === 'student' && studentPhone !== null && studentPhone !== undefined) ? studentPhone : null; 
+
+    return {
+      ...userFromDb, 
+      email: finalEmail, 
+      phone: finalPhone, 
+      studentInfo: studentSpecificInfo,
+    };
+
   } catch (error) {
-    console.error(`[UserService] Error finding user by ID ${userId}:`, error);
-    throw error;
+    console.error(`[UserService] Error in findUserById (ID: ${userId}):`, error);
+    throw error; 
   }
 }
 
@@ -202,28 +224,130 @@ async function updateUser(userId, updateData) {
       return false;
     }
 
-    // 构建更新字段和值的数组
-    const fields = Object.keys(updateData);
-    const values = fields.map(field => updateData[field]);
-    values.push(userId); // 添加 userId 作为 WHERE 条件
+    // Fields allowed to be updated by this general function
+    // Exclude password from here, as it should be updated via a separate, more secure flow (e.g., updateUserPassword)
+    const allowedFields = ['email', 'avatar', 'display_name']; // REMOVED 'phone'
+    const fieldsToUpdate = {};
+    let hasValidFields = false;
 
-    // 构建 SET 子句
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    for (const field of allowedFields) {
+        if (updateData.hasOwnProperty(field)) {
+            // Add specific validation if needed, e.g., for email format, phone format
+            if (field === 'email' && updateData.email !== null && updateData.email !== undefined) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(updateData.email)) {
+                    throw new Error('无效的邮箱格式');
+                }
+                // Check for email uniqueness if it's being changed to a new value
+                const [currentUser] = await db.query('SELECT email FROM user WHERE id = ?', [userId]);
+                if (currentUser && currentUser.email !== updateData.email) {
+                    const [existingUserWithEmail] = await db.query('SELECT id FROM user WHERE email = ? AND id != ?', [updateData.email, userId]);
+                    if (existingUserWithEmail) {
+                        throw new Error('该邮箱已被其他用户注册');
+                    }
+                }
+            }
+            if (field === 'phone' && updateData.phone !== null && updateData.phone !== undefined && updateData.phone !== '') {
+                // Example: Basic phone validation (e.g., 11 digits for China)
+                // const phoneRegex = /^1\d{10}$/;
+                // if (!phoneRegex.test(updateData.phone)) {
+                //     throw new Error('手机号码格式不正确');
+                // }
+            }
+            fieldsToUpdate[field] = updateData[field];
+            hasValidFields = true;
+        }
+    }
+
+    if (!hasValidFields) {
+        console.warn('[UserService] No valid fields to update provided');
+        return false; // Or throw an error: throw new Error('未提供可更新的有效字段');
+    }
+
+    const fieldNames = Object.keys(fieldsToUpdate);
+    const fieldValues = Object.values(fieldsToUpdate);
+    fieldValues.push(userId); // For WHERE id = ?
+
+    const setClause = fieldNames.map(name => `${name} = ?`).join(', ');
     const query = `UPDATE user SET ${setClause}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
 
-    const result = await db.query(query, values);
+    const result = await db.query(query, fieldValues);
     const success = result && result.affectedRows > 0;
 
     if (success) {
       console.log(`[UserService] User info updated successfully for ID: ${userId}`);
+       await logService.addLogEntry({
+           type: 'user',
+           operation: '更新资料',
+           content: `用户ID ${userId} (${updateData.username || 'N/A'}) 更新了资料: ${Object.keys(fieldsToUpdate).join(', ')}`,
+           operator: `User:${userId}` // Or req.user.username if available from a higher level
+       });
+
+      // NEW: Check if user is a student and update student table if necessary
+      try {
+        const [userRoleInfo] = await db.query('SELECT role FROM user WHERE id = ?', [userId]);
+        if (userRoleInfo && userRoleInfo.role === 'student') {
+          console.log(`[UserService] User ID ${userId} is a student. Checking if student contact info needs update.`);
+          const studentFieldsToUpdate = {};
+          if (updateData.hasOwnProperty('email') && updateData.email !== undefined) {
+            studentFieldsToUpdate.email = updateData.email;
+          }
+          if (updateData.hasOwnProperty('phone') && updateData.phone !== undefined) {
+            studentFieldsToUpdate.phone = updateData.phone;
+          }
+
+          if (Object.keys(studentFieldsToUpdate).length > 0) {
+            const studentFieldNames = Object.keys(studentFieldsToUpdate);
+            const studentFieldValues = Object.values(studentFieldsToUpdate);
+            studentFieldValues.push(userId); // For WHERE user_id = ?
+
+            const studentSetClause = studentFieldNames.map(name => `${name} = ?`).join(', ');
+            const studentUpdateQuery = `UPDATE student SET ${studentSetClause} WHERE user_id = ?`;
+            
+            console.log(`[UserService] Attempting to update student table for user_id ${userId} with data:`, studentFieldsToUpdate);
+            const studentUpdateResult = await db.query(studentUpdateQuery, studentFieldValues);
+
+            if (studentUpdateResult && studentUpdateResult.affectedRows > 0) {
+              console.log(`[UserService] Student contact info updated successfully for user_id: ${userId}`);
+              await logService.addLogEntry({
+                type: 'user',
+                operation: '更新学生联系方式',
+                content: `学生 (用户ID ${userId}) 更新了联系方式: ${Object.keys(studentFieldsToUpdate).join(', ')}`,
+                operator: `User:${userId}`
+              });
+            } else {
+              console.warn(`[UserService] Student contact info update failed or no changes for user_id: ${userId}. Student record might not exist with this user_id, or data was the same.`);
+            }
+          } else {
+            console.log(`[UserService] No email/phone data provided in updateData for student ${userId}. Skipping student table update.`);
+          }
+        }
+      } catch (studentUpdateError) {
+        // Log the error but don't let it fail the primary user update.
+        // The main 'success' variable still reflects the user table update status.
+        console.error(`[UserService] Error updating student table for user_id ${userId}:`, studentUpdateError);
+        await logService.addLogEntry({
+            type: 'error',
+            operation: '更新学生联系方式失败',
+            content: `用户ID ${userId} 更新学生表联系方式时出错: ${studentUpdateError.message}`,
+            operator: `User:${userId}`
+        });
+      }
     } else {
-      console.warn(`[UserService] User info update failed for ID: ${userId}`);
+      console.warn(`[UserService] User info update failed or no changes made for ID: ${userId}`);
     }
 
     return success;
   } catch (error) {
     console.error(`[UserService] Error updating user info for ID ${userId}:`, error);
-    throw error;
+    // Log specific update errors before re-throwing
+    await logService.addLogEntry({
+        type: 'error',
+        operation: '更新用户资料失败',
+        content: `用户ID ${userId} 更新资料时出错: ${error.message}`,
+        operator: `User:${userId}`
+    });
+    throw error; // Re-throw to be caught by the route handler in server.js
   }
 }
 
@@ -234,51 +358,217 @@ async function updateUser(userId, updateData) {
  * @returns {Promise<object>} 包含 token 和用户信息的对象
  * @throws {Error} 如果用户不存在或密码错误
  */
-async function loginUser(username, password) {
-  console.log(`[UserService] Attempting login for username: ${username}`);
-  const user = await findUserByUsername(username);
+async function loginUser(usernameInput, password) {
+  console.log(`[UserService] Attempting login for username/student_id: ${usernameInput}`);
+  let userForToken = null;
+  let studentDataForResponse = null;
+  let userEmail = null; 
+  let studentIdUsedForLogin = null; // Track if student ID was used
+  let displayNameForToken = null; // For storing display_name
 
-  if (!user) {
-    console.log(`[UserService] Login failed: User not found (${username})`);
-    throw new Error('用户不存在');
+  let existingUser = await findUserByUsername(usernameInput);
+
+  if (existingUser) {
+    console.log(`[UserService] Found user by username: ${existingUser.username}`);
+    userEmail = existingUser.email;
+    displayNameForToken = existingUser.display_name; // Get display_name
+    const passwordMatch = await comparePassword(password, existingUser.password);
+
+    if (passwordMatch) {
+      userForToken = {
+        id: existingUser.id,
+        username: existingUser.username,
+        role: existingUser.role,
+        avatar: existingUser.avatar,
+        display_name: existingUser.display_name // ADD display_name
+      };
+      if (existingUser.role === 'student') {
+        const [studentProfile] = await db.query('SELECT id AS student_pk, student_id, name FROM student WHERE user_id = ?', [existingUser.id]);
+        if (studentProfile) {
+          studentDataForResponse = { student_pk: studentProfile.student_pk, studentIdStr: studentProfile.student_id, name: studentProfile.name };
+          // If user.display_name is still null/empty for a student, use student's name
+          if (!userForToken.display_name && studentProfile.name) {
+            userForToken.display_name = studentProfile.name; // also update for final return
+          }
+        }
+      }
+    } else {
+      console.log(`[UserService] Password mismatch for user: ${existingUser.username}`);
+      await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "用户 '" + usernameInput + "' 密码错误.", operator: usernameInput });
+      throw new Error('密码错误');
+    }
+  } else {
+    const studentIdRegex = /^S\d{7}$/;
+    if (studentIdRegex.test(usernameInput)) {
+      studentIdUsedForLogin = usernameInput;
+      console.log(`[UserService] Input '${usernameInput}' matches student ID format.`);
+      
+      const [studentByStudentId] = await db.query('SELECT id, student_id, name, user_id, email FROM student WHERE student_id = ?', [studentIdUsedForLogin]);
+
+      if (!studentByStudentId) {
+        console.log(`[UserService] No student found with student_id: ${studentIdUsedForLogin}`);
+        await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "学号 '" + studentIdUsedForLogin + "' 不存在.", operator: studentIdUsedForLogin });
+        throw new Error('学号不存在');
+      }
+
+      console.log(`[UserService] Found student in 'student' table: ${JSON.stringify(studentByStudentId)}`);
+      userEmail = studentByStudentId.email; 
+      displayNameForToken = studentByStudentId.name; // Student's actual name for display_name
+
+      if (studentByStudentId.user_id) {
+        console.log(`[UserService] Student ${studentIdUsedForLogin} has existing user_id: ${studentByStudentId.user_id}. Verifying password for this existing user account.`);
+        existingUser = await findUserById(studentByStudentId.user_id); // This will now include display_name
+        if (!existingUser) {
+           console.error(`[UserService] Data inconsistency: Student ${studentIdUsedForLogin} has user_id ${studentByStudentId.user_id}, but no such user found in user table.`);
+           await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "用户数据异常，学生关联用户丢失，学号：'"+ studentIdUsedForLogin +"'", operator: studentIdUsedForLogin });
+           throw new Error('用户数据异常，请联系管理员');
+        }
+        displayNameForToken = existingUser.display_name || studentByStudentId.name; // Prioritize user.display_name, fallback to student.name
+        userEmail = existingUser.email; // User table email is more authoritative
+
+        const passwordMatch = await comparePassword(password, existingUser.password);
+        if (passwordMatch) {
+          userForToken = {
+            id: existingUser.id,
+            username: existingUser.username,
+            role: existingUser.role,
+            avatar: existingUser.avatar,
+            display_name: displayNameForToken // ADD display_name
+          };
+          studentDataForResponse = { student_pk: studentByStudentId.id, studentIdStr: studentByStudentId.student_id, name: studentByStudentId.name };
+        } else {
+          console.log(`[UserService] Password mismatch for existing user account linked to student ${studentIdUsedForLogin}.`);
+          await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "学号 '" + studentIdUsedForLogin + "' 对应账户密码错误.", operator: studentIdUsedForLogin });
+          throw new Error('密码错误');
+        }
+      } else {
+        console.log(`[UserService] Student ${studentIdUsedForLogin} found, no user_id. Attempting first-time login.`);
+        if (password === config.studentDefaultPassword) {
+          console.log(`[UserService] Student ${studentIdUsedForLogin} used default password. Proceeding to create user account.`);
+          const newUsername = studentIdUsedForLogin; 
+          
+          const checkUserConflict = await findUserByUsername(newUsername);
+          if (checkUserConflict) {
+            console.error(`[UserService] Username conflict: Student ID ${newUsername} already exists as a username, but student.user_id was null. Data inconsistency.`);
+             await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "账户创建失败：用户名冲突，学号：'"+ newUsername +"'", operator: studentIdUsedForLogin });
+            throw new Error('账户创建失败：用户名冲突');
+          }
+
+          const hashedPassword = await hashPassword(password);
+          const newUser = {
+            username: studentByStudentId.student_id,
+            password: hashedPassword,
+            role: 'student',
+            email: studentByStudentId.email || `${studentByStudentId.student_id}@example.com`, // Use student email or generate a default one
+            display_name: studentByStudentId.name,
+            create_time: new Date() 
+          };
+          console.log(`[UserService] Creating user with data for student ${studentByStudentId.student_id}: ${JSON.stringify(newUser)}`);
+          displayNameForToken = studentByStudentId.name; // Set for final return object
+
+          let createdUserId;
+          try {
+            const columns = Object.keys(newUser);
+            const placeholders = columns.map(() => '?').join(', ');
+            const values = Object.values(newUser);
+            const sql = `INSERT INTO user (${columns.join(', ')}) VALUES (${placeholders})`;
+            
+            const insertResult = await db.query(sql, values);
+            if (!insertResult || !insertResult.insertId) {
+              throw new Error('获取新用户ID失败');
+            }
+            createdUserId = insertResult.insertId;
+            console.log(`[UserService] New user account created for student ${studentIdUsedForLogin} with user_id: ${createdUserId}`);
+            await logService.addLogEntry({ type: 'user', operation: '创建用户', content: "为学号 '" + studentIdUsedForLogin + "' 自动创建新用户，ID: " + createdUserId + ".", operator: 'system' });
+          } catch (dbError) {
+            console.error(`[UserService] Database error creating user for student ${studentIdUsedForLogin}:`, dbError);
+            await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "账户创建失败（数据库操作失败），学号：'" + studentIdUsedForLogin +"'", operator: studentIdUsedForLogin });
+            throw new Error('账户创建失败');
+          }
+
+          try {
+            const updateStudentResult = await db.query('UPDATE student SET user_id = ? WHERE id = ?', [createdUserId, studentByStudentId.id]);
+            if (!updateStudentResult || updateStudentResult.affectedRows === 0) {
+                console.error(`[UserService] Failed to update student table with user_id for student ${studentIdUsedForLogin} (student PK: ${studentByStudentId.id}).`);
+                 // This is critical. If this fails, we might have an orphan user or inconsistent state.
+                 // For now, we log and throw, but a rollback mechanism might be needed in a real-world app.
+                await logService.addLogEntry({ type: 'error', operation: '更新学生用户ID失败', content: "更新学号 '" + studentIdUsedForLogin + "' 的用户ID关联失败（student PK: '"+ studentByStudentId.id +"' 到 user ID: '" + createdUserId + "').", operator: 'system' });
+                throw new Error('更新学生用户ID失败');
+            }
+            console.log(`[UserService] Successfully updated student ${studentIdUsedForLogin} (student PK: ${studentByStudentId.id}) with new user_id: ${createdUserId}`);
+          } catch (dbUpdateError) {
+            console.error(`[UserService] Database error updating student ${studentIdUsedForLogin} with user_id:`, dbUpdateError);
+            await logService.addLogEntry({ type: 'error', operation: '更新学生用户ID失败', content: "更新学号 '" + studentIdUsedForLogin + "' 的用户ID关联时数据库出错: '" + dbUpdateError.message + "'.", operator: 'system' });
+            throw new Error('更新学生表关联用户ID时数据库出错'); // Specific error for server.js to handle
+          }
+          
+          userForToken = {
+            id: createdUserId,
+            username: studentByStudentId.student_id,
+            role: 'student',
+            display_name: displayNameForToken // ADD display_name
+          };
+          studentDataForResponse = { student_pk: studentByStudentId.id, studentIdStr: studentByStudentId.student_id, name: studentByStudentId.name };
+          // userEmail is already set from studentByStudentId.email
+
+        } else {
+          console.log(`[UserService] Student ${studentIdUsedForLogin} provided incorrect password for first-time login.`);
+          await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "学号 '" + studentIdUsedForLogin + "' 首次登录密码错误.", operator: studentIdUsedForLogin });
+          throw new Error('学生首次登录密码错误');
+        }
+      }
+    } else {
+      // Not found by username and not a valid student ID format
+      console.log(`[UserService] User '${usernameInput}' not found and not a valid student ID format.`);
+      await logService.addLogEntry({ type: 'auth', operation: '登录失败', content: "用户 '" + usernameInput + "' 不存在或学号格式不正确.", operator: usernameInput });
+      throw new Error('用户不存在或学号格式不正确');
+    }
   }
 
-  const passwordMatch = await comparePassword(password, user.password);
-  if (!passwordMatch) {
-    console.log(`[UserService] Login failed: Password mismatch for user (${username})`);
-    await logService.addLogEntry({
-        type: 'auth',
-        operation: '登录失败',
-        content: `用户 '${username}' 尝试登录失败：密码错误。`,
-        operator: username 
-    });
-    throw new Error('密码错误');
+  if (!userForToken) {
+    console.error(`[UserService] Login failed for ${usernameInput} due to an unexpected condition where userForToken was not set (post-logic).`);
+    await logService.addLogEntry({ type: 'auth', operation: '登录异常', content: `用户 '${usernameInput}' 登录验证失败(内部逻辑错误).`, operator: 'system' });
+    throw new Error('登录验证失败');
   }
 
-  const payload = {
-    id: user.id,
-    username: user.username,
-    role: user.role
+  const finalUserData = await findUserById(userForToken.id);
+
+  if (!finalUserData) {
+    console.error(`[UserService] Login succeeded for user ID ${userForToken.id} but findUserById returned null. Critical data inconsistency.`);
+    await logService.addLogEntry({ type: 'error', operation: '登录数据不一致', content: `用户ID ${userForToken.id} 登录后无法检索完整信息。`, operator: 'system' });
+    throw new Error('登录成功但无法检索用户信息');
+  }
+
+  const tokenPayload = { 
+    id: finalUserData.id, 
+    username: finalUserData.username, 
+    role: finalUserData.role, 
+    display_name: finalUserData.display_name 
   };
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  console.log(`[UserService] Login successful for user: ${username}, Role: ${user.role}. Token generated.`);
-  
+  const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
   await logService.addLogEntry({
-      type: 'auth',
-      operation: '登录成功',
-      content: `用户 '${username}' (角色: ${user.role}) 登录成功。`,
-      operator: username
+    type: 'auth',
+    operation: '登录成功',
+    content: `用户 '${finalUserData.username}' (显示名: '${finalUserData.display_name || 'N/A'}', ID: ${finalUserData.id}, Role: ${finalUserData.role}) 登录成功.${studentIdUsedForLogin ? ` (使用学号 '${studentIdUsedForLogin}')` : ''}`,
+    operator: finalUserData.username,
+    user_id: finalUserData.id
   });
+
+  const { password: _, ...safeFinalUserData } = finalUserData;
 
   return {
     token,
-    userInfo: { 
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      avatar: user.avatar,
-      role: user.role
-    }
+    data: { 
+      id: safeFinalUserData.id,
+      username: safeFinalUserData.username,
+      role: safeFinalUserData.role,
+      avatar: safeFinalUserData.avatar, 
+      display_name: safeFinalUserData.display_name,
+      studentInfo: safeFinalUserData.studentInfo, 
+      email: safeFinalUserData.email,             
+      phone: safeFinalUserData.phone              
+    },
   };
 }
 

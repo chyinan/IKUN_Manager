@@ -8,6 +8,27 @@
         </div>
       </template>
 
+      <el-form 
+        label-position="left" 
+        label-width="auto" 
+        :model="{ carouselInterval }" 
+        style="margin-bottom: 20px; padding: 15px; border: 1px solid #ebeef5; border-radius: 4px;"
+        @submit.prevent="handleSaveInterval"
+      >
+        <el-row :gutter="20" align="middle">
+          <el-col :span="12">
+            <el-form-item label="全局轮播图切换时间 (毫秒)">
+              <el-input-number v-model="carouselInterval" :min="1000" :step="500" controls-position="right" style="width: 200px;" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-button type="success" @click="handleSaveInterval" :loading="intervalLoading">
+              保存切换时间
+            </el-button>
+          </el-col>
+        </el-row>
+      </el-form>
+
       <el-table :data="carouselImages" v-loading="loading" style="width: 100%">
         <el-table-column label="预览" width="120">
           <template #default="{ row }">
@@ -113,12 +134,15 @@ import {
   type CarouselImage,
   type CarouselImageData
 } from '@/api/carousel';
+import { getCarouselIntervalConfig, updateCarouselIntervalConfig } from '@/api/config';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadInstance, type UploadProps, type UploadRawFile } from 'element-plus';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 import { formatDateTime } from '@/utils/date'; // 假设您有日期格式化工具
 
 const loading = ref(false);
 const submitLoading = ref(false);
+const intervalLoading = ref(false);
+const carouselInterval = ref(5000);
 const carouselImages = ref<CarouselImage[]>([]);
 const dialogVisible = ref(false);
 const dialogMode = ref<'add' | 'edit'>('add');
@@ -183,8 +207,26 @@ const fetchCarouselImages = async () => {
   }
 };
 
+const fetchCarouselInterval = async () => {
+  intervalLoading.value = true;
+  try {
+    const res = await getCarouselIntervalConfig();
+    if (res.code === 200 && res.data) {
+      carouselInterval.value = res.data.carouselInterval;
+    } else {
+      ElMessage.error(res.message || '获取轮播图切换时间失败');
+    }
+  } catch (error: any) {
+    console.error('Error fetching carousel interval:', error);
+    ElMessage.error(error?.response?.data?.message || error.message || '获取轮播图切换时间网络错误');
+  } finally {
+    intervalLoading.value = false;
+  }
+};
+
 onMounted(() => {
   fetchCarouselImages();
+  fetchCarouselInterval();
 });
 
 const resetForm = () => {
@@ -337,6 +379,27 @@ const handleDeleteImage = async (id: number) => {
     ElMessage.error(error?.response?.data?.message || '删除操作失败');
   } finally {
     // loading.value = false;
+  }
+};
+
+const handleSaveInterval = async () => {
+  if (carouselInterval.value <= 0) {
+    ElMessage.warning('切换时间必须大于0毫秒');
+    return;
+  }
+  intervalLoading.value = true;
+  try {
+    const res = await updateCarouselIntervalConfig({ carouselInterval: carouselInterval.value });
+    if (res.code === 200) {
+      ElMessage.success('轮播图切换时间更新成功');
+    } else {
+      ElMessage.error(res.message || '更新轮播图切换时间失败');
+    }
+  } catch (error: any) {
+    console.error('Error updating carousel interval:', error);
+    ElMessage.error(error?.response?.data?.message || error.message || '更新轮播图切换时间网络错误');
+  } finally {
+    intervalLoading.value = false;
   }
 };
 

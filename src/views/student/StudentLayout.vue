@@ -5,7 +5,7 @@
         IKUN 学生门户
       </div>
       <div class="user-actions">
-        <span>欢迎您，{{ userStore.username }}</span>
+        <span>欢迎您，{{ userStore.userInfo?.display_name || userStore.username }}</span>
         <el-dropdown @command="handleCommand">
           <span class="el-dropdown-link">
             <el-avatar :src="userStore.avatar || defaultAvatar" size="small" style="margin-right: 8px;"></el-avatar>
@@ -31,10 +31,17 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="/student-portal/my-scores">
-            <el-icon><Memo /></el-icon>
-            <span>我的成绩</span>
-          </el-menu-item>
+          <el-sub-menu index="/student-portal/my-scores"> 
+            <template #title>
+              <el-icon><Memo /></el-icon>
+              <span>我的成绩</span>
+            </template>
+            <el-menu-item index="/student-portal/my-scores/detailed">
+              <el-icon><Document /></el-icon>
+              <span>详细成绩报告</span>
+            </el-menu-item>
+            <!-- Future: Add ranking details menu item here -->
+          </el-sub-menu>
           <el-menu-item index="/student-portal/upcoming-exams">
             <el-icon><Clock /></el-icon>
             <span>待考考试</span>
@@ -65,7 +72,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, House, Memo, Clock, Bell, Setting } from '@element-plus/icons-vue'
+import { ArrowDown, House, Memo, Clock, Bell, Setting, Document } from '@element-plus/icons-vue'
 // Placeholder for default avatar if userStore.avatar is not set
 import defaultAvatar from '@/assets/default-avatar.png' // 您需要准备一个默认头像图片
 
@@ -78,16 +85,25 @@ const activeMenu = computed(() => {
 })
 
 const handleCommand = (command: string) => {
+  console.log(`[StudentLayout] handleCommand triggered with command: ${command}`);
   if (command === 'logout') {
     ElMessageBox.confirm('确定要退出登录吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     }).then(async () => {
-      await userStore.logout() // Assuming logout is an async action
-      ElMessage.success('已成功退出登录')
-      router.push('/login')
+      console.log('[StudentLayout] Logout confirmed by user.');
+      try {
+        await userStore.logoutAction();
+        console.log('[StudentLayout] userStore.logoutAction() completed.');
+        ElMessage.success('已成功退出登录');
+        // router.push('/login'); // Commented out as userStore.resetState() handles it
+        console.log('[StudentLayout] Logout process in .then() finished.');
+      } catch (error) {
+        console.error('[StudentLayout] Error during userStore.logoutAction() or subsequent steps in .then():', error);
+      }
     }).catch(() => {
+      console.log('[StudentLayout] Logout cancelled by user (outer .catch).');
       // User cancelled
     })
   } else if (command === 'profile') {

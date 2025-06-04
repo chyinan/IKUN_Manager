@@ -59,4 +59,39 @@ export const updateRegexConfig = (config: RegexConfig): Promise<ApiResponse<void
         data: undefined
       });
     });
+}
+
+interface CarouselIntervalConfig {
+  carouselInterval: number;
+}
+
+/**
+ * 获取轮播图全局切换时间配置
+ */
+export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselIntervalConfig>> => {
+  return request.get<ApiResponse<CarouselIntervalConfig>>('/config/carousel-interval')
+    .catch(error => {
+      console.error('[API config.ts] Error fetching carousel interval config:', error);
+      return Promise.resolve({
+        code: error.response?.status || 500,
+        message: error.message || '获取轮播图切换时间失败',
+        data: { carouselInterval: 5000 } // Default to 5000ms on error
+      });
+    });
+}
+
+/**
+ * 更新轮播图全局切换时间配置
+ * @param config 包含 carouselInterval 的配置对象
+ */
+export const updateCarouselIntervalConfig = (config: CarouselIntervalConfig): Promise<ApiResponse<void>> => {
+  return request.put<ApiResponse<void>>('/config/carousel-interval', config)
+    .catch(error => {
+      console.error('[API config.ts] Error updating carousel interval config:', error);
+      return Promise.resolve({
+        code: error.response?.status || 500,
+        message: error.message || '更新轮播图切换时间失败',
+        data: undefined
+      });
+    });
 } 

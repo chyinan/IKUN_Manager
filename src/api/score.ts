@@ -342,6 +342,82 @@ export const getScoresByExamAndClass = (examId: number, classId: number): Promis
     });
 };
 
+// Interface for the response of /api/student/:studentId/exams-taken
+export interface ExamTaken {
+  exam_id: number;
+  exam_name: string;
+  exam_date: string; // Assuming 'YYYY-MM-DD'
+}
+
+// Interface for the detailed score report
+export interface SubjectScoreDetail {
+  subject_name: string;
+  student_score: number | null;
+  class_average_score: number | null;
+  class_subject_rank: number | null;
+}
+
+export interface TotalScoreDetails {
+  student_total_score: number | null;
+  class_average_total_score: number | null;
+  class_total_score_rank: number | null;
+  grade_total_score_rank: number | null;
+}
+
+export interface StudentScoreReport {
+  student_info: {
+    id: number;
+    name: string;
+    student_id_str: string;
+  };
+  class_info: {
+    id: number | null; // Class might be null
+    name: string | null;
+  };
+  exam_info: {
+    id: number;
+    name: string;
+    date: string;
+    subjects: string[];
+  };
+  subject_details: SubjectScoreDetail[];
+  total_score_details: TotalScoreDetails;
+}
+
+/**
+ * 获取学生已参加的考试列表
+ * @param studentId 学生ID (student table primary key)
+ */
+export const getStudentExamsTaken = (studentId: number): Promise<ApiResponse<ExamTaken[]>> => {
+  return request.get<ApiResponse<ExamTaken[]>>(`/student/${studentId}/exams-taken`)
+    .catch(error => {
+      console.error(`[API score.ts] Error fetching exams taken for student ${studentId}:`, error);
+      // Return a consistent error structure that front-end can expect
+      return Promise.resolve({
+        code: error.response?.status || 500,
+        message: error.message || '获取已参加考试列表失败',
+        data: [] // Return empty array on error
+      });
+    });
+};
+
+/**
+ * 获取学生的详细成绩报告
+ * @param studentId 学生ID (student table primary key)
+ * @param examId 考试ID
+ */
+export const getStudentScoreReport = (studentId: number, examId: number): Promise<ApiResponse<StudentScoreReport | null>> => {
+  return request.get<ApiResponse<StudentScoreReport | null>>(`/score-report/student/${studentId}/exam/${examId}`)
+    .catch(error => {
+      console.error(`[API score.ts] Error fetching score report for student ${studentId}, exam ${examId}:`, error);
+      return Promise.resolve({
+        code: error.response?.status || 500,
+        message: error.message || '获取成绩报告失败',
+        data: null // Return null on error
+      });
+    });
+};
+
 export default {
   testConnection,
   getExamTypes,

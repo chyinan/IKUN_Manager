@@ -42,7 +42,7 @@
           >
             <template v-for="(menuRoute, index) in menuList" :key="index">
               <!-- 无子菜单 -->
-              <el-menu-item v-if="!menuRoute.children" :index="menuRoute.path">
+              <el-menu-item v-if="!menuRoute.children" :index="ensureAbsolutePath(menuRoute.path)">
                 <el-icon v-if="menuRoute.meta && menuRoute.meta.icon">
                   <component :is="menuRoute.meta.icon" />
                 </el-icon>
@@ -50,7 +50,7 @@
               </el-menu-item>
               
               <!-- 有子菜单 -->
-              <el-sub-menu v-else :index="menuRoute.path">
+              <el-sub-menu v-else :index="ensureAbsolutePath(menuRoute.path)">
                 <template #title>
                   <el-icon v-if="menuRoute.meta && menuRoute.meta.icon">
                     <component :is="menuRoute.meta.icon" />
@@ -61,8 +61,8 @@
                 <el-menu-item
                   v-for="child in menuRoute.children"
                   :key="child.path"
-                  :index="'/' + menuRoute.path + '/' + child.path"
-                  @click="logNavigationPath('/' + menuRoute.path + '/' + child.path, child)"
+                  :index="ensureAbsolutePath(menuRoute.path) + '/' + child.path.replace(/^\/?/, '')"
+                  @click="logNavigationPath(ensureAbsolutePath(menuRoute.path) + '/' + child.path.replace(/^\/?/, ''), child)"
                 >
                   <el-icon v-if="child.meta && child.meta.icon">
                     <component :is="child.meta.icon" />
@@ -173,8 +173,15 @@ const closeWindow = () => {
   }
 }
 
+const ensureAbsolutePath = (pathStr: string): string => {
+  if (!pathStr) return '/'; 
+  // 移除所有可能存在的前导斜杠，然后确保以单个斜杠开头
+  const cleanedPath = pathStr.replace(/^\/+/, '');
+  return `/${cleanedPath}`;
+};
+
 const logNavigationPath = (path: string, childRoute: any) => {
-  console.log(`[DefaultLayout Menu Click] Attempting to navigate to index: '${path}'`, JSON.parse(JSON.stringify(childRoute)));
+  console.log(`[DefaultLayout Menu Click] Index for el-menu-item: '${path}'`, JSON.parse(JSON.stringify(childRoute)));
   // console.log(`[DefaultLayout Menu Click] Vue Router will attempt to push: router.push('${path}')`);
 };
 

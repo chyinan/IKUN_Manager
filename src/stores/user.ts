@@ -31,13 +31,14 @@ export const useUserStore = defineStore('user', () => {
       // Log the values being checked in the condition
       console.log(`[userStore loginAction] Checking condition: res.code === 200 (${res.code === 200})`);
       console.log(`[userStore loginAction] Checking condition: res.data?.token exists (${!!res.data?.token})`);
-      console.log(`[userStore loginAction] Checking condition: res.data?.userInfo exists (${!!res.data?.userInfo})`);
+      console.log(`[userStore loginAction] Checking condition: res.data?.id exists (${!!res.data?.id})`);
+      console.log(`[userStore loginAction] Checking condition: res.data?.username exists (${!!res.data?.username})`);
       console.log('[userStore loginAction] res.data.token value:', res.data?.token);
-      console.log('[userStore loginAction] res.data.userInfo value:', JSON.stringify(res.data?.userInfo));
+      console.log('[userStore loginAction] res.data (user info context):', JSON.stringify(res.data));
 
-      if (res.code === 200 && res.data?.token && res.data?.userInfo) {
+      if (res.code === 200 && res.data?.token && res.data?.id && res.data?.username) {
         const receivedToken = res.data.token;
-        const receivedApiUserInfo = res.data.userInfo; 
+        const receivedApiUserInfo = res.data; 
         
         console.log('[userStore loginAction] Login successful, token received (inside if block):', receivedToken);
         console.log('[userStore loginAction] Received user info from API (inside if block):', JSON.stringify(receivedApiUserInfo));
@@ -54,7 +55,10 @@ export const useUserStore = defineStore('user', () => {
           role: receivedApiUserInfo.role, 
           roles: userRolesArray,         
           permissions: receivedApiUserInfo.permissions || [],
-          createTime: receivedApiUserInfo.createTime || new Date().toISOString()
+          createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
+          studentInfo: receivedApiUserInfo.studentInfo || null,
+          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username, // Fallback to username if display_name is not present
+          phone: receivedApiUserInfo.phone || null // Add phone field
         };
         
         username.value = receivedApiUserInfo.username;
@@ -68,7 +72,7 @@ export const useUserStore = defineStore('user', () => {
         console.log('[userStore loginAction] Returning true from success path.');
         return true;
       } else {
-        const errorMsg = res?.message || '登录失败: 无效的响应数据格式或缺少token/userInfo';
+        const errorMsg = res?.message || '登录失败: 响应数据格式无效或缺少token/用户信息';
         console.error('[userStore loginAction] Login condition failed. Error message:', errorMsg, 'Full Response Payload:', JSON.stringify(res));
         console.log('[userStore loginAction] Returning false due to failed condition.');
         return false;
@@ -103,7 +107,10 @@ export const useUserStore = defineStore('user', () => {
           role: receivedApiUserInfo.role, // Keep original role
           roles: userRolesArray,         // Store derived roles array
           permissions: receivedApiUserInfo.permissions || [], // Ensure permissions is an array
-          createTime: receivedApiUserInfo.createTime || new Date().toISOString()
+          createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
+          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username, // Fallback to username
+          studentInfo: receivedApiUserInfo.studentInfo || null, // Add studentInfo here
+          phone: receivedApiUserInfo.phone || null // Add phone field
         };
         username.value = receivedApiUserInfo.username;
         if (receivedApiUserInfo.avatar) {
@@ -136,21 +143,34 @@ export const useUserStore = defineStore('user', () => {
 
   // Logout Action (Keep existing logic)
   const logoutAction = async () => {
-    console.log('[userStore logoutAction] Attempting to logout...');
+    console.log('[userStore logoutAction] START :: Attempting to logout...');
     try {
       console.log(`[userStore logoutAction] Current token: ${token.value}, Is DEV env: ${import.meta.env.DEV}`);
       if (token.value && !import.meta.env.DEV) {
-        console.log('[userStore logoutAction] Calling API logout...');
+        console.log('[userStore logoutAction] TRY block :: Calling API logout...');
         await logout(); // Calls API: import { logout } from '@/api/user'
-        console.log('[userStore logoutAction] API logout call finished.');
+        console.log('[userStore logoutAction] TRY block :: API logout call finished.');
+      } else {
+        console.log('[userStore logoutAction] TRY block :: Skipped API logout call.');
       }
+      console.log('[userStore logoutAction] TRY block :: Successfully finished.');
     } catch (error) {
-      console.error('[userStore logoutAction] Logout API call failed:', error);
+      console.error('[userStore logoutAction] CATCH block :: Logout API call failed:', error);
       // Still proceed with local state reset even if API fails
     } finally {
-      console.log('[userStore logoutAction] Entering finally block, calling resetState().');
-      resetState(); // CRITICAL: This should always run
+      console.log('[userStore logoutAction] FINALLY block :: Entering, calling resetState().');
+      try {
+        resetState();
+        console.log('[userStore logoutAction] FINALLY block :: resetState() call completed.');
+      } catch (resetError) {
+        console.error('[userStore logoutAction] FINALLY block :: resetState() THREW an error:', resetError);
+        // This error in finally would cause the logoutAction promise to reject if not handled.
+        // However, resetState has its own internal catch for router.push.
+      }
+      console.log('[userStore logoutAction] FINALLY block :: Exiting.');
     }
+    console.log('[userStore logoutAction] END :: Action finished.');
+    // logoutAction implicitly returns Promise<void> which resolves if no unhandled error occurred.
   }
 
   // Reset State (Updated)

@@ -10,7 +10,7 @@ let pool;
 // Function to create the connection pool
 async function createPool() {
   try {
-    pool = mysql.createPool(config.db);
+    pool = mysql.createPool(config.database);
     console.log('数据库连接池创建成功');
     // Test connection on startup
     const connection = await pool.getConnection();

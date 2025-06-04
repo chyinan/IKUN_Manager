@@ -3,6 +3,7 @@ import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import StudentLayout from '@/views/student/StudentLayout.vue'
+import MyScoresLayout from '@/views/student/MyScoresLayout.vue'
 
 // 导入视图组件
 import Dashboard from '@/views/dashboard/index.vue'
@@ -134,9 +135,18 @@ const router = createRouter({
         },
         {
           path: 'my-scores',
-          name: 'MyScores',
-          component: () => import('@/views/student/MyScores.vue'),
-          meta: { title: '我的成绩', icon: 'Memo' }
+          name: 'MyScoresParent',
+          component: MyScoresLayout,
+          redirect: '/student-portal/my-scores/detailed',
+          meta: { title: '我的成绩', icon: 'Memo' },
+          children: [
+            {
+              path: 'detailed',
+              name: 'MyDetailedScoreReport',
+              component: () => import('@/views/student/MyDetailedScores.vue'),
+              meta: { title: '详细成绩报告' }
+            }
+          ]
         },
         {
           path: 'upcoming-exams',

@@ -28,7 +28,7 @@
       <el-dropdown class="avatar-container right-menu-item" trigger="click" @command="handleCommand">
         <div class="avatar-wrapper">
           <el-avatar :size="30" :src="userStore.avatar || '/avatar.png'" />
-          <span class="username">{{ userStore.username }}</span>
+          <span class="username">{{ userStore.userInfo?.display_name || userStore.username }}</span>
           <el-icon class="el-icon-caret-bottom">
             <CaretBottom />
           </el-icon>

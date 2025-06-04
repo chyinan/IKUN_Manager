@@ -80,6 +80,18 @@ export const updateUserInfo = (data: Partial<UserInfo>): Promise<ApiResponse<any
 }
 
 /**
+ * 更新用户信息 (例如邮箱、电话、显示名称)
+ * 后端接口: PUT /api/user/profile
+ */
+export const updateUserProfileDetails = (data: { email?: string; phone?: string; display_name?: string }): Promise<ApiResponse<UserInfo>> => {
+  return request.put<ApiResponse<UserInfo>>('/user/profile', data)
+    .catch(error => {
+        console.error('[API user.ts] Update user profile details failed:', error);
+        throw error;
+    });
+}
+
+/**
  * 上传用户头像
  */
 export const uploadAvatar = (file: File): Promise<ApiResponse<{ avatarUrl: string }>> => {

@@ -11,11 +11,27 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 04/04/2025 01:37:32
+ Date: 04/06/2025 16:21:39
 */
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------
+-- Table structure for carousel_images
+-- ----------------------------
+DROP TABLE IF EXISTS `carousel_images`;
+CREATE TABLE `carousel_images`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `image_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '图片存储路径',
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '图片标题',
+  `link_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '点击跳转链接',
+  `display_order` int NULL DEFAULT 0 COMMENT '显示顺序，越小越靠前',
+  `is_active` tinyint(1) NULL DEFAULT 1 COMMENT '是否激活 (1=是, 0=否)',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for class
@@ -30,7 +46,7 @@ CREATE TABLE `class`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_class_name`(`class_name` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '班级表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '班级表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for department
@@ -45,7 +61,7 @@ CREATE TABLE `department`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_dept_name`(`dept_name` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '部门表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 32 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '部门表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for employee
@@ -70,7 +86,7 @@ CREATE TABLE `employee`  (
   UNIQUE INDEX `uk_emp_id`(`emp_id` ASC) USING BTREE,
   INDEX `idx_dept_id`(`dept_id` ASC) USING BTREE,
   CONSTRAINT `fk_emp_dept` FOREIGN KEY (`dept_id`) REFERENCES `department` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '员工表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 29 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '员工表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for exam
@@ -90,7 +106,7 @@ CREATE TABLE `exam`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_exam_date`(`exam_date` ASC) USING BTREE,
   INDEX `idx_exam_type`(`exam_type` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '考试表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 16 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '考试表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for exam_subject
@@ -131,7 +147,7 @@ CREATE TABLE `student`  (
   UNIQUE INDEX `uk_student_id`(`student_id` ASC) USING BTREE,
   INDEX `idx_class_id`(`class_id` ASC) USING BTREE,
   CONSTRAINT `fk_student_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 16 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 34 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for student_score
@@ -151,7 +167,7 @@ CREATE TABLE `student_score`  (
   INDEX `idx_exam_id`(`exam_id` ASC) USING BTREE,
   CONSTRAINT `fk_score_exam` FOREIGN KEY (`exam_id`) REFERENCES `exam` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_score_student` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 43 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生成绩表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 154 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生成绩表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for subject
@@ -168,6 +184,18 @@ CREATE TABLE `subject`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '科目表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Table structure for system_config
+-- ----------------------------
+DROP TABLE IF EXISTS `system_config`;
+CREATE TABLE `system_config`  (
+  `config_key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置键',
+  `config_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '配置值',
+  `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '描述',
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`config_key`) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统配置表' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
 -- Table structure for system_log
 -- ----------------------------
 DROP TABLE IF EXISTS `system_log`;
@@ -181,7 +209,7 @@ CREATE TABLE `system_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2447 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2817 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for user
@@ -195,43 +223,28 @@ CREATE TABLE `user`  (
   `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '头像URL',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `role` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'student' COMMENT 'User role (e.g., admin, student, teacher)',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE,
   UNIQUE INDEX `uk_email`(`email` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
--- Table structure for system_config
+-- View structure for v_class_score_stats
 -- ----------------------------
-DROP TABLE IF EXISTS `system_config`;
-CREATE TABLE `system_config`  (
-  `config_key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置键',
-  `config_value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '配置值',
-  `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '描述',
-  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`config_key`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统配置表' ROW_FORMAT = Dynamic;
+DROP VIEW IF EXISTS `v_class_score_stats`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_class_score_stats` AS select `c`.`id` AS `class_id`,`c`.`class_name` AS `class_name`,`c`.`teacher` AS `class_teacher`,`e`.`id` AS `exam_id`,`e`.`exam_name` AS `exam_name`,`e`.`exam_type` AS `exam_type`,date_format(`e`.`exam_date`,'%Y-%m-%d') AS `exam_date`,`ss`.`subject` AS `subject`,count(distinct `ss`.`student_id`) AS `student_count`,round(avg(`ss`.`score`),2) AS `average_score`,max(`ss`.`score`) AS `highest_score`,min(`ss`.`score`) AS `lowest_score`,round(std(`ss`.`score`),2) AS `score_stddev`,sum((case when (`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) then 1 else 0 end)) AS `passed_count`,round(((sum((case when (`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) then 1 else 0 end)) / count(distinct `ss`.`student_id`)) * 100),2) AS `pass_rate`,round(((sum((case when (`ss`.`score` >= 90) then 1 else 0 end)) / count(distinct `ss`.`student_id`)) * 100),2) AS `excellent_rate` from (((((`student_score` `ss` join `student` `s` on((`ss`.`student_id` = `s`.`id`))) join `class` `c` on((`s`.`class_id` = `c`.`id`))) join `exam` `e` on((`ss`.`exam_id` = `e`.`id`))) left join `subject` `sub` on((`ss`.`subject` = `sub`.`subject_name`))) left join `exam_subject` `es` on(((`ss`.`exam_id` = `es`.`exam_id`) and (`sub`.`id` = `es`.`subject_id`)))) group by `c`.`id`,`e`.`id`,`ss`.`subject`;
 
 -- ----------------------------
--- Records of system_config (Initial Regex Examples)
+-- View structure for v_student_score_stats
 -- ----------------------------
-INSERT INTO `system_config` (`config_key`, `config_value`, `description`, `update_time`) VALUES ('employeeIdRegex', '^E\d{5}$', '员工号正则表达式 (示例: E+5位数字)', NOW());
-INSERT INTO `system_config` (`config_key`, `config_value`, `description`, `update_time`) VALUES ('studentIdRegex', '^S\d{8}$', '学号正则表达式 (示例: S+8位数字)', NOW());
+DROP VIEW IF EXISTS `v_student_score_stats`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_student_score_stats` AS select `ss`.`id` AS `score_id`,`ss`.`student_id` AS `student_id`,`s`.`student_id` AS `student_number`,`s`.`name` AS `student_name`,`s`.`gender` AS `gender`,`c`.`id` AS `class_id`,`c`.`class_name` AS `class_name`,`c`.`teacher` AS `class_teacher`,`e`.`id` AS `exam_id`,`e`.`exam_name` AS `exam_name`,`e`.`exam_type` AS `exam_type`,date_format(`e`.`exam_date`,'%Y-%m-%d') AS `exam_date`,`e`.`status` AS `exam_status`,`ss`.`subject` AS `subject`,`sub`.`id` AS `subject_id`,`sub`.`subject_code` AS `subject_code`,`ss`.`score` AS `score`,coalesce(`es`.`full_score`,100.00) AS `full_score`,coalesce(`es`.`pass_score`,60.00) AS `pass_score`,coalesce(`es`.`weight`,1.00) AS `weight`,(`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) AS `is_passed`,round(((`ss`.`score` / coalesce(`es`.`full_score`,100.00)) * 100),2) AS `score_percentage`,(case when (`ss`.`score` >= 90) then '优秀' when (`ss`.`score` >= 80) then '良好' when (`ss`.`score` >= 70) then '中等' when (`ss`.`score` >= 60) then '及格' else '不及格' end) AS `score_level`,`ss`.`exam_time` AS `exam_time`,`ss`.`create_time` AS `create_time`,`ss`.`update_time` AS `update_time` from (((((`student_score` `ss` join `student` `s` on((`ss`.`student_id` = `s`.`id`))) join `class` `c` on((`s`.`class_id` = `c`.`id`))) join `exam` `e` on((`ss`.`exam_id` = `e`.`id`))) left join `subject` `sub` on((`ss`.`subject` = `sub`.`subject_name`))) left join `exam_subject` `es` on(((`ss`.`exam_id` = `es`.`exam_id`) and (`sub`.`id` = `es`.`subject_id`))));
 
 -- ----------------------------
--- Table structure for carousel_images
+-- View structure for v_student_score_summary
 -- ----------------------------
-DROP TABLE IF EXISTS `carousel_images`;
-CREATE TABLE `carousel_images`  (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `image_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '图片存储路径',
-  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '图片标题',
-  `link_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '点击跳转链接',
-  `display_order` int(11) NULL DEFAULT 0 COMMENT '显示顺序，越小越靠前',
-  `is_active` tinyint(1) NULL DEFAULT 1 COMMENT '是否激活 (1=是, 0=否)',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = Dynamic;
+DROP VIEW IF EXISTS `v_student_score_summary`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_student_score_summary` AS select `ss`.`student_id` AS `student_id`,`s`.`student_id` AS `student_number`,`s`.`name` AS `student_name`,`c`.`class_name` AS `class_name`,`e`.`id` AS `exam_id`,`e`.`exam_name` AS `exam_name`,`e`.`exam_type` AS `exam_type`,date_format(`e`.`exam_date`,'%Y-%m-%d') AS `exam_date`,count(distinct `ss`.`subject`) AS `subject_count`,sum(`ss`.`score`) AS `total_score`,round(avg(`ss`.`score`),2) AS `average_score`,sum((case when (`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) then 1 else 0 end)) AS `passed_subjects`,round(((sum((case when (`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) then 1 else 0 end)) / count(distinct `ss`.`subject`)) * 100),2) AS `pass_rate`,max(`ss`.`score`) AS `highest_score`,min(`ss`.`score`) AS `lowest_score`,max(`ss`.`update_time`) AS `last_update_time` from (((((`student_score` `ss` join `student` `s` on((`ss`.`student_id` = `s`.`id`))) join `class` `c` on((`s`.`class_id` = `c`.`id`))) join `exam` `e` on((`ss`.`exam_id` = `e`.`id`))) left join `subject` `sub` on((`ss`.`subject` = `sub`.`subject_name`))) left join `exam_subject` `es` on(((`ss`.`exam_id` = `es`.`exam_id`) and (`sub`.`id` = `es`.`subject_id`)))) group by `ss`.`student_id`,`e`.`id`;
 
 SET FOREIGN_KEY_CHECKS = 1;

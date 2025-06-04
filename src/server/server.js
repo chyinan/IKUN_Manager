@@ -227,55 +227,86 @@ app.get(`${apiPrefix}/test`, (req, res) => {
 // --- User Routes (Login, Info, etc.) ---
 app.post(`${apiPrefix}/user/login`, async (req, res) => {
   const { username, password } = req.body;
-  console.log(`收到登录请求: 用户名=${username}`); // 记录用户名
+  console.log(`收到登录请求: 用户名/学号=${username}`);
 
   if (!username || !password) {
-    return res.status(400).json({ code: 400, message: '用户名和密码不能为空' });
+    return res.status(400).json({ code: 400, message: '用户名/学号和密码不能为空' });
   }
 
   try {
-    const result = await userService.loginUser(username, password);
-    console.log(`用户 ${username} 登录成功`);
+    // userService.loginUser now returns { token, data: { ..., display_name, ... } }
+    const result = await userService.loginUser(username, password); 
+    console.log(`用户 ${result.data.username} (显示名: ${result.data.display_name || 'N/A'}, ID: ${result.data.id}, Role: ${result.data.role}) 登录成功`);
+
+    const avatarUrl = result.data.avatar ? `/uploads/${result.data.avatar}` : null;
+
     res.json({
       code: 200,
       message: '登录成功',
-      data: result // 应该包含 token 和用户信息
+      data: { 
+        token: result.token,
+        id: result.data.id,
+        username: result.data.username,
+        role: result.data.role,
+        avatar: avatarUrl, 
+        display_name: result.data.display_name, // Ensure display_name is included
+        studentInfo: result.data.studentInfo, 
+        email: result.data.email 
+      },
     });
   } catch (error) {
-    console.error(`用户 ${username} 登录失败:`, error.message);
-    // 根据 userService 抛出的错误类型返回不同的状态码
-    if (error.message === '用户不存在' || error.message === '密码错误') {
-      res.status(401).json({ code: 401, message: error.message });
-    } else {
-      res.status(500).json({ code: 500, message: '登录时发生服务器内部错误' });
+    console.error(`登录失败: 用户名/学号=${username}, 错误:`, error.message, error.stack); // Log stack for better debugging
+
+    let statusCode = 500;
+    let responseMessage = '登录失败，请稍后重试或联系管理员';
+
+    if (error.message === '用户不存在或学号不存在' || 
+        error.message === '密码错误' || 
+        error.message === '学生首次登录密码错误') {
+      statusCode = 401; // Unauthorized
+      responseMessage = error.message;
+    } else if (error.message === '账户创建失败：用户名冲突' ||
+               error.message === '更新学生用户ID失败' || 
+               error.message === '账户创建失败' ||
+               error.message === '用户数据异常，请联系管理员' ||
+               error.message === '系统配置错误：缺少学生默认密码设置。') {
+        statusCode = 400; // Bad request or specific operational failure
+        responseMessage = error.message;
+    } else if (error.message === '更新学生表关联用户ID时数据库出错') { // Added condition
+        statusCode = 500; // Server-side DB error
+        responseMessage = error.message; // Use the specific error message from userService
     }
+    // For any other errors, it will use the default 500 and generic message
+
+    res.status(statusCode).json({ code: statusCode, message: responseMessage, error: error.message });
   }
 });
 
 // 获取用户信息 (需要认证)
 app.get(`${apiPrefix}/user/info`, authenticateToken, async (req, res) => {
   try {
-    // req.user 包含从 authenticateToken 中解码的用户信息（如 id, username, role）
+    // req.user from token might now also include display_name if added to JWT payload
+    // userService.findUserById NOW returns display_name
     const userInfoFromDb = await userService.findUserById(req.user.id); 
     if (!userInfoFromDb) {
       console.warn(`[User Info] User ID ${req.user.id} found in token but not in DB.`);
       return res.status(404).json({ code: 404, message: '用户不存在' });
     }
-    // 返回用户信息（不包括密码）
+
+    const { password, ...userSafeInfo } = userInfoFromDb;
+    const avatarUrl = userSafeInfo.avatar ? `/uploads/${userSafeInfo.avatar}` : null;
+
     res.json({
       code: 200,
       data: {
-        id: userInfoFromDb.id,
-        username: userInfoFromDb.username,
-        email: userInfoFromDb.email,
-        role: userInfoFromDb.role, // MODIFIED: Added role
-        avatar: userInfoFromDb.avatar ? `/uploads/${userInfoFromDb.avatar}` : null,
-        // Assuming studentId is not directly on the user table for all users
-        // but might be part of a student-specific join or profile later.
-        // For now, userStore on frontend will need to manage studentId if it's separate.
-        // If studentId is a direct column on the user table for student roles, 
-        // ensure userService.findUserById selects it.
-        // studentId: userInfoFromDb.student_id, // Example if it were on user table
+        id: userSafeInfo.id,
+        username: userSafeInfo.username,
+        email: userSafeInfo.email,
+        role: userSafeInfo.role, 
+        avatar: avatarUrl, 
+        display_name: userSafeInfo.display_name, // Ensure display_name is included
+        phone: userSafeInfo.phone, 
+        studentInfo: userSafeInfo.studentInfo || null 
       },
       message: '获取用户信息成功' 
     });
@@ -333,54 +364,57 @@ app.post(`${apiPrefix}/user/avatar`, authenticateToken, avatarUpload.single('ava
 
 // 新增：用户更新自己的个人信息 (邮箱和电话)
 app.put(`${apiPrefix}/user/profile`, authenticateToken, async (req, res) => {
-  const userId = req.user.id; // Get user ID from authenticated token
-  const { email, phone } = req.body;
-  const operator = req.user.username; // For logging
+  const userId = req.user.id; 
+  const { email, phone, display_name } = req.body; // Add display_name here
+  const operator = req.user.username;
 
-  console.log(`[User Profile Update] User ${operator} (ID: ${userId}) attempting to update profile with:`, { email, phone });
+  console.log(`[User Profile Update] User ${operator} (ID: ${userId}) attempting to update profile with:`, { email, phone, display_name });
 
   const dataToUpdate = {};
   if (email !== undefined) {
-    // Optional: Add further validation for email format if not handled by userService
     dataToUpdate.email = email;
   }
   if (phone !== undefined) {
-    // Optional: Add further validation for phone format if not handled by userService
     dataToUpdate.phone = phone;
+  }
+  if (display_name !== undefined) { // Add display_name to dataToUpdate
+    dataToUpdate.display_name = display_name;
   }
 
   if (Object.keys(dataToUpdate).length === 0) {
-    return res.status(400).json({ code: 400, message: '未提供可更新的邮箱或电话信息' });
+    return res.status(400).json({ code: 400, message: '未提供可更新的邮箱、电话或显示名称信息' });
   }
 
   try {
-    // Using the generic updateUser service function from userService.js
-    // This service function should be able to handle partial updates (e.g., only email, only phone, or both)
-    // And it should only update fields that are present in dataToUpdate for the given userId.
-    const success = await userService.updateUser(userId, dataToUpdate);
+    // userService.updateUser can now handle display_name
+    const success = await userService.updateUser(userId, dataToUpdate); 
 
     if (success) {
       console.log(`[User Profile Update] Profile updated successfully for user ID: ${userId}`);
       await logService.addLogEntry({
         type: 'user',
         operation: '更新个人资料',
-        content: `用户 '${operator}' 更新了个人资料 (邮箱/电话)。`, // More specific log
-        operator: operator
+        content: `用户 '${operator}' 更新了个人资料 (${Object.keys(dataToUpdate).join(', ')})。`,
+        operator: operator,
+        user_id: userId // Added user_id for better tracking
       });
       
-      // Fetch the updated user info to return, ensuring it includes all relevant fields
-      const updatedUserInfo = await userService.findUserById(userId); // findUserById now returns role, avatar
+      const updatedUserInfo = await userService.findUserById(userId); 
+      const { password, ...userSafeInfo } = updatedUserInfo;
+      const avatarUrl = userSafeInfo.avatar ? `/uploads/${userSafeInfo.avatar}` : null;
     
     res.json({
       code: 200,
         message: '个人资料更新成功',
         data: {
-          id: updatedUserInfo.id,
-          username: updatedUserInfo.username,
-          email: updatedUserInfo.email,
-          role: updatedUserInfo.role,
-          avatar: updatedUserInfo.avatar ? `/uploads/${updatedUserInfo.avatar}` : null,
-          phone: updatedUserInfo.phone // Assuming 'phone' is a field in the 'user' table and selected by findUserById
+          id: userSafeInfo.id,
+          username: userSafeInfo.username,
+          email: userSafeInfo.email,
+          role: userSafeInfo.role,
+          avatar: avatarUrl, 
+          display_name: userSafeInfo.display_name, // Ensure display_name is included in response
+          phone: userSafeInfo.phone,
+          studentInfo: userSafeInfo.studentInfo || null 
         }
       });
     } else {
@@ -456,6 +490,52 @@ app.put(`${apiPrefix}/config/regex`, authenticateToken, isAdmin, async (req, res
     res.status(500).json({ code: 500, message: '更新系统配置时发生服务器内部错误' });
   }
 });
+
+// --- Carousel Interval Config Routes (New) ---
+// GET /api/config/carousel-interval - 允许公开访问以供学生端轮播图使用
+app.get(`${apiPrefix}/config/carousel-interval`, async (req, res) => {
+  try {
+    console.log('获取轮播图切换时间配置');
+    const configData = await db.getAllConfig();
+    const interval = configData.carouselInterval ? parseInt(configData.carouselInterval, 10) : 5000; // 默认5秒
+    res.json({
+      code: 200,
+      data: { carouselInterval: interval },
+      message: '获取轮播图切换时间成功'
+    });
+  } catch (error) {
+    console.error('获取轮播图切换时间失败:', error);
+    res.status(500).json({ code: 500, message: '获取轮播图切换时间失败', data: null });
+  }
+});
+
+// PUT /api/config/carousel-interval - 需要管理员权限
+app.put(`${apiPrefix}/config/carousel-interval`, authenticateToken, isAdmin, async (req, res) => {
+  const { carouselInterval } = req.body;
+  console.log('更新轮播图切换时间配置:', req.body);
+
+  const interval = parseInt(carouselInterval, 10);
+  if (isNaN(interval) || interval <= 0) {
+    return res.status(400).json({ code: 400, message: '无效的轮播图切换时间，必须是正整数 (毫秒)' });
+  }
+
+  try {
+    const updateSuccess = await db.updateConfig('carouselInterval', String(interval));
+
+    if (updateSuccess) {
+      console.log('成功将轮播图切换时间写入数据库');
+      // 不需要像日志清理那样重新调度任务
+      res.json({ code: 200, message: '轮播图切换时间更新成功' });
+    } else {
+      console.error('轮播图切换时间未能成功更新数据库');
+      res.status(500).json({ code: 500, message: '更新轮播图切换时间时数据库操作失败' });
+    }
+  } catch (error) {
+    console.error('更新轮播图切换时间路由处理失败:', error);
+    res.status(500).json({ code: 500, message: '更新轮播图切换时间时发生服务器内部错误' });
+  }
+});
+// --- End Carousel Interval Config Routes ---
 
 // --- Cron Job for Log Cleanup ---
 let scheduledTask = null;
@@ -2124,6 +2204,55 @@ app.post(`${apiPrefix}/carousel/order`, authenticateToken, isAdmin, async (req, 
     res.status(500).json({ code: 500, message: error.message, data: null });
   }
 });
+
+// --- Student Score Report Routes (New) ---
+
+// GET /api/student/:studentId/exams-taken - Get exams for which a student has scores
+app.get(`${apiPrefix}/student/:studentId/exams-taken`, authenticateToken, async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId, 10);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ code: 400, message: '无效的学生ID' });
+    }
+
+    // TODO: Implement scoreService.getExamsTakenByStudent(studentId)
+    // This service function should return [{ exam_id, exam_name, exam_date }, ...]
+    const exams = await scoreService.getExamsTakenByStudent(studentId);
+    
+    res.json({ code: 200, data: exams, message: '获取学生已参加的考试列表成功' });
+  } catch (error) {
+    console.error(`[API] Error fetching exams taken by student ${req.params.studentId}:`, error);
+    res.status(500).json({ code: 500, message: '获取学生已参加的考试列表失败: ' + error.message, data: null });
+  }
+});
+
+// GET /api/score-report/student/:studentId/exam/:examId - Get detailed score report
+app.get(`${apiPrefix}/score-report/student/:studentId/exam/:examId`, authenticateToken, async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId, 10);
+    const examId = parseInt(req.params.examId, 10);
+
+    if (isNaN(studentId) || isNaN(examId)) {
+      return res.status(400).json({ code: 400, message: '无效的学生ID或考试ID' });
+    }
+
+    // TODO: Implement scoreService.generateDetailedScoreReport(studentId, examId)
+    // This service function will return the complex report object defined earlier
+    const report = await scoreService.generateDetailedScoreReport(studentId, examId);
+
+    if (!report) {
+        return res.status(404).json({ code: 404, message: '未能生成成绩报告，可能未找到相关成绩或考试信息。' });
+    }
+    
+    res.json({ code: 200, data: report, message: '获取详细成绩报告成功' });
+  } catch (error) {
+    console.error(`[API] Error generating score report for student ${req.params.studentId}, exam ${req.params.examId}:`, error);
+    res.status(500).json({ code: 500, message: '生成详细成绩报告失败: ' + error.message, data: null });
+  }
+});
+// --- End Student Score Report Routes ---
+
+// ... (Rest of the routes like Carousel, etc.)
 
 // 调用 startServer 确保在所有路由定义之后
 startServer();

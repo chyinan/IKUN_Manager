@@ -8,22 +8,44 @@
       </template>
 
       <el-form :inline="true" @submit.prevent>
-        <el-form-item label="选择考试">
+        <el-form-item label="选择考试类型">
+          <el-select
+            v-model="selectedExamType"
+            placeholder="请选择考试类型"
+            @change="handleExamTypeChange"
+            clearable
+            style="width: 220px;"
+            :loading="loadingExams"
+          >
+            <el-option
+              v-for="examType in uniqueExamTypes"
+              :key="examType"
+              :label="examType"
+              :value="examType"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="选择具体考试">
           <el-select
             v-model="selectedExamId"
-            placeholder="请选择一场考试"
-            @change="handleExamChange"
+            placeholder="请先选择考试类型"
+            @change="handleExamNameChange"
             filterable
             clearable
             style="width: 300px;"
             :loading="loadingExams"
+            :disabled="!selectedExamType || filteredExamsByName.length === 0"
           >
             <el-option
-              v-for="exam in examsTaken"
+              v-for="exam in filteredExamsByName"
               :key="exam.exam_id"
               :label="`${exam.exam_name} (${exam.exam_date})`"
               :value="exam.exam_id"
             />
+            <template #empty v-if="selectedExamType && filteredExamsByName.length === 0">
+              <p style="text-align: center; color: #999;">该类型下无考试记录</p>
+            </template>
           </el-select>
         </el-form-item>
       </el-form>
@@ -90,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, onMounted, watch, nextTick, computed } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { getStudentExamsTaken, getStudentScoreReport, type ExamTaken, type StudentScoreReport } from '@/api/score';
 import { ElMessage } from 'element-plus';
@@ -114,6 +136,7 @@ echarts.use([
 const userStore = useUserStore();
 
 const examsTaken = ref<ExamTaken[]>([]);
+const selectedExamType = ref<string | null>(null);
 const selectedExamId = ref<number | null>(null);
 const loadingExams = ref(false);
 const loadingReport = ref(false);
@@ -124,15 +147,14 @@ let radarChartInstance: echarts.ECharts | null = null;
 const barChartRef = ref<HTMLElement | null>(null);
 let barChartInstance: echarts.ECharts | null = null;
 
-
 const fetchExamsTaken = async () => {
-  if (!userStore.studentInfo?.id) { 
-    ElMessage.warning('无法获取学生信息，请重新登录或联系管理员。');
+  if (!userStore.userInfo?.id) {
+    ElMessage.warning('无法获取用户信息，请重新登录或联系管理员。');
     return;
   }
   loadingExams.value = true;
   try {
-    const res = await getStudentExamsTaken(userStore.studentInfo.id);
+    const res = await getStudentExamsTaken(userStore.userInfo.id);
     if (res.code === 200) {
       examsTaken.value = res.data;
       if (examsTaken.value.length === 0) {
@@ -143,14 +165,28 @@ const fetchExamsTaken = async () => {
     }
   } catch (error) {
     ElMessage.error('获取已参加考试列表时发生网络错误');
+    console.error('[MyDetailedScores] Error fetching exams taken:', error);
   } finally {
     loadingExams.value = false;
   }
 };
 
+const uniqueExamTypes = computed(() => {
+  const types = new Set(examsTaken.value.map(exam => exam.exam_type));
+  return Array.from(types).sort();
+});
+
+const filteredExamsByName = computed(() => {
+  if (!selectedExamType.value) {
+    return [];
+  }
+  return examsTaken.value.filter(exam => exam.exam_type === selectedExamType.value);
+});
+
 const fetchScoreReport = async () => {
-  if (!userStore.studentInfo?.id || !selectedExamId.value) {
+  if (!userStore.userInfo?.id || !selectedExamId.value) {
     scoreReport.value = null;
+    destroyCharts();
     return;
   }
   loadingReport.value = true;
@@ -158,7 +194,7 @@ const fetchScoreReport = async () => {
   destroyCharts(); 
 
   try {
-    const res = await getStudentScoreReport(userStore.studentInfo.id, selectedExamId.value);
+    const res = await getStudentScoreReport(userStore.userInfo.id, selectedExamId.value);
     if (res.code === 200) {
       scoreReport.value = res.data;
       if (scoreReport.value) {
@@ -176,9 +212,15 @@ const fetchScoreReport = async () => {
   }
 };
 
-const handleExamChange = (examId: number | string | null) => {
-  // el-select with clearable might pass '' when cleared, ensure it's null or a valid number
-  const id = typeof examId === 'string' && examId === '' ? null : Number(examId);
+const handleExamTypeChange = (type: string | null) => {
+  selectedExamType.value = type;
+  selectedExamId.value = null;
+  scoreReport.value = null;
+  destroyCharts();
+};
+
+const handleExamNameChange = (examIdValue: number | string | null) => {
+  const id = typeof examIdValue === 'string' && examIdValue === '' ? null : Number(examIdValue);
   selectedExamId.value = id;
   if (id) {
     fetchScoreReport();
@@ -191,10 +233,9 @@ const handleExamChange = (examId: number | string | null) => {
 const initRadarChart = () => {
   if (radarChartRef.value && scoreReport.value?.subject_details) {
     const chartData = scoreReport.value.subject_details;
-    // Ensure all subjects have a max, default to 100 if not specified or if score exceeds it
     const indicators = chartData.map(item => ({
       name: item.subject_name,
-      max: Math.max(100, item.student_score ?? 0, item.class_average_score ?? 0) // Dynamic max based on data, min 100
+      max: Math.max(100, item.student_score ?? 0, item.class_average_score ?? 0)
     }));
     const studentScores = chartData.map(item => item.student_score ?? 0);
     const classAverageScores = chartData.map(item => item.class_average_score ?? 0);
@@ -250,16 +291,7 @@ const destroyCharts = () => {
 }
 
 onMounted(() => {
-  if (userStore.studentInfo?.id) {
-      fetchExamsTaken();
-  } else {
-      const unwatch = watch(() => userStore.studentInfo, (newInfo) => {
-          if (newInfo?.id) {
-              fetchExamsTaken();
-              unwatch(); 
-          }
-      }, { immediate: true }); 
-  }
+  fetchExamsTaken();
 });
 
 </script>
@@ -280,12 +312,12 @@ onMounted(() => {
     font-weight: 600;
     margin-top: 25px;
     margin-bottom: 15px;
-    color: #303133; //深灰色，更柔和
+    color: #303133;
     padding-bottom: 5px;
-    border-bottom: 1px solid #e0e0e0; // 添加下划线
+    border-bottom: 1px solid #e0e0e0;
   }
   .el-col {
-    margin-bottom: 20px; // For responsive stacking on small screens
+    margin-bottom: 20px;
   }
 }
 </style> 

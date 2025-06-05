@@ -808,6 +808,58 @@ async function getScoresByStudentAndExam(studentId, examId) {
 }
 
 /**
+ * 获取学生已参加的考试列表 (包含考试类型)
+ * @param {number} studentId - 学生ID (user.id, not student.id from student table)
+ * @returns {Promise<Array>} - 返回包含 { exam_id, exam_name, exam_date, exam_type } 的对象数组
+ */
+async function getExamsTakenByStudent(studentId) {
+  try {
+    if (!studentId) {
+      console.warn('[getExamsTakenByStudent] Student ID is required.');
+      return [];
+    }
+    const [studentEntry] = await db.query('SELECT id FROM student WHERE user_id = ?', [studentId]);
+    if (!studentEntry) {
+      console.warn(`[getExamsTakenByStudent] No student record found for user_id: ${studentId}`);
+      return [];
+    }
+    const studentTablePk = studentEntry.id;
+
+    const query = `
+      SELECT DISTINCT
+        e.id AS exam_id,
+        e.exam_name,
+        DATE_FORMAT(e.exam_date, '%Y-%m-%d') AS exam_date, 
+        e.exam_type,
+        e.exam_date AS raw_exam_date 
+      FROM
+        student_score ss
+      JOIN
+        exam e ON ss.exam_id = e.id
+      WHERE
+        ss.student_id = ? 
+      ORDER BY
+        raw_exam_date DESC, e.exam_name ASC;
+    `;
+    const examsFromDb = await db.query(query, [studentTablePk]);
+    
+    // Map results to exclude raw_exam_date, ensuring exam_date is the formatted one
+    const exams = examsFromDb.map(exam => ({
+      exam_id: exam.exam_id,
+      exam_name: exam.exam_name,
+      exam_date: exam.exam_date, // This is already the formatted 'YYYY-MM-DD' string from DATE_FORMAT
+      exam_type: exam.exam_type
+    }));
+
+    console.log(`[getExamsTakenByStudent] Found ${exams.length} exams taken by student (user_id: ${studentId}, student_pk: ${studentTablePk})`);
+    return exams;
+  } catch (error) {
+    console.error(`[getExamsTakenByStudent] Error fetching exams for student ID ${studentId}:\n`, error);
+    throw error; 
+  }
+}
+
+/**
  * 生成指定学生在特定考试中的详细成绩报告
  * @param {number} studentId - 学生在 student 表中的主键 ID
  * @param {number} examId - 考试在 exam 表中的主键 ID
@@ -1076,4 +1128,5 @@ module.exports = {
   getClassScoreStats,
   getScoresByStudentAndExam,
   generateDetailedScoreReport,
+  getExamsTakenByStudent,
 }; 

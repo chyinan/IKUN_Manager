@@ -347,6 +347,7 @@ export interface ExamTaken {
   exam_id: number;
   exam_name: string;
   exam_date: string; // Assuming 'YYYY-MM-DD'
+  exam_type: string; // Added exam_type
 }
 
 // Interface for the detailed score report

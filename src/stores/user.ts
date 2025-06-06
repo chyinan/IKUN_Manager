@@ -205,7 +205,7 @@ export const useUserStore = defineStore('user', () => {
       });
   }
 
-  // 设置用户信息 (ensure createTime)
+  // 设置用户信息 (ensure createTime and studentInfo)
   const setUserInfo = (receivedUser: UserInfo) => {
     console.log('更新用户信息:', receivedUser);
     userInfo.value = {
@@ -215,18 +215,23 @@ export const useUserStore = defineStore('user', () => {
       avatar: receivedUser.avatar,
       roles: receivedUser.roles,
       permissions: receivedUser.permissions,
-      createTime: receivedUser.createTime || new Date().toISOString() // <-- Add createTime
+      createTime: receivedUser.createTime || new Date().toISOString(),
+      studentInfo: receivedUser.studentInfo || null, // Correctly handle studentInfo
+      display_name: receivedUser.display_name || receivedUser.username, // Preserve display_name
+      phone: receivedUser.phone || null // Preserve phone
     };
     // Consider if storing the full object in localStorage is necessary/secure
-    localStorage.setItem('user-info', JSON.stringify(userInfo.value));
+    // For now, we assume localStorage might not be the primary source for studentInfo if it's frequently updated
+    // or if login/getUserInfo always provides it fresh.
+    // localStorage.setItem('user-info', JSON.stringify(userInfo.value)); // Optional: re-evaluate storing complex objects
   }
 
-  // 从本地存储加载用户信息 (ensure createTime)
+  // 从本地存储加载用户信息 (ensure createTime and studentInfo)
   const loadUserInfo = () => {
     const storedInfo = localStorage.getItem('user-info');
     if (storedInfo) {
       try {
-        const parsedInfo = JSON.parse(storedInfo);
+        const parsedInfo = JSON.parse(storedInfo) as UserInfo; // Type assertion
         if (parsedInfo && typeof parsedInfo === 'object' && parsedInfo.id && parsedInfo.username) {
           userInfo.value = {
             id: parsedInfo.id,
@@ -235,29 +240,29 @@ export const useUserStore = defineStore('user', () => {
             avatar: parsedInfo.avatar,
             roles: parsedInfo.roles,
             permissions: parsedInfo.permissions,
-            createTime: parsedInfo.createTime || new Date().toISOString() // <-- Add createTime
+            createTime: parsedInfo.createTime || new Date().toISOString(),
+            studentInfo: parsedInfo.studentInfo || null, // Correctly load studentInfo
+            display_name: parsedInfo.display_name || parsedInfo.username, // Preserve display_name
+            phone: parsedInfo.phone || null // Preserve phone
           };
           console.log('从本地存储加载用户信息:', userInfo.value);
         } else {
           console.warn('本地存储的用户信息格式不正确:', parsedInfo);
-          resetState();
+          resetState(); // Reset if format is incorrect
         }
       } catch (error) {
         console.error('解析本地存储的用户信息失败:', error);
-        resetState();
+        resetState(); // Reset on parse error
       }
     }
   }
 
   // Action to specifically update the user's email in the store
   const updateUserEmailAction = (newEmail: string) => {
-    if (userInfo.value) {
+    if (userInfo.value && userInfo.value.email !== newEmail) {
       userInfo.value.email = newEmail;
-      console.log('[userStore] Updated email in store state:', newEmail);
-      // Optionally update localStorage if email is stored there separately
-      // localStorage.setItem('email', newEmail); // Example if needed
-    } else {
-      console.warn('[userStore] Tried to update email, but userInfo is null.');
+      // Potentially update localStorage if you decide to keep full user-info there
+      // localStorage.setItem('user-info', JSON.stringify(userInfo.value));
     }
   };
 
@@ -312,7 +317,11 @@ export const useUserStore = defineStore('user', () => {
     resetState,
     setAvatar,
     isAdmin,  // Expose isAdmin
-    isStudent // Expose isStudent
+    isStudent, // Expose isStudent
+    setUserInfo,
+    loadUserInfo,
+    updateUserEmailAction,
+    fetchAndSetUserInfo
   }
 }, {
   // Optional: Enable persistence if needed, though manual localStorage is used here

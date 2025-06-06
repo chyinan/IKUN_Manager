@@ -298,7 +298,7 @@ const fetchExamTypes = async () => {
         value: type
       }))
       console.log('成功获取考试类型选项:', examTypes.value)
-    } else {
+        } else {
       console.warn('考试类型API响应格式不正确或 code !== 200')
       examTypes.value = [
         { label: '月考', value: '月考' },
@@ -340,7 +340,7 @@ const fetchStudentList = async () => {
       studentList.value = response.data.filter((student: StudentItemResponse) => {
         return !selectedClass.value || student.class_name === selectedClass.value
       })
-    } else {
+        } else {
       ElMessage.warning(response?.message || '获取学生列表失败')
     }
   } catch (error: any) {
@@ -373,8 +373,8 @@ const fetchScores = async () => {
       pagination.total = response.data.length; 
       if (response.data.length === 0) {
           ElMessage.info('未查询到相关成绩记录。');
-      }
-    } else {
+        }
+      } else {
       console.warn('成绩列表API响应格式不正确或 code !== 200:', response);
       scoreList.value = []
       pagination.total = 0;
@@ -395,7 +395,7 @@ const handleClassChange = async () => {
   scoreForm.value = {};
   originalScores.value = {};
   isScoreChanged.value = false;
-
+  
   if (selectedClass.value) {
     // Call the correct fetchStudentList - assuming it's defined elsewhere or kept from previous state
     // await fetchStudentList(selectedClass.value); // You might need to adjust this if fetchStudentList was changed
@@ -419,13 +419,13 @@ const fetchStudentListForClass = async (className: string) => {
     } else {
         // Handle error or empty data from API
         ElMessage.warning(response?.message || '获取学生列表失败或无数据');
-        studentList.value = [];
-    }
+    studentList.value = [];
+  }
   } catch (error: any) {
       console.error('获取学生列表失败 (catch):', error);
       ElMessage.error(error.response?.data?.message || error.message || '获取学生列表失败');
       studentList.value = [];
-  }
+}
 };
 
 // 处理学生选择
@@ -442,7 +442,7 @@ const handleStudentSelect = async () => {
   selectedExamName.value = null;
   examNames.value = [];
   resetScoreForm();
-
+  
   const selectedStudentData = studentList.value.find(s => s.id === selectedStudent.value);
   if (selectedStudentData) {
     selectedStudentName.value = selectedStudentData.name;
@@ -461,7 +461,7 @@ const handleExamTypeChange = async () => {
   selectedExamName.value = null;
   examNames.value = [];
   resetScoreForm();
-
+  
   try {
     loading.value = true;
     const examListResult = await scoreApi.getExams(selectedExamType.value);
@@ -540,7 +540,7 @@ const fetchStudentScores = async (studentId: number, examId: number) => {
               const numericScore = parseFloat(String(scoreValue)); 
               if (!isNaN(numericScore)) {
                   newScoreForm[subject] = numericScore;
-              } else {
+      } else {
                   newScoreForm[subject] = null;
                   console.warn(`Received non-numeric score value for ${subject}:`, scoreValue);
               }
@@ -652,8 +652,8 @@ const handleSave = async () => {
     // Use the imported saveStudentScore function
     const res = await scoreApi.saveStudentScore(saveData);
     if (res && (res.code === 200 || res.code === 201)) {
-      ElMessage.success('成绩保存成功');
-      originalScores.value = { ...scoreForm.value }; 
+        ElMessage.success('成绩保存成功');
+      originalScores.value = { ...scoreForm.value };
       isScoreChanged.value = false;
     } else {
       ElMessage.error(res?.message || '成绩保存失败');

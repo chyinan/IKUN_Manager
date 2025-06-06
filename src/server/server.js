@@ -25,6 +25,7 @@ const isSameOrBefore = require('dayjs/plugin/isSameOrBefore'); // For date valid
 dayjs.extend(isSameOrBefore);
 const cron = require('node-cron'); // <-- Add node-cron
 const carouselService = require('./carouselService'); // <-- Import Carousel Service
+const crypto = require('crypto'); // 用于生成更安全的随机密钥（如果需要）
 
 // --- Simple Middleware for Debugging ---
 const simpleAuthLogger = (req, res, next) => {
@@ -157,11 +158,52 @@ const carouselImageUpload = multer({
 
 // --- JWT Secret (IMPORTANT: Use environment variable in production!) ---
 // 统一 JWT Secret 来源，优先从 config 文件读取
-const JWT_SECRET = process.env.JWT_SECRET || config.jwt.secret || 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME'; 
-if (JWT_SECRET === 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME') {
-    console.warn('[Server.js] WARNING: Using default JWT secret. Ensure config.jwt.secret is set or use JWT_SECRET env var.');
+const configuredSecret = config.jwt?.secret;
+const envSecret = process.env.JWT_SECRET;
+// 生成一个仅用于本次运行的、更安全的备用密钥（如果其他密钥源都缺失）
+// 但仍然强烈建议通过配置提供稳定密钥
+const generatedFallbackSecret = crypto.randomBytes(32).toString('hex');
+const unsafeHardcodedFallback = 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME_AND_DO_NOT_USE_IN_PROD';
+
+let JWT_SECRET;
+let secretSource = 'unknown';
+
+if (configuredSecret) {
+    JWT_SECRET = configuredSecret;
+    secretSource = 'config.jwt.secret';
+} else if (envSecret) {
+    JWT_SECRET = envSecret;
+    secretSource = 'process.env.JWT_SECRET';
+} else {
+    // 在开发时，如果前两者都没有，我们"可以"使用一个不安全的硬编码值以便运行，
+    // 但在生产中这是绝对禁止的。更好的做法是如果密钥缺失就直接启动失败。
+    // 为了让开发流程不中断，这里暂时使用不安全的硬编码值，并给出严重警告。
+    JWT_SECRET = unsafeHardcodedFallback; 
+    secretSource = 'unsafe_hardcoded_fallback';
 }
-const JWT_EXPIRES_IN = config.jwt.expiresIn || '24h'; // Also ensure JWT_EXPIRES_IN is defined if needed here, or handle within authenticateToken if required
+
+let JWT_EXPIRES_IN = config.jwt?.expiresIn || '24h'; 
+
+// 日志记录和警告
+if (secretSource === 'config.jwt.secret') {
+    console.log(`[Server.js] Using JWT_SECRET from ${secretSource}.`);
+} else if (secretSource === 'process.env.JWT_SECRET') {
+    console.log(`[Server.js] Using JWT_SECRET from ${secretSource}.`);
+} else if (secretSource === 'unsafe_hardcoded_fallback') {
+    console.error(`
+        ****************************************************************************************
+        [Server.js] CRITICAL SECURITY WARNING:
+        JWT_SECRET is using a DANGEROUS hardcoded fallback value: '${unsafeHardcodedFallback}'.
+        This configuration is INSECURE and MUST NOT be used in production.
+        Please define 'secret' in 'src/server/config.js' (within a jwt object)
+        or set the JWT_SECRET environment variable.
+        ****************************************************************************************
+    `);
+}
+
+if (JWT_EXPIRES_IN === '24h' && config.jwt?.expiresIn !== '24h') { 
+    console.log(`[Server.js] JWT_EXPIRES_IN is using default value '24h'. Consider setting 'expiresIn' in 'config.jwt'.`);
+}
 
 // --- Authentication Middleware (Updated with JWT Verification) ---
 const authenticateToken = (req, res, next) => {
@@ -1598,14 +1640,14 @@ app.get(`${apiPrefix}/score/exam-types`, authenticateToken, async (req, res) => 
     console.log('获取不重复的考试类型');
     // 注意：我们从 examService 获取数据，因为类型是考试的属性
     const types = await examService.getDistinctExamTypes(); 
-    res.json({ 
+    res.json({
       code: 200,
       message: '获取考试类型成功',
       data: types //直接返回字符串数组
     });
   } catch (error) {
     console.error('获取考试类型失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       code: 500,
       message: '获取考试类型失败: ' + error.message, // 返回更具体的错误信息
       data: null
@@ -1664,7 +1706,7 @@ app.delete(`${apiPrefix}/log/clear`, authenticateToken, isAdmin, async (req, res
       content: `尝试清空日志时发生错误: ${error.message}`,
       operator: req.user?.username || 'system' // Use optional chaining for req.user
     });
-    res.status(500).json({ 
+    res.status(500).json({
       code: 500,
       message: '清空日志时发生服务器内部错误: ' + error.message,
       data: null
@@ -1678,14 +1720,14 @@ app.get(`${apiPrefix}/employee/stats`, authenticateToken, async (req, res) => {
     console.log('收到员工统计数据请求');
     const stats = await employeeService.getEmployeeStats();
     console.log('员工统计数据:', stats);
-    res.json({ 
-    code: 200,
+    res.json({
+      code: 200,
       data: stats,
     message: 'success'
     });
   } catch (error) {
     console.error('获取员工统计数据失败:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       code: 500,
       message: '获取员工统计数据失败',
       data: null
@@ -1697,8 +1739,8 @@ app.get(`${apiPrefix}/exam/stats`, authenticateToken, async (req, res) => {
   try {
     console.log('获取考试统计数据');
     const stats = await examService.getExamStats();
-  res.json({
-    code: 200,
+    res.json({
+      code: 200,
       data: stats,
     message: 'success'
     });
@@ -1718,14 +1760,14 @@ app.get(`${apiPrefix}/student/stats`, authenticateToken, async (req, res) => {
     console.log('收到学生统计数据请求');
     const stats = await studentService.getStudentStats(); // 使用 studentService
     console.log('学生统计数据:', stats);
-    res.json({
+    res.json({ 
       code: 200,
       data: stats,
       message: '获取学生统计数据成功'
     });
   } catch (error) {
     console.error('获取学生统计数据失败:', error);
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '获取学生统计数据失败',
       data: null
@@ -1758,7 +1800,7 @@ app.get(`${apiPrefix}/score/student/:studentId`, authenticateToken, async (req, 
     }
 
     // 直接返回 service 层准备好的数据
-    res.json({
+    res.json({ 
       code: 200,
       message: '获取学生成绩成功',
       data: scoreData 
@@ -1770,7 +1812,7 @@ app.get(`${apiPrefix}/score/student/:studentId`, authenticateToken, async (req, 
     if (error.message === '学生ID和考试ID不能为空') {
         res.status(400).json({ code: 400, message: error.message });
     } else {
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
             message: '获取学生成绩时发生服务器内部错误: ' + error.message,
             data: null
@@ -1813,7 +1855,7 @@ app.post(`${apiPrefix}/score/save`, authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('[Server] 保存成绩失败 (路由处理):', error);
     // Handle specific errors if the service throws them
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
       message: '保存成绩时发生服务器内部错误: ' + error.message,
       data: null
@@ -1852,7 +1894,7 @@ app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
      if (error.message && (error.message.includes('格式无效') || error.message.includes('不能为空'))) {
        res.status(400).json({ code: 400, message: error.message });
      } else {
-    res.status(500).json({
+    res.status(500).json({ 
       code: 500,
          message: '更新考试信息时发生服务器内部错误: ' + error.message,
         data: null
@@ -1882,7 +1924,7 @@ app.use((err, req, res, next) => {
     code: 500,
     message: '服务器内部错误',
         data: null
-      });
+  });
 });
 
 // 启动服务器
@@ -2033,7 +2075,7 @@ app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
       data: null
     });
   }
-}); 
+});
 
 // 新增：获取班级成绩 (用于学生报告页面)
 app.get(`${apiPrefix}/score/class/:classId`, authenticateToken, async (req, res) => {
@@ -2054,11 +2096,11 @@ app.get(`${apiPrefix}/score/class/:classId`, authenticateToken, async (req, res)
     const scoreData = await scoreService.getClassScores(classId, examType);
 
     if (scoreData) {
-      res.json({
-        code: 200,
+    res.json({
+      code: 200,
         message: '获取班级成绩成功',
         data: scoreData
-      });
+    });
     } else {
       // getClassScores 可能会返回 null 或空数组，根据其实现处理
       res.status(404).json({ code: 404, message: '未找到指定班级或考试类型的成绩数据' });

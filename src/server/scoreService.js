@@ -859,6 +859,32 @@ async function getExamsTakenByStudent(studentId) {
   }
 }
 
+// Helper function to calculate rank
+// This function should be defined in a scope accessible by generateDetailedScoreReport
+// If it's already defined elsewhere with the same logic, this can be adapted.
+function calculateRank(studentScore, scoresArray, sortOrder = 'desc') {
+    // If the student's own score is null or undefined, they are unranked for this item.
+    if (studentScore === null || studentScore === undefined) {
+        return null;
+    }
+
+    // Filter out null/undefined scores from the comparison array, as these students are also unranked.
+    const validScoresArray = scoresArray.filter(s => s !== null && s !== undefined);
+
+    if (validScoresArray.length === 0) {
+        return null; // No one to rank against or no valid scores in the pool to form ranks.
+    }
+
+    const uniqueScores = [...new Set(validScoresArray)];
+    uniqueScores.sort((a, b) => sortOrder === 'desc' ? b - a : a - b);
+    
+    const rankIndex = uniqueScores.indexOf(studentScore);
+
+    // If studentScore (which is non-null here) is not found in the unique valid scores,
+    // it implies it wasn't part of the valid pool, so it can't be ranked.
+    return rankIndex !== -1 ? rankIndex + 1 : null; // Convert 0-based index to 1-based rank
+}
+
 /**
  * 生成指定学生在特定考试中的详细成绩报告
  * @param {number} studentId - 学生在 student 表中的主键 ID
@@ -866,10 +892,18 @@ async function getExamsTakenByStudent(studentId) {
  * @returns {Promise<Object|null>} 详细成绩报告对象或 null
  */
 async function generateDetailedScoreReport(studentId, examId) {
-  if (!studentId || !examId) {
-    console.warn('[scoreService] generateDetailedScoreReport: studentId and examId are required.');
-    return null;
-  }
+  const report = {
+    student_info: null,
+    class_info: null,
+    exam_info: null,
+    subject_details: [],
+    total_score_details: {
+      student_total_score: null, // Initialize to null
+      class_average_total_score: null,
+      class_total_score_rank: null,
+      grade_total_score_rank: null
+    }
+  };
 
   try {
     console.log(`[scoreService] Generating detailed score report for student ID: ${studentId}, exam ID: ${examId}`);
@@ -892,6 +926,8 @@ async function generateDetailedScoreReport(studentId, examId) {
       return null;
     }
     const studentData = studentRows[0];
+    report.student_info = { id: studentData.id, name: studentData.name, student_id_str: studentData.student_id_str };
+    report.class_info = studentData.class_id ? { id: studentData.class_id, name: studentData.class_name } : null;
 
     const examInfoQuery = `
       SELECT 
@@ -908,207 +944,172 @@ async function generateDetailedScoreReport(studentId, examId) {
       return null;
     }
     const examData = examRows[0];
-    const examSubjectList = examData.subjects ? examData.subjects.split(',').map(s => s.trim()).filter(s => s) : [];
+    const examSubjectList = examData.subjects ? examData.subjects.split(',').map(s => s.trim()).filter(s => s.length > 0) : [];
+    report.exam_info = { id: examData.id, name: examData.exam_name, date: examData.exam_date, subjects: examSubjectList };
 
     if (examSubjectList.length === 0) {
-        console.warn(`[scoreService] generateDetailedScoreReport: Exam ID ${examId} has no subjects listed.`);
-        return null; 
+      console.warn(`[scoreService] generateDetailedScoreReport: Exam ID ${examId} has no subjects listed.`);
+      return report; // Return report with basic info and empty scores
     }
 
-    const report = {
-      student_info: {
-        id: studentData.id,
-        name: studentData.name,
-        student_id_str: studentData.student_id_str
-      },
-      class_info: {
-        id: studentData.class_id,
-        name: studentData.class_name
-      },
-      exam_info: {
-        id: examData.id,
-        name: examData.exam_name,
-        date: examData.exam_date,
-        subjects: examSubjectList
-      },
-      subject_details: [],
-      total_score_details: {}
-    };
+    const subjectPlaceholders = examSubjectList.map(() => '?').join(',');
+    
+    // --- 2. Fetch student's specific scores for each subject ---
+    const studentScoresParams = [studentId, examId, ...examSubjectList];
+    // Ensure subjectPlaceholders is not empty before using it in IN clause
+    let studentSpecificScoresRaw = [];
+    if (subjectPlaceholders.length > 0) {
+        const studentScoresQuery = `
+            SELECT subject, score 
+            FROM student_score 
+            WHERE student_id = ? AND exam_id = ? AND subject IN (${subjectPlaceholders})
+        `;
+        studentSpecificScoresRaw = await db.query(studentScoresQuery, studentScoresParams);
+    }
+    
+    const studentScoresMap = studentSpecificScoresRaw.reduce((map, item) => {
+        const scoreVal = parseFloat(item.score);
+        map[item.subject] = !isNaN(scoreVal) ? scoreVal : null; // Store null if score is not a valid number
+        return map;
+    }, {});
 
-    // TODO (后续步骤):
-    // 2. Fetch student's scores for the given exam
-    // 3. Fetch all scores for the student's class in that exam (for subject averages and ranks)
-    // 4. Calculate student's total score
-    // 5. Calculate class total score average and student's rank in class for total score
-    // 6. Fetch all total scores for all students who took the exam (for grade ranking of total score)
-    // 7. Assemble and return the full report object
+    let studentTotalScoreSum = 0;
+    let studentValidScoresCount = 0;
 
-    console.log("[scoreService] Basic info fetched for report:", JSON.stringify(report, null, 2)); // Temporary log
-    // For now, returning the partially filled report. THIS WILL BE EXPANDED.
-    // return report; // Placeholder until fully implemented
+    report.subject_details = examSubjectList.map(subject => {
+        const score = studentScoresMap[subject]; 
+        const finalStudentScore = (score !== undefined && score !== null) ? score : null;
 
-    // --- 2. Fetch student's specific scores for each subject in this exam ---
-    const studentScoresQuery = `
-      SELECT subject, score 
-      FROM student_score 
-      WHERE student_id = ? AND exam_id = ? AND subject IN (?)
-    `;
-    const studentSubjectScoresRows = await db.query(studentScoresQuery, [studentId, examId, examSubjectList]);
-    const studentScoresMap = new Map(); // Map<subject_name, score>
-    studentSubjectScoresRows.forEach(row => {
-      studentScoresMap.set(row.subject, parseFloat(row.score));
+        if (finalStudentScore !== null) {
+            studentTotalScoreSum += finalStudentScore;
+            studentValidScoresCount++;
+        }
+        return {
+            subject: subject,
+            student_score: finalStudentScore,
+            class_average_score: null,
+            class_rank: null,
+        };
     });
 
-    let studentTotalScore = 0;
-    const subjectDetails = [];
+    report.total_score_details.student_total_score = studentValidScoresCount > 0 ? parseFloat(studentTotalScoreSum.toFixed(2)) : null;
 
-    // --- 3. Calculate Class Averages and Ranks for Each Subject ---
-    // Get all scores for all students in the student's class for the given exam
-    if (!studentData.class_id) {
-        console.warn(`[scoreService] Student ${studentData.id} does not have a class_id. Cannot calculate class-based stats.`);
-        // Populate subject_details with only student's scores if no class
-        for (const subjectName of examSubjectList) {
-            const studentScore = studentScoresMap.get(subjectName);
-            const scoreVal = (studentScore !== undefined && !isNaN(studentScore)) ? studentScore : null;
-            subjectDetails.push({
-                subject_name: subjectName,
-                student_score: scoreVal,
-                class_average_score: null,
-                class_subject_rank: null
-            });
-            if (scoreVal !== null) studentTotalScore += scoreVal;
-        }
-    } else {
+    // --- 3. Fetch scores for CLASS statistics ---
+    let classRawScores = [];
+    if (report.class_info && report.class_info.id && subjectPlaceholders.length > 0) {
+        const classScoresParams = [report.class_info.id, examId, ...examSubjectList];
         const classScoresQuery = `
-            SELECT s.id as student_id, ss.subject, ss.score
-            FROM student_score ss
-            JOIN student s ON ss.student_id = s.id
-            WHERE s.class_id = ? AND ss.exam_id = ? AND ss.subject IN (?)
+            SELECT ss.student_id, s.name as student_name, ss.subject, ss.score 
+            FROM student_score ss 
+            JOIN student s ON ss.student_id = s.id 
+            WHERE s.class_id = ? AND ss.exam_id = ? AND ss.subject IN (${subjectPlaceholders})
         `;
-        const classSubjectScoresRows = await db.query(classScoresQuery, [studentData.class_id, examId, examSubjectList]);
-
-        for (const subjectName of examSubjectList) {
-            const scoresForSubjectInClass = classSubjectScoresRows
-                .filter(row => row.subject === subjectName && row.score !== null && !isNaN(parseFloat(row.score)))
-                .map(row => parseFloat(row.score));
-
-            let classAverageScore = null;
-            if (scoresForSubjectInClass.length > 0) {
-                const sum = scoresForSubjectInClass.reduce((acc, curr) => acc + curr, 0);
-                classAverageScore = parseFloat((sum / scoresForSubjectInClass.length).toFixed(2));
-            }
-
-            const studentScore = studentScoresMap.get(subjectName);
-            const scoreVal = (studentScore !== undefined && !isNaN(studentScore)) ? studentScore : null;
-            if (scoreVal !== null) studentTotalScore += scoreVal;
-
-            let classSubjectRank = null;
-            if (scoreVal !== null && scoresForSubjectInClass.length > 0) {
-                const sortedScores = [...scoresForSubjectInClass].sort((a, b) => b - a); // Descending
-                classSubjectRank = sortedScores.indexOf(scoreVal) + 1; 
-                // Handle ties: if multiple students have the same score, they should have the same rank.
-                // This simple indexOf gives rank based on first occurrence. For true dense rank, more logic is needed.
-                // For now, we'll use this simple rank. True ranking might require window functions if DB supports, or more complex JS logic.
-                 // A more robust way for rank with ties:
-                let rank = 1;
-                let higherScores = 0;
-                for(let i = 0; i < sortedScores.length; i++) {
-                    if(sortedScores[i] > scoreVal) {
-                        higherScores++;
-                    }
-                }
-                classSubjectRank = higherScores + 1;
-            }
-
-            subjectDetails.push({
-                subject_name: subjectName,
-                student_score: scoreVal,
-                class_average_score: classAverageScore,
-                class_subject_rank: classSubjectRank
-            });
-        }
+        classRawScores = await db.query(classScoresQuery, classScoresParams);
     }
-    report.subject_details = subjectDetails;
-    report.total_score_details.student_total_score = parseFloat(studentTotalScore.toFixed(2));
-
-    // --- 4. Calculate Class Total Score Average and Student's Rank in Class for Total Score ---
-    let classAverageTotalScore = null;
-    let classTotalScoreRank = null;
-
-    if (studentData.class_id) {
-        const classStudentTotalScores = {}; // student_id -> total_score
-        const classScoresAllSubjectsQuery = `
-            SELECT s.id as student_id, ss.subject, ss.score
-            FROM student_score ss
-            JOIN student s ON ss.student_id = s.id
-            WHERE s.class_id = ? AND ss.exam_id = ? AND ss.subject IN (?)
+    
+    // --- 4. Fetch scores for GRADE statistics (all students in the exam) ---
+    let gradeRawScores = [];
+    if (subjectPlaceholders.length > 0) {
+        const gradeAllScoresParams = [examId, ...examSubjectList];
+        const gradeAllScoresQuery = `
+            SELECT ss.student_id, s.name as student_name, ss.subject, ss.score 
+            FROM student_score ss 
+            JOIN student s ON ss.student_id = s.id 
+            WHERE ss.exam_id = ? AND ss.subject IN (${subjectPlaceholders})
         `;
-        const classAllSubjectScoresRows = await db.query(classScoresAllSubjectsQuery, [studentData.class_id, examId, examSubjectList]);
-        
-        classAllSubjectScoresRows.forEach(row => {
-            if (row.score !== null && !isNaN(parseFloat(row.score))) {
-                classStudentTotalScores[row.student_id] = (classStudentTotalScores[row.student_id] || 0) + parseFloat(row.score);
-            }
-        });
-
-        const totalScoresInClassArray = Object.values(classStudentTotalScores).map(score => parseFloat(score.toFixed(2)));
-
-        if (totalScoresInClassArray.length > 0) {
-            const sumTotal = totalScoresInClassArray.reduce((acc, curr) => acc + curr, 0);
-            classAverageTotalScore = parseFloat((sumTotal / totalScoresInClassArray.length).toFixed(2));
-
-            // Rank student's total score in class
-            const sortedTotalScoresInClass = [...totalScoresInClassArray].sort((a, b) => b - a);
-            let rank = 1;
-            let higherScores = 0;
-            for(let i = 0; i < sortedTotalScoresInClass.length; i++) {
-                if(sortedTotalScoresInClass[i] > report.total_score_details.student_total_score) {
-                    higherScores++;
-                }
-            }
-            classTotalScoreRank = higherScores + 1;
-        }
+        gradeRawScores = await db.query(gradeAllScoresQuery, gradeAllScoresParams);
     }
-    report.total_score_details.class_average_total_score = classAverageTotalScore;
-    report.total_score_details.class_total_score_rank = classTotalScoreRank;
 
-    // --- 5. Calculate Student's Total Score Rank in "Grade" (all students who took the exam) ---
-    let gradeTotalScoreRank = null;
-    const gradeStudentTotalScores = {}; // student_id -> total_score
-    const gradeAllScoresQuery = `
-        SELECT ss.student_id, ss.subject, ss.score
-        FROM student_score ss
-        WHERE ss.exam_id = ? AND ss.subject IN (?)
-    `; // No class_id filter here
-    const gradeAllSubjectScoresRows = await db.query(gradeAllScoresQuery, [examId, examSubjectList]);
+    // Helper to process raw scores (for class or grade)
+    // This helper can be an inner function or defined in the same scope as calculateRank
+    // Helper to process raw scores (for class or grade)
+    // This helper should be an inner function of generateDetailedScoreReport or defined in a scope it can access report and calculateRank
+    const processScoreGroup = (rawScoresForGroup, groupType) => {
+      const scoresByStudentSubject = rawScoresForGroup.reduce((acc, item) => {
+          acc[item.student_id] = acc[item.student_id] || {};
+          const scoreVal = parseFloat(item.score);
+          acc[item.student_id][item.subject] = !isNaN(scoreVal) ? scoreVal : null;
+          return acc;
+      }, {});
 
-    gradeAllSubjectScoresRows.forEach(row => {
-        if (row.score !== null && !isNaN(parseFloat(row.score))) {
-            gradeStudentTotalScores[row.student_id] = (gradeStudentTotalScores[row.student_id] || 0) + parseFloat(row.score);
-        }
-    });
+      // Calculate subject averages and ranks if this is for the class
+      if (groupType === 'class') {
+          report.subject_details.forEach(subjectDetail => { // This loop iterates through each subject ONCE for class stats
+              const scoresForThisSubjectInGroup = [];
+              for (const sidInGroup in scoresByStudentSubject) {
+                  if (scoresByStudentSubject[sidInGroup].hasOwnProperty(subjectDetail.subject)) {
+                      const score = scoresByStudentSubject[sidInGroup][subjectDetail.subject];
+                      if (score !== null) { // Only consider non-null scores for average and ranking pool
+                          scoresForThisSubjectInGroup.push(score);
+                      }
+                  }
+              }
 
-    const totalScoresInGradeArray = Object.values(gradeStudentTotalScores).map(score => parseFloat(score.toFixed(2)));
+              if (scoresForThisSubjectInGroup.length > 0) {
+                  const sum = scoresForThisSubjectInGroup.reduce((a, b) => a + b, 0);
+                  subjectDetail.class_average_score = parseFloat((sum / scoresForThisSubjectInGroup.length).toFixed(2));
+              } else {
+                  subjectDetail.class_average_score = null; // No participants, average is null
+              }
+              
+              // Student's rank for this subject within the class
+              console.log(`[scoreService DEBUG] Calculating class_rank for subject: '${subjectDetail.subject}'`);
+              console.log(`[scoreService DEBUG]   - Student's score for this subject:`, subjectDetail.student_score);
+              console.log(`[scoreService DEBUG]   - Scores in class for this subject (for ranking pool):`, JSON.stringify(scoresForThisSubjectInGroup));
+              
+              subjectDetail.class_rank = calculateRank(subjectDetail.student_score, scoresForThisSubjectInGroup);
+              
+              console.log(`[scoreService DEBUG]   - Calculated class_rank:`, subjectDetail.class_rank);
+          });
+      }
 
-    if (totalScoresInGradeArray.length > 0) {
-        const sortedTotalScoresInGrade = [...totalScoresInGradeArray].sort((a, b) => b - a);
-        let rank = 1;
-        let higherScores = 0;
-        for(let i = 0; i < sortedTotalScoresInGrade.length; i++) {
-            if(sortedTotalScoresInGrade[i] > report.total_score_details.student_total_score) {
-                higherScores++;
-            }
-        }
-        gradeTotalScoreRank = higherScores + 1;
+      // Calculate total scores and ranks for the group (class or grade)
+      const groupTotalScoresArray = []; // Array of valid total scores for ranking and average
+      for (const sidInGroup in scoresByStudentSubject) {
+          let currentStudentTotal = 0;
+          let currentStudentValidSubjects = 0;
+          examSubjectList.forEach(subject => { // Iterate through all possible subjects for the exam
+              const score = scoresByStudentSubject[sidInGroup][subject]; 
+              if (score !== null && score !== undefined) { 
+                  currentStudentTotal += score;
+                  currentStudentValidSubjects++;
+              }
+          });
+          if (currentStudentValidSubjects > 0) { 
+              groupTotalScoresArray.push(parseFloat(currentStudentTotal.toFixed(2)));
+          }
+      }
+
+      if (groupType === 'class') {
+          if (groupTotalScoresArray.length > 0) {
+              const totalSum = groupTotalScoresArray.reduce((a, b) => a + b, 0);
+              report.total_score_details.class_average_total_score = parseFloat((totalSum / groupTotalScoresArray.length).toFixed(2));
+          } else {
+              report.total_score_details.class_average_total_score = null; 
+          }
+          report.total_score_details.class_total_score_rank = calculateRank(report.total_score_details.student_total_score, groupTotalScoresArray);
+      } else if (groupType === 'grade') {
+          report.total_score_details.grade_total_score_rank = calculateRank(report.total_score_details.student_total_score, groupTotalScoresArray);
+      }
+  };
+
+    // Process for class if class_info exists
+    if (report.class_info && report.class_info.id) {
+        processScoreGroup(classRawScores, 'class');
     }
-    report.total_score_details.grade_total_score_rank = gradeTotalScoreRank;
+    // Process for grade (using all exam scores)
+    processScoreGroup(gradeRawScores, 'grade'); 
 
-    console.log("[scoreService] Final report generated:", JSON.stringify(report, null, 2));
+    console.log(`[scoreService] Successfully generated detailed score report for student ID: ${studentId}, exam ID: ${examId}`);
     return report;
 
   } catch (error) {
-    console.error(`[scoreService] Error in generateDetailedScoreReport for student ID ${studentId}, exam ID ${examId}:`, error);
-    throw error; // Re-throw the error
+    console.error(`[scoreService] Error in generateDetailedScoreReport for student ID: ${studentId}, exam ID: ${examId}:`, error);
+    // Consider logging with a logging service if available, e.g.:
+    // if (global.logService) { // Or however logService is accessed
+    //   await global.logService.addLogEntry('error', 'score_report_generation', `Failed for student ${studentId}, exam ${examId}: ${error.message}`, 'system');
+    // }
+    throw error; // Re-throw to be handled by the route
   }
 }
 

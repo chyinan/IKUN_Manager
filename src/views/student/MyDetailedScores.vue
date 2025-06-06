@@ -66,15 +66,15 @@
 
         <h4 class="report-subtitle">各科成绩详情</h4>
         <el-table :data="scoreReport.subject_details" border stripe class="report-section">
-          <el-table-column prop="subject_name" label="科目名称" align="center" />
+          <el-table-column prop="subject" label="科目名称" align="center" />
           <el-table-column prop="student_score" label="我的得分" align="center">
             <template #default="{ row }">{{ row.student_score ?? '-' }}</template>
           </el-table-column>
           <el-table-column prop="class_average_score" label="班级平均分" align="center">
             <template #default="{ row }">{{ row.class_average_score ?? '-' }}</template>
           </el-table-column>
-          <el-table-column prop="class_subject_rank" label="班级排名" align="center">
-            <template #default="{ row }">{{ row.class_subject_rank ?? '-' }}</template>
+          <el-table-column prop="class_rank" label="班级排名" align="center">
+            <template #default="{ row }">{{ row.class_rank ?? '-' }}</template>
           </el-table-column>
         </el-table>
 
@@ -184,17 +184,37 @@ const filteredExamsByName = computed(() => {
 });
 
 const fetchScoreReport = async () => {
-  if (!userStore.userInfo?.id || !selectedExamId.value) {
-    scoreReport.value = null;
-    destroyCharts();
+  // Get student PK directly from the store here
+  const currentStudentPk = userStore.userInfo.studentInfo?.student_pk;
+
+  // Print current values for debugging
+  console.log(`[MyDetailedScores.vue fetchScoreReport] Attempting to fetch. Student PK from store: ${currentStudentPk}, Selected Exam ID: ${selectedExamId.value}`);
+
+  // Reset loading state for report specifically if not already reset
+  loadingReport.value = false;
+  // Clear previous report data before attempting a new fetch or validation failure
+  scoreReport.value = null;
+  destroyCharts();
+
+  // Validate studentId and examId before proceeding
+  if (currentStudentPk === undefined || currentStudentPk === null) {
+    console.warn('[MyDetailedScores.vue fetchScoreReport] Aborted: Student PK from store is undefined or null.');
     return;
   }
+  if (!selectedExamId.value) {
+    console.warn('[MyDetailedScores.vue fetchScoreReport] Aborted: selectedExamId is not set.');
+    return;
+  }
+
   loadingReport.value = true;
-  scoreReport.value = null; 
-  destroyCharts(); 
+  // Use the locally fetched student PK for the API call
+  console.log(`[MyDetailedScores.vue fetchScoreReport] Using Student PK: ${currentStudentPk}, Exam ID: ${selectedExamId.value} for API call`);
 
   try {
-    const res = await getStudentScoreReport(userStore.userInfo.id, selectedExamId.value);
+    // const studentIdToFetch = userStore.userInfo.studentInfo?.id; // This line used .id, should be .student_pk and is now currentStudentPk
+    // console.log('[MyDetailedScores.vue DEBUG] Using studentId to fetch report:', studentIdToFetch); // This line is redundant
+    // Use currentStudentPk directly in the API call
+    const res = await getStudentScoreReport(currentStudentPk, selectedExamId.value);
     if (res.code === 200) {
       scoreReport.value = res.data;
       if (scoreReport.value) {

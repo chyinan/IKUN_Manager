@@ -26,18 +26,18 @@
           <img v-if="!sidebarCollapse" :src="logoSrc" alt="Logo" class="sidebar-logo" />
           <span v-if="!sidebarCollapse" class="sidebar-title">高校人事管理系统</span>
           <img v-else :src="logoSrc" alt="Logo" class="sidebar-logo-small" />
-        </div>
-        
+      </div>
+      
         <!-- 菜单 -->
         <div class="sidebar-menu">
-          <el-menu
-            :default-active="activeMenu"
+        <el-menu
+          :default-active="activeMenu"
             :collapse="sidebarCollapse"
             :background-color="isDark ? '#1f2937' : ''"
             :text-color="isDark ? '#f3f4f6' : ''"
             :active-text-color="isDark ? '#409eff' : ''"
-            :unique-opened="true"
-            :collapse-transition="false"
+          :unique-opened="true"
+          :collapse-transition="false"
             router
           >
             <template v-for="(menuRoute, index) in menuList" :key="index">
@@ -54,7 +54,7 @@
                 <template #title>
                   <el-icon v-if="menuRoute.meta && menuRoute.meta.icon">
                     <component :is="menuRoute.meta.icon" />
-                  </el-icon>
+          </el-icon>
                   <span>{{ getTitle(menuRoute) }}</span>
                 </template>
                 
@@ -74,7 +74,7 @@
           </el-menu>
         </div>
       </div>
-
+      
       <!-- 主内容区 -->
       <div class="main-container">
         <navbar
@@ -363,7 +363,7 @@ const getTitle = (item: any) => item?.meta?.title ?? '';
 
   .sidebar-logo-small {
     height: 32px;
-    width: 32px;
+  width: 32px;
   }
 
   .dark & {
@@ -394,7 +394,7 @@ const getTitle = (item: any) => item?.meta?.title ?? '';
 
   /* 修改 Element Plus 菜单样式 */
   :deep(.el-menu) {
-    border-right: none;
+  border-right: none;
     width: 100%;
   }
 
@@ -438,19 +438,19 @@ const getTitle = (item: any) => item?.meta?.title ?? '';
   }
 
   .window-controls {
-    display: flex;
+  display: flex;
     -webkit-app-region: no-drag;
-  }
+}
 
   .control-button {
     width: 46px;
     height: 30px;
-    display: flex;
+  display: flex;
     justify-content: center;
-    align-items: center;
+  align-items: center;
     background: transparent;
     border: none;
-    cursor: pointer;
+  cursor: pointer;
     
     &:hover {
       background-color: rgba(0, 0, 0, 0.1);

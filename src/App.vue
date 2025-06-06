@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useAppStore } from '@/stores/app'
-import zhCn from 'element-plus/lib/locale/lang/zh-cn'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import { logger } from '@/utils/logger'; // Correct import name: logger (lowercase)
 import type { BackendLogEntry, IElectronAPI } from '@/preload.d'; // Import IElectronAPI too
 

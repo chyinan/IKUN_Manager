@@ -545,7 +545,38 @@ async function loginUser(usernameInput, password) {
     role: finalUserData.role, 
     display_name: finalUserData.display_name 
   };
-  const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  
+  // Use config.jwt.secret and config.jwt.expiresIn
+  const secret = config.jwt?.secret;
+  const expiresIn = config.jwt?.expiresIn || '24h'; // Default expiresIn if not in config
+
+  if (!secret) {
+      console.error('[UserService] CRITICAL ERROR: JWT secret is missing from config.jwt.secret. Cannot sign token securely.');
+      // 在生产环境中，这里应该抛出错误或采取更严厉的措施
+      // 为了开发流程继续，暂时使用一个临时的、不安全的密钥，但这绝不应用于生产
+      // throw new Error('JWT signing secret is not configured.'); 
+      // 使用一个固定的备用密钥以便开发，但日志会警告
+      console.warn('[UserService] DEVELOPMENT FALLBACK: Signing JWT with a DANGEROUS hardcoded secret because config.jwt.secret is missing. DO NOT USE IN PRODUCTION.');
+      const fallbackSecret = 'DEV_ONLY_FALLBACK_SECRET_CHANGE_THIS_NOW';
+      const token = jwt.sign(tokenPayload, fallbackSecret, { expiresIn: expiresIn });
+      console.log(`[UserService] Token generated for user: ${finalUserData.username} (USING FALLBACK SECRET)`);
+      return {
+        token,
+        data: {
+          id: finalUserData.id,
+          username: finalUserData.username,
+          role: finalUserData.role,
+          avatar: finalUserData.avatar,
+          email: finalUserData.email,
+          display_name: finalUserData.display_name,
+          studentInfo: studentDataForResponse, 
+          phone: finalUserData.phone
+        }
+      };
+  }
+
+  const token = jwt.sign(tokenPayload, secret, { expiresIn: expiresIn });
+  console.log(`[UserService] Token generated for user: ${finalUserData.username} (using configured secret)`);
 
   await logService.addLogEntry({
     type: 'auth',

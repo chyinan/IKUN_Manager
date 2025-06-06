@@ -22,8 +22,8 @@ const config = {
   
   // JWT配置
   jwt: {
-    secret: process.env.JWT_SECRET || 'YOUR_TEMPORARY_SECRET_KEY_CHANGE_ME',
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+    secret: '1145141919810emmmmmmaaaaaanmsl',
+    expiresIn: '24h'
   },
   
   // 跨域配置
@@ -35,7 +35,7 @@ const config = {
   },
   
   // 学生默认密码
-  studentDefaultPassword: process.env.STUDENT_DEFAULT_PASSWORD || '123456'
+  studentDefaultPassword: 'your_student_default_password_here'
 };
 
 module.exports = config; 

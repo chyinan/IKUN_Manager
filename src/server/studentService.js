@@ -553,7 +553,7 @@ async function batchAddStudents(students) {
 
         return { success: true, processedCount, errors };
 
-    } catch (error) {
+  } catch (error) {
         await connection.rollback();
         console.error('[Batch Student Add] Error during batch operation:', error);
         // 记录错误日志

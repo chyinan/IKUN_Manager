@@ -229,14 +229,14 @@ const subjectTotals = ref<Record<ImportedSubjectType, { sum: number; count: numb
 // 数据转换函数 - 确保参数类型匹配 common.ts
 const convertStudentResponse = (item: StudentItemResponse): StudentItem => {
   return {
-    id: item.id,
-    studentId: item.student_id,
-    name: item.name,
+  id: item.id,
+  studentId: item.student_id,
+  name: item.name,
     gender: item.gender,
     classId: item.class_id,
-    className: item.class_name,
-    phone: item.phone || '',
-    email: item.email || '',
+  className: item.class_name,
+  phone: item.phone || '',
+  email: item.email || '',
     joinDate: item.join_date ? dayjs(item.join_date).format('YYYY-MM-DD') : '-',
     createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-'
   }
@@ -253,8 +253,8 @@ interface ClassItem {
 
 const convertClassResponse = (item: any): ClassItem => {
   return {
-    id: item.id,
-    className: item.class_name,
+  id: item.id,
+  className: item.class_name,
     teacher: item.teacher || '-',
     studentCount: item.student_count || 0,
     createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-',
@@ -1046,7 +1046,7 @@ onMounted(async () => {
       }));
       
       classList.value = classes.value.map(c => c.className); // For main class selector
-
+      
       if (classes.value.length > 0) {
         selectedClass.value = classes.value[0].className; 
         // No need to call fetchReportData here, the watch on selectedClass will trigger it.

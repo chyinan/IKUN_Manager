@@ -39,6 +39,10 @@
             <el-icon><Clock /></el-icon>
             <span>待考考试</span>
           </el-menu-item>
+          <el-menu-item index="/student-portal/mailbox">
+            <el-icon><Message /></el-icon>
+            <span>我的信箱</span>
+          </el-menu-item>
           <el-menu-item index="/student-portal/announcements">
             <el-icon><Bell /></el-icon>
             <span>学校通知</span>
@@ -65,7 +69,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, House, Memo, Clock, Bell, Setting, Document, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, House, Memo, Clock, Bell, Setting, Document, UserFilled, Message } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

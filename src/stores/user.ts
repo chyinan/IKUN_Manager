@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus'
 import type { LoginData, UserInfo, ApiResponse } from '@/types/common'
 import router from '@/router'
 
+const USER_INFO_KEY = 'user_info';
+
 export const useUserStore = defineStore('user', () => {
   // State
   const token = ref<string>(localStorage.getItem('token') || '')
@@ -13,6 +15,45 @@ export const useUserStore = defineStore('user', () => {
   const avatar = ref<string>(localStorage.getItem('user_avatar_url') || '')
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
+
+  // Helper function to update both Pinia state and storage
+  const _updateState = (responseToken: string, responseUserInfo: UserInfo) => {
+    // Update Pinia state
+    token.value = responseToken;
+    userInfo.value = responseUserInfo;
+    username.value = responseUserInfo.username;
+    avatar.value = responseUserInfo.avatar || '';
+    roles.value = responseUserInfo.role ? [responseUserInfo.role] : [];
+    
+    // Persist to storage
+    localStorage.setItem('token', responseToken);
+    sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(responseUserInfo));
+    if (responseUserInfo.avatar) {
+      localStorage.setItem('user_avatar_url', responseUserInfo.avatar);
+    }
+    console.log('[User Store] State and storage updated.', responseUserInfo);
+  };
+
+  // Add rehydrateStateFromSession function
+  const rehydrateStateFromSession = () => {
+    const storedUserInfo = sessionStorage.getItem(USER_INFO_KEY);
+    if (storedUserInfo) {
+      try {
+        const parsedInfo = JSON.parse(storedUserInfo) as UserInfo;
+        if (parsedInfo && typeof parsedInfo === 'object' && parsedInfo.id && parsedInfo.username) {
+          userInfo.value = parsedInfo;
+          username.value = parsedInfo.username;
+          avatar.value = parsedInfo.avatar || '';
+          roles.value = parsedInfo.role ? [parsedInfo.role] : [];
+          console.log('[User Store] Rehydrated user info from sessionStorage.');
+          return true;
+        }
+      } catch(e) {
+        console.error('[User Store] Failed to parse user info from sessionStorage', e);
+      }
+    }
+    return false;
+  };
 
   // Action to set avatar
   const setAvatar = (newAvatarUrl: string) => {
@@ -43,32 +84,22 @@ export const useUserStore = defineStore('user', () => {
         console.log('[userStore loginAction] Login successful, token received (inside if block):', receivedToken);
         console.log('[userStore loginAction] Received user info from API (inside if block):', JSON.stringify(receivedApiUserInfo));
 
-        const userApiRole = receivedApiUserInfo.role; 
-        const userRolesArray = userApiRole ? [userApiRole] : []; 
-
-        token.value = receivedToken;
-        userInfo.value = {
+        const fullUserInfo: UserInfo = {
           id: receivedApiUserInfo.id,
           username: receivedApiUserInfo.username,
           email: receivedApiUserInfo.email || undefined,
           avatar: receivedApiUserInfo.avatar || avatar.value || '',
           role: receivedApiUserInfo.role, 
-          roles: userRolesArray,         
+          roles: receivedApiUserInfo.role ? [receivedApiUserInfo.role] : [],         
           permissions: receivedApiUserInfo.permissions || [],
           createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
           studentInfo: receivedApiUserInfo.studentInfo || null,
-          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username, // Fallback to username if display_name is not present
-          phone: receivedApiUserInfo.phone || null // Add phone field
+          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username,
+          phone: receivedApiUserInfo.phone || null
         };
-        
-        username.value = receivedApiUserInfo.username;
-        avatar.value = userInfo.value.avatar; 
-        roles.value = userRolesArray; 
 
-        localStorage.setItem('token', receivedToken);
-        if (avatar.value) {
-           localStorage.setItem('user_avatar_url', avatar.value);
-        }
+        _updateState(receivedToken, fullUserInfo);
+        
         console.log('[userStore loginAction] Returning true from success path.');
         return true;
       } else {
@@ -96,39 +127,24 @@ export const useUserStore = defineStore('user', () => {
       if (res.code === 200 && res.data) {
         const receivedApiUserInfo = res.data; // UserInfo from API
 
-        const userApiRole = receivedApiUserInfo.role; // e.g., "admin"
-        const userRolesArray = userApiRole ? [userApiRole] : []; // e.g., ["admin"]
-
-        userInfo.value = {
+        const fullUserInfo: UserInfo = {
           id: receivedApiUserInfo.id,
           username: receivedApiUserInfo.username,
           email: receivedApiUserInfo.email || undefined,
           avatar: receivedApiUserInfo.avatar,
-          role: receivedApiUserInfo.role, // Keep original role
-          roles: userRolesArray,         // Store derived roles array
-          permissions: receivedApiUserInfo.permissions || [], // Ensure permissions is an array
+          role: receivedApiUserInfo.role,
+          roles: receivedApiUserInfo.role ? [receivedApiUserInfo.role] : [],
+          permissions: receivedApiUserInfo.permissions || [],
           createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
-          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username, // Fallback to username
-          studentInfo: receivedApiUserInfo.studentInfo || null, // Add studentInfo here
-          phone: receivedApiUserInfo.phone || null // Add phone field
+          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username,
+          studentInfo: receivedApiUserInfo.studentInfo || null,
+          phone: receivedApiUserInfo.phone || null
         };
-        username.value = receivedApiUserInfo.username;
-        if (receivedApiUserInfo.avatar) {
-          avatar.value = receivedApiUserInfo.avatar;
-        }
-        // CRITICAL FIX: Ensure the standalone roles ref is updated
-        roles.value = userRolesArray; 
-        
-        // Update standalone permissions ref as well, for consistency if it exists and is used elsewhere directly
-        // If you only use permissions via userInfo.value.permissions, this line is optional
-        if (typeof permissions !== 'undefined' && permissions.value !== undefined) { // Check if permissions ref exists
-            permissions.value = receivedApiUserInfo.permissions || [];
-        }
 
-        // Sync avatar to localStorage if fetched
-        if (avatar.value) {
-            localStorage.setItem('user_avatar_url', avatar.value);
+        if (token.value) {
+          _updateState(token.value, fullUserInfo);
         }
+        
         return true
       } else {
         // Added log for failure case
@@ -185,6 +201,7 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user_avatar_url') 
     localStorage.removeItem('user-info'); // Ensure this is here from previous steps
+    sessionStorage.removeItem(USER_INFO_KEY); // Clear sessionStorage too
 
     console.log('[userStore resetState] State reset. Attempting to redirect to /login...');
     router.push('/login').catch(err => {
@@ -321,7 +338,8 @@ export const useUserStore = defineStore('user', () => {
     setUserInfo,
     loadUserInfo,
     updateUserEmailAction,
-    fetchAndSetUserInfo
+    fetchAndSetUserInfo,
+    rehydrateStateFromSession
   }
 }, {
   // Optional: Enable persistence if needed, though manual localStorage is used here

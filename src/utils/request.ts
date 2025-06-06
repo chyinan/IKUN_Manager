@@ -121,21 +121,11 @@ service.interceptors.response.use(
         console.error(' [Response Interceptor] Error Response Headers:', error.response.headers);
 
         // **处理 Token 过期或无效**
+        // The interceptor's job is to report the error, not handle application logic.
+        // The caller (e.g., router guard's getInfo call) will catch this and decide to logout.
         if (error.response.status === 401 || error.response.status === 403) {
-          const userStore = useUserStore(); // 获取 user store 实例
-          // 检查后端返回的消息是否明确指示 Token 问题
-          const message = error.response.data?.message || '';
-          if (message.includes('过期') || message.includes('无效') || message.includes('未认证') || error.response.status === 401) {
-            console.warn('[Response Interceptor] Token expired or invalid (HTTP 401/403). Redirecting to login...');
-            // 避免重复弹窗
-            if (!window.location.pathname.includes('/login')) {
-              ElMessage.error(message || '登录状态已失效，请重新登录');
-              userStore.resetState(); // 清除本地状态和 token
-              window.location.href = '/login'; // 强制跳转并刷新页面
-            }
-            // 返回一个永远不会 resolve 的 Promise 来中断后续的 .catch
-            return new Promise(() => {}); 
-          }
+            console.warn('[Response Interceptor] HTTP 401/403 detected. Rejecting promise for caller to handle.');
+            // Do NOT handle logout here. Just pass the error along.
         }
         
         // 显示通用错误消息 (如果不是 Token 问题)

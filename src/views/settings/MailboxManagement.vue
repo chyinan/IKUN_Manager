@@ -43,6 +43,24 @@
       @close="resetDialog"
       append-to-body
     >
+      <div v-if="activeThread">
+        <!-- Status Changer -->
+        <div class="status-changer">
+            <span>处理状态:</span>
+            <el-select 
+              v-model="activeThread.status" 
+              placeholder="更新状态" 
+              @change="handleStatusChange"
+              style="margin-left: 10px;"
+            >
+                <el-option label="待处理" value="open"></el-option>
+                <el-option label="受理中" value="in_progress"></el-option>
+                <el-option label="已回复" value="replied"></el-option>
+                <el-option label="已解决" value="resolved"></el-option>
+                <el-option label="已拒绝" value="rejected"></el-option>
+            </el-select>
+        </div>
+
         <!-- Chat History -->
         <div class="chat-history" ref="chatHistoryRef">
             <div v-for="message in messageList" :key="message.id" class="message-item" :class="{'is-self': message.sender_role === 'admin'}">
@@ -75,21 +93,22 @@
                 </el-button>
             </div>
         </el-form>
+      </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
-import { getAdminThreads, getMessages, postReply } from '@/api/mailbox';
-import type { Thread, Message } from '@/api/mailbox';
+import { getAdminThreads, getMessagesInThread, replyToThread, updateThreadStatus } from '@/api/mailbox';
+import type { MailboxThread, Message, ThreadStatus } from '@/api/mailbox';
 import { ElMessage, ElNotification } from 'element-plus';
 import { ChatDotRound, UserFilled } from '@element-plus/icons-vue';
 
 const loading = ref(true);
-const threadList = ref<Thread[]>([]);
+const threadList = ref<MailboxThread[]>([]);
 const dialogVisible = ref(false);
-const activeThread = ref<Thread | null>(null);
+const activeThread = ref<MailboxThread | null>(null);
 const messageList = ref<Message[]>([]);
 const replyContent = ref('');
 const replying = ref(false);
@@ -108,16 +127,34 @@ const fetchThreads = async () => {
   }
 };
 
-const handleViewDetails = async (thread: Thread) => {
+const handleViewDetails = async (thread: MailboxThread) => {
   activeThread.value = thread;
   dialogVisible.value = true;
   try {
-    const { data } = await getMessages(thread.id);
+    const { data } = await getMessagesInThread(thread.id);
     messageList.value = data;
     scrollToBottom();
   } catch (error) {
     console.error("Failed to fetch messages:", error);
     ElMessage.error("获取对话详情失败");
+  }
+};
+
+const handleStatusChange = async (newStatus: ThreadStatus) => {
+  if (!activeThread.value) return;
+  try {
+    await updateThreadStatus(activeThread.value.id, newStatus);
+    ElNotification.success(`状态已更新为: ${formatStatus(newStatus)}`);
+    // Refresh the main list to show the new status tag
+    fetchThreads();
+  } catch (error) {
+    console.error("Failed to update status:", error);
+    ElMessage.error("状态更新失败");
+    // Revert the change in the UI on failure
+    const originalThread = threadList.value.find(t => t.id === activeThread.value!.id);
+    if (originalThread) {
+        activeThread.value.status = originalThread.status;
+    }
   }
 };
 
@@ -128,13 +165,11 @@ const handleReplySubmit = async () => {
   }
   replying.value = true;
   try {
-    await postReply(activeThread.value.id, { content: replyContent.value });
+    await replyToThread(activeThread.value.id, replyContent.value);
     ElNotification.success('回复发送成功');
-    // Refresh message list
-    const { data } = await getMessages(activeThread.value.id);
+    const { data } = await getMessagesInThread(activeThread.value.id);
     messageList.value = data;
     scrollToBottom();
-    // Refresh thread list to update status
     fetchThreads();
     replyContent.value = '';
   } catch (error) {
@@ -160,31 +195,35 @@ const scrollToBottom = () => {
     });
 };
 
-const getStatusTagType = (status: Thread['status']) => {
+const getStatusTagType = (status: MailboxThread['status']) => {
   switch (status) {
     case 'open':
       return 'danger';
-    case 'replied_by_student':
-      return 'warning';
-    case 'replied_by_admin':
+    case 'in_progress':
+      return 'primary';
+    case 'replied':
       return 'success';
-    case 'closed':
+    case 'resolved':
       return 'info';
+    case 'rejected':
+        return 'warning';
     default:
       return 'info';
   }
 };
 
-const formatStatus = (status: Thread['status']) => {
+const formatStatus = (status: MailboxThread['status']) => {
   switch (status) {
     case 'open':
       return '待处理';
-    case 'replied_by_student':
-      return '学生追问';
-    case 'replied_by_admin':
-      return '已回复';
-    case 'closed':
-      return '已关闭';
+    case 'in_progress':
+        return '受理中';
+    case 'replied':
+        return '已回复';
+    case 'resolved':
+      return '已解决';
+    case 'rejected':
+        return '已拒绝';
     default:
       return '未知';
   }
@@ -198,6 +237,14 @@ onMounted(() => {
 <style scoped>
 .app-container {
   padding: 20px;
+}
+
+.status-changer {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ebeef5;
 }
 
 .chat-history {

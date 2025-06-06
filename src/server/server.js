@@ -283,21 +283,27 @@ app.post(`${apiPrefix}/user/login`, async (req, res) => {
     const result = await userService.loginUser(username, password); 
     console.log(`用户 ${result.data.username} (显示名: ${result.data.display_name || 'N/A'}, ID: ${result.data.id}, Role: ${result.data.role}) 登录成功`);
 
-    const avatarUrl = result.data.avatar ? `/uploads/${result.data.avatar}` : null;
+    // After successful login, immediately fetch the complete user info using the user ID
+    const fullUserInfo = await userService.findUserById(result.data.id);
+    if (!fullUserInfo) {
+      // This case is unlikely but good to handle
+      throw new Error('登录成功后无法立即获取完整的用户信息');
+    }
+
+    const { password: P, ...userSafeInfo } = fullUserInfo;
+    const avatarUrl = userSafeInfo.avatar ? `/uploads/${userSafeInfo.avatar}` : null;
+    
+    // Combine the token with the complete, safe user info
+    const responseData = {
+      token: result.token,
+      ...userSafeInfo, // Spread all safe user info
+      avatar: avatarUrl, // Override avatar with the correct URL
+    };
 
     res.json({
       code: 200,
       message: '登录成功',
-      data: { 
-        token: result.token,
-        id: result.data.id,
-        username: result.data.username,
-        role: result.data.role,
-        avatar: avatarUrl, 
-        display_name: result.data.display_name, // Ensure display_name is included
-        studentInfo: result.data.studentInfo, 
-        email: result.data.email 
-      },
+      data: responseData,
     });
   } catch (error) {
     console.error(`登录失败: 用户名/学号=${username}, 错误:`, error.message, error.stack); // Log stack for better debugging
@@ -2488,6 +2494,33 @@ app.post(`${apiPrefix}/mailbox/threads/:threadId/reply`, authenticateToken, asyn
              return res.status(400).json({ code: 400, message: error.message });
         }
         res.status(500).json({ code: 500, message: '回复失败: ' + error.message });
+    }
+});
+
+// [Admin] Update thread status
+app.put(`${apiPrefix}/mailbox/threads/:threadId/status`, authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const threadId = parseInt(req.params.threadId, 10);
+        if (isNaN(threadId)) return res.status(400).json({ code: 400, message: '无效的主题ID' });
+
+        const { status } = req.body;
+        if (!status) {
+            return res.status(400).json({ code: 400, message: '缺少状态信息' });
+        }
+        
+        const success = await mailboxService.updateThreadStatus(threadId, status, req.user.username);
+
+        if (success) {
+            res.json({ code: 200, message: '状态更新成功' });
+        } else {
+            res.status(404).json({ code: 404, message: '更新状态失败，未找到对应主题' });
+        }
+    } catch (error) {
+        console.error(`[API] Error updating status for thread ${req.params.threadId}:`, error);
+        if (error.message.includes('无效的状态')) {
+            return res.status(400).json({ code: 400, message: error.message });
+        }
+        res.status(500).json({ code: 500, message: '更新状态失败: ' + error.message });
     }
 });
 

@@ -85,10 +85,15 @@ async function replyToThread(threadId, senderUserId, content) {
         const messageId = messageResult.insertId;
 
         // 3. Determine and update the new status
-        // The ENUM in DB is ('open', 'closed_by_student', 'closed_by_admin').
-        // On any new reply, we'll set status to 'open' to ensure the thread is active.
-        // This action will also trigger the 'update_time' column to be set to CURRENT_TIMESTAMP automatically.
-        const newStatus = 'open';
+        let newStatus = thread.status;
+        if (sender.role === 'admin') {
+            newStatus = 'replied'; // Admin reply sets status to 'replied'
+        } else if (sender.role === 'student') {
+            // If student replies, we can consider it 'open' again or a specific 'student_replied' status
+            // For now, let's just make it 'open' so admins know there is a new message.
+            newStatus = 'open';
+        }
+        
         const updateThreadSql = 'UPDATE message_threads SET status = ? WHERE id = ?';
         await connection.query(updateThreadSql, [newStatus, threadId]);
 
@@ -113,6 +118,42 @@ async function replyToThread(threadId, senderUserId, content) {
 }
 
 /**
+ * [Admin] Updates the status of a message thread.
+ * @param {number} threadId - The ID of the thread to update.
+ * @param {string} newStatus - The new status to set.
+ * @param {string} operatorUsername - The username of the admin performing the action.
+ * @returns {Promise<boolean>} A promise that resolves to true if successful.
+ */
+async function updateThreadStatus(threadId, newStatus, operatorUsername) {
+    try {
+        const allowedStatus = ['open', 'in_progress', 'replied', 'resolved', 'rejected'];
+        if (!allowedStatus.includes(newStatus)) {
+            throw new Error(`无效的状态: ${newStatus}`);
+        }
+        console.log(`[MailboxService] Updating thread ${threadId} to status '${newStatus}' by ${operatorUsername}`);
+
+        const sql = 'UPDATE message_threads SET status = ? WHERE id = ?';
+        const result = await db.query(sql, [newStatus, threadId]);
+
+        if (result.affectedRows > 0) {
+            logService.addLogEntry({
+                type: 'mailbox',
+                operation: '更新状态',
+                content: `管理员 '${operatorUsername}' 将主题 (ID: ${threadId}) 的状态更新为 '${newStatus}'`,
+                operator: operatorUsername
+            });
+            return true;
+        } else {
+            console.warn(`[MailboxService] Attempted to update status for non-existent thread ID: ${threadId}`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`[MailboxService] Error updating thread status for thread ${threadId}:`, error);
+        throw error;
+    }
+}
+
+/**
  * [Student] Gets all threads for a specific student.
  * @param {number} studentUserId - The student's user ID.
  * @returns {Promise<Array>} A list of threads.
@@ -121,18 +162,21 @@ async function getThreadsForStudent(studentUserId) {
     try {
         const sql = `
             SELECT 
-                t.id, 
-                t.title, 
+                t.id,
+                t.title,
                 t.status,
-                DATE_FORMAT(t.create_time, '%Y-%m-%d %H:%i') as created_at,
-                DATE_FORMAT(t.update_time, '%Y-%m-%d %H:%i') as last_reply_at,
+                t.create_time AS created_at,
+                t.update_time AS last_reply_at,
+                (SELECT m.content FROM messages m WHERE m.thread_id = t.id ORDER BY m.create_time DESC LIMIT 1) as last_message_content,
                 (SELECT COUNT(*) FROM messages m WHERE m.thread_id = t.id AND m.is_read = 0 AND m.sender_user_id != ?) as unread_count
             FROM message_threads t
             WHERE t.student_user_id = ?
-            ORDER BY t.update_time DESC, t.create_time DESC
+            ORDER BY t.update_time DESC;
         `;
-        const [threads] = await db.query(sql, [studentUserId, studentUserId]);
-        return threads;
+        
+        const threads = await db.query(sql, [studentUserId, studentUserId]);
+        
+        return Array.isArray(threads) ? threads : [];
     } catch (error) {
         console.error('[MailboxService] Error getting threads for student:', error);
         throw error;
@@ -161,8 +205,8 @@ async function getThreadsForAdmin(params = {}) {
             ORDER BY t.update_time DESC, t.create_time DESC
         `;
         // TODO: Add pagination based on params
-        const [threads] = await db.query(sql);
-        return threads;
+        const threads = await db.query(sql);
+        return Array.isArray(threads) ? threads : [];
     } catch (error) {
         console.error('[MailboxService] Error getting threads for admin:', error);
         throw error;
@@ -187,14 +231,14 @@ async function getMessagesInThread(threadId, requesterUserId) {
                 m.thread_id,
                 m.sender_user_id,
                 m.content,
-                DATE_FORMAT(m.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
+                DATE_FORMAT(m.create_time, '%Y-%m-%d %H:%i:%s') as created_at,
                 u.role as sender_role,
                 u.display_name as sender_name,
                 u.avatar as sender_avatar
             FROM messages m
             JOIN user u ON m.sender_user_id = u.id
             WHERE m.thread_id = ?
-            ORDER BY m.created_at ASC
+            ORDER BY m.create_time ASC
         `;
         const [messages] = await connection.query(getMessagesSql, [threadId]);
 
@@ -232,4 +276,5 @@ module.exports = {
   getThreadsForStudent,
   getThreadsForAdmin,
   getMessagesInThread,
+  updateThreadStatus,
 }; 

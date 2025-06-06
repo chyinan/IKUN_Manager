@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 06/06/2025 16:41:37
+ Date: 06/06/2025 18:34:31
 */
 
 SET NAMES utf8mb4;
@@ -293,11 +293,12 @@ CREATE TABLE `message_threads`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_student_user_id`(`student_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_thread_student_user` FOREIGN KEY (`student_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱主题表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱主题表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of message_threads
 -- ----------------------------
+INSERT INTO `message_threads` VALUES (1, 8, '宿舍断电', 'open', '2025-06-06 18:27:43', '2025-06-06 18:27:43');
 
 -- ----------------------------
 -- Table structure for messages
@@ -315,11 +316,12 @@ CREATE TABLE `messages`  (
   INDEX `idx_sender_user_id`(`sender_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_message_sender_user` FOREIGN KEY (`sender_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_message_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of messages
 -- ----------------------------
+INSERT INTO `messages` VALUES (1, 1, 8, '每晚11点就断电怎么行？？？我还要写代码呢', 0, '2025-06-06 18:27:43');
 
 -- ----------------------------
 -- Table structure for student
@@ -523,7 +525,7 @@ CREATE TABLE `system_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2948 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2965 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_log
@@ -811,6 +813,23 @@ INSERT INTO `system_log` VALUES (2944, 'auth', '登录成功', '登录成功 用
 INSERT INTO `system_log` VALUES (2945, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:04:59');
 INSERT INTO `system_log` VALUES (2946, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:12:50');
 INSERT INTO `system_log` VALUES (2947, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 16:38:26');
+INSERT INTO `system_log` VALUES (2948, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:56:07');
+INSERT INTO `system_log` VALUES (2949, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:56:10');
+INSERT INTO `system_log` VALUES (2950, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:56:20');
+INSERT INTO `system_log` VALUES (2951, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:57:38');
+INSERT INTO `system_log` VALUES (2952, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 17:30:36');
+INSERT INTO `system_log` VALUES (2953, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 17:30:53');
+INSERT INTO `system_log` VALUES (2954, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:09:37');
+INSERT INTO `system_log` VALUES (2955, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:16:21');
+INSERT INTO `system_log` VALUES (2956, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:18:04');
+INSERT INTO `system_log` VALUES (2957, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:19:35');
+INSERT INTO `system_log` VALUES (2958, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:20:52');
+INSERT INTO `system_log` VALUES (2959, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:25:43');
+INSERT INTO `system_log` VALUES (2960, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:27:06');
+INSERT INTO `system_log` VALUES (2961, 'mailbox', '创建主题', '创建主题 学生 (用户ID: 8) 创建了新的信箱主题: \"宿舍断电\" (主题ID: 1)', 'User:8', '2025-06-06 18:27:43');
+INSERT INTO `system_log` VALUES (2962, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:30:46');
+INSERT INTO `system_log` VALUES (2963, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:31:00');
+INSERT INTO `system_log` VALUES (2964, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:31:54');
 
 -- ----------------------------
 -- Table structure for user

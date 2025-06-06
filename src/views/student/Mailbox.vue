@@ -1,90 +1,70 @@
 <template>
-  <div class="app-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>我的信箱</span>
-          <el-button type="primary" :icon="EditPen" @click="handleOpenNewThreadDialog">
-            发起新建议
-          </el-button>
+  <div class="mailbox-container">
+    <el-card shadow="never">
+      <div v-if="!selectedThreadId" class="thread-list-view">
+        <div class="list-header">
+          <h2>我的信箱</h2>
+          <el-button type="primary" :icon="Edit" @click="openNewThreadDialog">发起新对话</el-button>
         </div>
-      </template>
-
-      <el-table v-loading="loading" :data="threadList" border stripe>
-        <el-table-column prop="title" label="主题" min-width="250" />
-        <el-table-column prop="status" label="状态" width="150" align="center">
-          <template #default="{ row }">
-            <el-badge :is-dot="row.unread_count > 0" class="status-badge">
-              <el-tag :type="getStatusTagType(row.status)">
-                {{ formatStatus(row.status) }}
+        <el-table :data="threads" v-loading="loading" empty-text="您还没有任何对话记录">
+          <el-table-column prop="title" label="主题" />
+          <el-table-column prop="status" label="状态" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'closed' ? 'info' : (row.last_replier_role === 'admin' ? 'success' : 'warning')">
+                {{ row.last_replier_role === 'admin' ? '已回复' : '待回复' }}
               </el-tag>
-            </el-badge>
-          </template>
-        </el-table-column>
-        <el-table-column prop="last_reply_at" label="最后更新" width="180" align="center" />
-        <el-table-column prop="created_at" label="发起时间" width="180" align="center" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="last_replier_name" label="最新回复" width="150" />
+          <el-table-column prop="update_time" label="更新时间" width="180">
+             <template #default="{ row }">
+              {{ formatTime(row.update_time) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="selectThread(row.id)">查看</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
-        <el-table-column label="操作" width="120" fixed="right" align="center">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="handleViewDetails(row)">
-               <el-icon><ChatDotRound /></el-icon>
-              查看/回复
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <!-- Details/Reply Dialog -->
-    <el-dialog
-      v-model="detailsDialogVisible"
-      :title="`对话详情: ${activeThread?.title}`"
-      width="45%"
-      @close="resetDetailsDialog"
-      append-to-body
-    >
-      <div class="chat-history" ref="chatHistoryRef">
-        <div v-for="message in messageList" :key="message.id" class="message-item" :class="{'is-self': message.sender_role === 'student'}">
-          <el-avatar :size="40" :src="message.sender_avatar" class="avatar">
-             <el-icon><UserFilled /></el-icon>
-          </el-avatar>
-          <div class="message-content">
-            <div class="sender-info">
-              <span class="name">{{ message.sender_name }}</span>
-              <span class="time">{{ message.created_at }}</span>
+      <div v-else class="thread-detail-view">
+        <el-page-header @back="selectedThreadId = null" :content="selectedThread?.title || '对话详情'" />
+        <div class="messages-area" ref="messagesAreaRef">
+          <div v-for="message in messages" :key="message.id" class="message" :class="{ 'my-message': message.sender_user_id === userStore.id }">
+            <el-avatar :src="message.sender_avatar" :icon="UserFilled" size="small" />
+            <div class="message-content">
+              <div class="message-sender">{{ message.sender_name }} <span class="message-time">{{ formatTime(message.create_time) }}</span></div>
+              <div class="message-bubble" v-html="message.content"></div>
             </div>
-            <div class="bubble">{{ message.content }}</div>
           </div>
         </div>
-      </div>
-      <el-form @submit.prevent="handleReplySubmit" class="reply-form">
-        <el-input v-model="replyContent" type="textarea" :rows="4" placeholder="在此输入回复内容..." :disabled="replying" />
-        <div class="dialog-footer" style="text-align: right; margin-top: 15px;">
-          <el-button @click="detailsDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleReplySubmit" :loading="replying">发送回复</el-button>
+        <div class="reply-area">
+          <el-input
+            v-model="replyContent"
+            type="textarea"
+            :rows="4"
+            placeholder="在此输入您的回复..."
+            :disabled="replying"
+          />
+          <el-button type="primary" @click="sendReply" :loading="replying" style="margin-top: 10px;">发送回复</el-button>
         </div>
-      </el-form>
-    </el-dialog>
+      </div>
+    </el-card>
 
-    <!-- New Thread Dialog -->
-    <el-dialog
-      v-model="newThreadDialogVisible"
-      title="发起新建议"
-      width="40%"
-      @close="resetNewThreadDialog"
-      append-to-body
-    >
-      <el-form :model="newThreadForm" ref="newThreadFormRef" label-width="80px">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="newThreadForm.title" placeholder="请输入建议的标题" />
+    <el-dialog v-model="newThreadDialogVisible" title="发起新对话" width="50%">
+      <el-form :model="newThreadForm" label-width="80px">
+        <el-form-item label="标题">
+          <el-input v-model="newThreadForm.title" placeholder="请输入对话标题" />
         </el-form-item>
-        <el-form-item label="内容" prop="content">
-          <el-input v-model="newThreadForm.content" type="textarea" :rows="6" placeholder="请详细描述您的建议或问题" />
+        <el-form-item label="内容">
+          <el-input v-model="newThreadForm.content" type="textarea" :rows="6" placeholder="请输入您想咨询或建议的内容" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="newThreadDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleNewThreadSubmit" :loading="creating">提交</el-button>
+        <el-button type="primary" @click="submitNewThread" :loading="submitting">提交</el-button>
       </template>
     </el-dialog>
   </div>
@@ -92,203 +72,197 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, nextTick } from 'vue';
-import { getStudentThreads, getMessages, createThread, postReply } from '@/api/mailbox';
-import type { Thread, Message, CreateThreadData } from '@/api/mailbox';
-import { ElMessage, ElNotification, FormInstance } from 'element-plus';
-import { EditPen, ChatDotRound, UserFilled } from '@element-plus/icons-vue';
+import { useUserStore } from '@/stores/user';
+import { getStudentThreads, getMessagesInThread, createThread, replyToThread, type MailboxThread, type Message } from '@/api/mailbox';
+import { ElMessage } from 'element-plus';
+import { Edit, UserFilled } from '@element-plus/icons-vue';
+import dayjs from 'dayjs';
 
-const loading = ref(true);
-const threadList = ref<Thread[]>([]);
-const detailsDialogVisible = ref(false);
+const userStore = useUserStore();
+const loading = ref(false);
+const threads = ref<MailboxThread[]>([]);
+const selectedThreadId = ref<number | null>(null);
+const selectedThread = ref<MailboxThread | null>(null);
+
+const messages = ref<Message[]>([]);
+const messagesAreaRef = ref<HTMLElement | null>(null);
+
 const newThreadDialogVisible = ref(false);
-
-const activeThread = ref<Thread | null>(null);
-const messageList = ref<Message[]>([]);
-const replyContent = ref('');
-const replying = ref(false);
-const creating = ref(false);
-
-const newThreadFormRef = ref<FormInstance>();
-const newThreadForm = reactive<CreateThreadData>({
+const submitting = ref(false);
+const newThreadForm = reactive({
   title: '',
   content: '',
 });
 
-const chatHistoryRef = ref<HTMLDivElement | null>(null);
+const replyContent = ref('');
+const replying = ref(false);
+
+const formatTime = (time: string) => dayjs(time).format('YYYY-MM-DD HH:mm:ss');
 
 const fetchThreads = async () => {
   loading.value = true;
   try {
-    const { data } = await getStudentThreads();
-    threadList.value = data;
+    const res = await getStudentThreads();
+    if (res.code === 200) {
+      threads.value = res.data;
+    } else {
+      ElMessage.error(res.message || '获取对话列表失败');
+    }
   } catch (error) {
-    ElMessage.error("获取消息列表失败");
+    ElMessage.error('网络错误，无法获取对话列表');
+    console.error(error);
   } finally {
     loading.value = false;
   }
 };
 
-const handleViewDetails = async (thread: Thread) => {
-  activeThread.value = thread;
-  detailsDialogVisible.value = true;
+const selectThread = async (threadId: number) => {
+  selectedThreadId.value = threadId;
+  selectedThread.value = threads.value.find(t => t.id === threadId) || null;
+  loading.value = true;
   try {
-    const { data } = await getMessages(thread.id);
-    messageList.value = data;
-    scrollToBottom();
-    // Refresh list to clear unread dot
-    fetchThreads();
+    const res = await getMessagesInThread(threadId);
+    if (res.code === 200) {
+      messages.value = res.data;
+      await nextTick();
+      if (messagesAreaRef.value) {
+        messagesAreaRef.value.scrollTop = messagesAreaRef.value.scrollHeight;
+      }
+    } else {
+      ElMessage.error(res.message || '获取对话详情失败');
+    }
   } catch (error) {
-    ElMessage.error("获取对话详情失败");
-  }
-};
-
-const handleReplySubmit = async () => {
-  if (!replyContent.value.trim() || !activeThread.value) {
-    return;
-  }
-  replying.value = true;
-  try {
-    await postReply(activeThread.value.id, { content: replyContent.value });
-    const { data } = await getMessages(activeThread.value.id);
-    messageList.value = data;
-    scrollToBottom();
-    fetchThreads();
-    replyContent.value = '';
-  } catch (error) {
-    ElMessage.error("回复失败");
+    ElMessage.error('网络错误，无法获取对话详情');
+    console.error(error);
   } finally {
-    replying.value = false;
+    loading.value = false;
   }
 };
 
-const handleOpenNewThreadDialog = () => {
+const openNewThreadDialog = () => {
+  newThreadForm.title = '';
+  newThreadForm.content = '';
   newThreadDialogVisible.value = true;
 };
 
-const handleNewThreadSubmit = async () => {
+const submitNewThread = async () => {
   if (!newThreadForm.title.trim() || !newThreadForm.content.trim()) {
-    ElMessage.warning('标题和内容均不能为空');
+    ElMessage.warning('标题和内容不能为空');
     return;
   }
-  creating.value = true;
+  submitting.value = true;
   try {
-    await createThread(newThreadForm);
-    ElNotification.success('您的建议已成功发送！');
-    newThreadDialogVisible.value = false;
-    fetchThreads();
+    const res = await createThread(newThreadForm.title, newThreadForm.content);
+    if (res.code === 201) {
+      ElMessage.success('发起成功');
+      newThreadDialogVisible.value = false;
+      await fetchThreads();
+      selectThread(res.data.id);
+    } else {
+      ElMessage.error(res.message || '发起新对话失败');
+    }
   } catch (error) {
-    ElMessage.error("发送失败，请稍后重试");
+    ElMessage.error('网络错误，无法发起新对话');
+    console.error(error);
   } finally {
-    creating.value = false;
+    submitting.value = false;
   }
 };
 
-const resetDetailsDialog = () => {
-  activeThread.value = null;
-  messageList.value = [];
-  replyContent.value = '';
-};
-
-const resetNewThreadDialog = () => {
-  newThreadFormRef.value?.resetFields();
-  newThreadForm.title = '';
-  newThreadForm.content = '';
-};
-
-const scrollToBottom = () => {
-    nextTick(() => {
-        chatHistoryRef.value?.scrollTo({ top: chatHistoryRef.value.scrollHeight, behavior: 'smooth' });
-    });
-};
-
-const getStatusTagType = (status: Thread['status']) => {
-  switch (status) {
-    case 'open': return 'primary';
-    case 'replied_by_student': return 'warning';
-    case 'replied_by_admin': return 'success';
-    case 'closed': return 'info';
-    default: return 'info';
+const sendReply = async () => {
+  if (!replyContent.value.trim()) {
+    ElMessage.warning('回复内容不能为空');
+    return;
   }
-};
+  if (!selectedThreadId.value) return;
 
-const formatStatus = (status: Thread['status']) => {
-  switch (status) {
-    case 'open': return '待回复';
-    case 'replied_by_student': return '已追问';
-    case 'replied_by_admin': return '老师已回复';
-    case 'closed': return '已关闭';
-    default: return '未知';
+  replying.value = true;
+  try {
+    const res = await replyToThread(selectedThreadId.value, replyContent.value);
+    if (res.code === 201) {
+      replyContent.value = '';
+      messages.value.push(res.data);
+       await nextTick();
+      if (messagesAreaRef.value) {
+        messagesAreaRef.value.scrollTop = messagesAreaRef.value.scrollHeight;
+      }
+      // Refresh thread list in background to update status
+      fetchThreads();
+    } else {
+      ElMessage.error(res.message || '回复失败');
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，无法发送回复');
+    console.error(error);
+  } finally {
+    replying.value = false;
   }
 };
 
 onMounted(fetchThreads);
 </script>
 
-<style scoped>
-.app-container {
+<style scoped lang="scss">
+.mailbox-container {
   padding: 20px;
 }
-.card-header {
+.list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
 }
-.status-badge {
-  margin-top: 10px;
-}
-.chat-history {
+.thread-detail-view {
+  .el-page-header {
+    margin-bottom: 20px;
+  }
+  .messages-area {
     height: 400px;
     overflow-y: auto;
-    padding: 10px;
-    border: 1px solid #ebeef5;
-    margin-bottom: 20px;
+    border: 1px solid #dcdfe6;
     border-radius: 4px;
-    background-color: #f9f9f9;
-}
-.message-item {
-    display: flex;
-    margin-bottom: 15px;
-}
-.message-item .avatar {
-    margin-right: 10px;
-}
-.message-content {
-    display: flex;
-    flex-direction: column;
-}
-.sender-info {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-}
-.sender-info .name {
-    font-weight: bold;
-    margin-right: 8px;
-}
-.sender-info .time {
-    font-size: 12px;
-    color: #999;
-}
-.bubble {
-    background-color: #ffffff;
-    padding: 10px 15px;
-    border-radius: 15px;
-    max-width: 100%;
-    word-wrap: break-word;
-    border: 1px solid #e5e5e5;
-}
-.message-item.is-self {
-    flex-direction: row-reverse;
-}
-.message-item.is-self .avatar {
-    margin-left: 10px;
-    margin-right: 0;
-}
-.message-item.is-self .message-content {
-    align-items: flex-end;
-}
-.message-item.is-self .bubble {
-    background-color: #e1f3ff;
-    border-color: #b3d8ff;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #f5f7fa;
+
+    .message {
+      display: flex;
+      margin-bottom: 15px;
+
+      .message-content {
+        margin-left: 10px;
+        .message-sender {
+          font-size: 12px;
+          color: #909399;
+          margin-bottom: 5px;
+          .message-time {
+            margin-left: 8px;
+          }
+        }
+        .message-bubble {
+          background-color: #ffffff;
+          padding: 10px 15px;
+          border-radius: 15px;
+          display: inline-block;
+          max-width: 100%;
+          white-space: pre-wrap;
+          word-break: break-all;
+        }
+      }
+
+      &.my-message {
+        flex-direction: row-reverse;
+        .message-content {
+          margin-left: 0;
+          margin-right: 10px;
+          text-align: right;
+           .message-bubble {
+             background-color: #a0cfff;
+             text-align: left;
+           }
+        }
+      }
+    }
+  }
 }
 </style> 

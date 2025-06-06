@@ -1,8 +1,8 @@
 # IKUN Manager
-
+![LOGO](docs/logo.png)
 ## 项目简介
 一个基于 Vue3 + Element Plus + TypeScript 开发的 **可运行于 Web 或打包为桌面应用** 的学员/员工信息管理系统。主要功能包括部门、员工、班级、学生、考试、成绩管理、日志监控、系统设置以及数据可视化等。
-
+![登录功能截图](docs/login-feature.png)
 ## 技术栈
 - **前端**: Vue 3, TypeScript, Vite, Element Plus, Pinia, Vue Router, Axios, ECharts, Socket.IO Client
 - **后端**: Node.js, Express, MySQL, Socket.IO, node-cron, multer, xlsx, papaparse

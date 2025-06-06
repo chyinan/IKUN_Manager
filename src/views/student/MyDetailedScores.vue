@@ -215,15 +215,45 @@ const fetchScoreReport = async () => {
     // console.log('[MyDetailedScores.vue DEBUG] Using studentId to fetch report:', studentIdToFetch); // This line is redundant
     // Use currentStudentPk directly in the API call
     const res = await getStudentScoreReport(currentStudentPk, selectedExamId.value);
-    if (res.code === 200) {
+    if (res.code === 200 && res.data) {
       scoreReport.value = res.data;
-      if (scoreReport.value) {
-        await nextTick();
-        initRadarChart();
-        initBarChart();
+      console.log('[MyDetailedScores.vue DEBUG] scoreReport.value assigned. Checking refs immediately:', {
+          radar: radarChartRef.value, // Log ref value BEFORE nextTick
+          bar: barChartRef.value
+      });
+
+      if (scoreReport.value && scoreReport.value.subject_details && scoreReport.value.total_score_details) {
+        // 使用 nextTick 来确保 DOM 已经更新
+        nextTick(() => {
+          console.log('[MyDetailedScores.vue DEBUG] Inside nextTick. Checking refs again:', {
+              radar: radarChartRef.value, // Log ref value INSIDE nextTick
+              bar: barChartRef.value
+          });
+
+          if (radarChartRef.value && barChartRef.value) { // 再次确认 ref 是否有效
+            console.log('[MyDetailedScores.vue DEBUG] Refs are available. Calling initRadarChart and initBarChart.');
+            initRadarChart();
+            initBarChart();
+          } else {
+            console.error('[MyDetailedScores.vue DEBUG] Critical: Refs are STILL NOT available even inside nextTick.', {
+                radar: radarChartRef.value,
+                bar: barChartRef.value
+            });
+            // 进一步的调试可能需要检查 v-if 条件和组件的渲染流程
+            if(radarChartRef.value === null && document.querySelector('.my-detailed-scores-container div[ref="radarChartRef"]')) {
+                console.warn('[MyDetailedScores.vue DEBUG] radarChartRef is null, but a DOM element with that ref name might exist (check querySelector). This indicates a Vue reactivity issue with the ref itself.')
+            }
+             if (!scoreReport.value) {
+                console.warn('[MyDetailedScores.vue DEBUG] scoreReport.value is null/undefined inside nextTick, v-if might have hidden the chart section again.');
+            }
+          }
+        });
+      } else {
+        console.warn('[MyDetailedScores.vue DEBUG] scoreReport.value is missing subject_details or total_score_details after assignment.');
       }
     } else {
-      ElMessage.error(res.message || '获取成绩报告失败');
+      console.error('[MyDetailedScores.vue DEBUG] Failed to fetch score report or res.data is null/undefined.', res);
+      ElMessage.error(res.message || '获取成绩报告失败，无数据返回');
     }
   } catch (error) {
     ElMessage.error('获取成绩报告时发生网络错误');
@@ -251,32 +281,112 @@ const handleExamNameChange = (examIdValue: number | string | null) => {
 };
 
 const initRadarChart = () => {
-  if (radarChartRef.value && scoreReport.value?.subject_details) {
-    const chartData = scoreReport.value.subject_details;
-    const indicators = chartData.map(item => ({
-      name: item.subject_name,
-      max: Math.max(100, item.student_score ?? 0, item.class_average_score ?? 0)
-    }));
-    const studentScores = chartData.map(item => item.student_score ?? 0);
-    const classAverageScores = chartData.map(item => item.class_average_score ?? 0);
+  console.log('[DEBUG] initRadarChart called');
+  if (radarChartInstance) {
+    radarChartInstance.dispose(); // Dispose previous instance
+  }
+  if (!radarChartRef.value) {
+    console.error('[DEBUG] radarChartRef is not available.');
+    return;
+  }
+  if (!scoreReport.value || !scoreReport.value.subject_details || scoreReport.value.subject_details.length === 0) {
+    console.warn('[DEBUG] No subject details available for radar chart.');
+    // Optionally clear the chart div or display a message
+    radarChartRef.value.innerHTML = '<p style="text-align:center; color:#999;">无科目数据显示</p>';
+    return;
+  }
 
+  try {
     radarChartInstance = echarts.init(radarChartRef.value);
-    radarChartInstance.setOption({
-      title: { text: '科目成绩对比雷达图', left: 'center' },
-      tooltip: { trigger: 'item' },
-      legend: { data: ['我的得分', '班级平均分'], bottom: 5, type: 'scroll' },
-      radar: { indicator: indicators, shape: 'circle', center: ['50%', '55%'], radius: '65%', splitNumber: 5 },
-      series: [{
-        name: '成绩对比',
-        type: 'radar',
-        data: [
-          { value: studentScores, name: '我的得分' },
-          { value: classAverageScores, name: '班级平均分' }
-        ],
-        symbolSize: 8,
-        lineStyle: { width: 2 }
-      }]
-    });
+    console.log('[DEBUG] Radar chart instance created.');
+
+    // --- Data Preparation Logic START ---
+    const indicators = scoreReport.value.subject_details.map(subject => ({
+      name: subject.subject,
+      // IMPORTANT: Determine a 'max' value for each subject.
+      // This could be a fixed value (e.g., 100 or 150 if all subjects have the same full marks)
+      // or dynamically determined if full marks vary and are available in subject_details.
+      // For now, let's assume a default max, e.g., 100. Replace with actual logic.
+      max: subject.full_score ?? 100 // Use dynamic full_score, fallback to 100
+    }));
+    console.log('[DEBUG] Radar indicators:', JSON.parse(JSON.stringify(indicators)));
+
+    const studentScores = scoreReport.value.subject_details.map(subject => subject.student_score ?? 0);
+    console.log('[DEBUG] Radar student scores:', JSON.parse(JSON.stringify(studentScores)));
+
+    const classAverageScores = scoreReport.value.subject_details.map(subject => subject.class_average_score ?? 0);
+     console.log('[DEBUG] Radar class average scores:', JSON.parse(JSON.stringify(classAverageScores)));
+    // --- Data Preparation Logic END ---
+
+    const option = {
+      title: {
+        text: '科目成绩雷达图',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item' // Show tooltip when hovering over data points
+      },
+      legend: {
+        data: ['我的得分', '班级平均分'],
+        bottom: 10 // Position legend at the bottom
+      },
+      radar: {
+        indicator: indicators,
+        shape: 'circle', // Or 'polygon'
+        splitNumber: 5, // Number of split segments
+        axisName: {
+            color: '#333',
+            fontSize: 12
+        },
+        splitArea: {
+            areaStyle: {
+                color: ['rgba(250,250,250,0.1)', 'rgba(200,200,200,0.1)'], // Alternating background colors for segments
+            }
+        },
+        axisLine: { // Axis line style
+            lineStyle: {
+                color: 'rgba(150,150,150,0.5)'
+            }
+        },
+        splitLine: { // Split line style
+            lineStyle: {
+                color: 'rgba(150,150,150,0.5)'
+            }
+        }
+      },
+      series: [
+        {
+          name: '成绩对比', // This name is often for overall series, individual names are in legend.data
+          type: 'radar',
+          data: [
+            {
+              value: studentScores,
+              name: '我的得分',
+              itemStyle: { color: '#5470C6' }, // Color for student scores
+              lineStyle: { width: 2 },
+              areaStyle: { color: 'rgba(84, 112, 198, 0.2)'} // Fill area for student scores
+            },
+            {
+              value: classAverageScores,
+              name: '班级平均分',
+              itemStyle: { color: '#91CC75' }, // Color for class average
+              lineStyle: { width: 2 },
+              areaStyle: { color: 'rgba(145, 204, 117, 0.2)'} // Fill area for class average
+            }
+          ]
+        }
+      ]
+    };
+    console.log('[DEBUG] Radar chart option:', JSON.parse(JSON.stringify(option)));
+
+    radarChartInstance.setOption(option);
+    console.log('[DEBUG] Radar chart option set.');
+
+  } catch (error) {
+    console.error('[DEBUG] Error initializing radar chart:', error);
+    if (radarChartRef.value) {
+        radarChartRef.value.innerHTML = `<p style="text-align:center; color:red;">雷达图加载失败: ${error.message}</p>`;
+    }
   }
 };
 

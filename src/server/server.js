@@ -12,6 +12,7 @@ const deptService = require('./deptService');
 const classService = require('./classService');
 const studentService = require('./studentService');
 const scoreService = require('./scoreService');
+const subjectService = require('./subjectService'); // 导入 subjectService
 const logService = require('./logService');
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken
 const userService = require('./userService'); // Import userService
@@ -2268,6 +2269,28 @@ app.get(`${apiPrefix}/student/:studentId/exams-taken`, authenticateToken, async 
   }
 });
 
+// GET /api/student/:studentId/exams-upcoming - Get upcoming exams for a student
+app.get(`${apiPrefix}/student/:studentId/exams-upcoming`, authenticateToken, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.studentId, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({ code: 400, message: '无效的用户ID' });
+    }
+
+    // Security check: a student can only view their own upcoming exams. An admin can view any.
+    if (req.user.role === 'student' && req.user.id !== userId) {
+      return res.status(403).json({ code: 403, message: '无权访问该学生的待考信息' });
+    }
+
+    const exams = await scoreService.getUpcomingExamsByStudent(userId);
+    
+    res.json({ code: 200, data: exams, message: '获取待考列表成功' });
+  } catch (error) {
+    console.error(`[API] Error fetching upcoming exams for user ${req.params.studentId}:`, error);
+    res.status(500).json({ code: 500, message: '获取待考列表失败: ' + error.message, data: null });
+  }
+});
+
 // GET /api/score-report/student/:studentId/exam/:examId - Get detailed score report
 app.get(`${apiPrefix}/score-report/student/:studentId/exam/:examId`, authenticateToken, async (req, res) => {
   try {
@@ -2295,6 +2318,26 @@ app.get(`${apiPrefix}/score-report/student/:studentId/exam/:examId`, authenticat
 // --- End Student Score Report Routes ---
 
 // ... (Rest of the routes like Carousel, etc.)
+
+// 新增：获取科目列表 (需要认证)
+app.get(`${apiPrefix}/subject/list`, authenticateToken, async (req, res) => {
+  try {
+    console.log('获取科目列表');
+    const subjects = await subjectService.getSubjectList();
+    res.json({
+      code: 200,
+      data: subjects,
+      message: '获取科目列表成功'
+    });
+  } catch (error) {
+    console.error('获取科目列表失败:', error);
+    res.status(500).json({
+      code: 500,
+      message: '获取科目列表失败: ' + error.message,
+      data: null
+    });
+  }
+});
 
 // 调用 startServer 确保在所有路由定义之后
 startServer();

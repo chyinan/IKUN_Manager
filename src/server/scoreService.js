@@ -1,5 +1,6 @@
 const db = require('./db');
 const logService = require('./logService');
+const dayjs = require('dayjs');
 
 /**
  * 获取学生成绩列表
@@ -892,225 +893,351 @@ function calculateRank(studentScore, scoresArray, sortOrder = 'desc') {
  * @returns {Promise<Object|null>} 详细成绩报告对象或 null
  */
 async function generateDetailedScoreReport(studentId, examId) {
-  const report = {
-    student_info: null,
-    class_info: null,
-    exam_info: null,
-    subject_details: [],
-    total_score_details: {
-      student_total_score: null, // Initialize to null
-      class_average_total_score: null,
-      class_total_score_rank: null,
-      grade_total_score_rank: null
-    }
-  };
-
-  try {
     console.log(`[scoreService] Generating detailed score report for student ID: ${studentId}, exam ID: ${examId}`);
+    try {
+        // 1. 获取学生基本信息 (预期只有一行)
+        const studentQuery = `
+            SELECT 
+                s.id as student_db_id, 
+                s.student_id as student_identifier, 
+                s.name as student_name,
+                c.id as class_id,
+                c.class_name,
+                u.display_name as user_display_name,
+                u.avatar as user_avatar
+            FROM student s
+            LEFT JOIN class c ON s.class_id = c.id
+            LEFT JOIN user u ON s.user_id = u.id
+            WHERE s.id = ?;
+        `;
+        const studentInfoRows = await db.query(studentQuery, [studentId]);
+        if (!studentInfoRows || studentInfoRows.length === 0) {
+            console.warn(`[scoreService] Student with ID ${studentId} not found.`);
+            return null;
+        }
+        const studentInfo = studentInfoRows[0];
 
-    // --- 1. Fetch Basic Information ---
-    const studentInfoQuery = `
-      SELECT 
-        s.id, 
-        s.name, 
-        s.student_id as student_id_str, 
-        c.id as class_id, 
-        c.class_name 
-      FROM student s 
-      LEFT JOIN class c ON s.class_id = c.id 
-      WHERE s.id = ?
-    `;
-    const studentRows = await db.query(studentInfoQuery, [studentId]);
-    if (!studentRows || studentRows.length === 0) {
-      console.warn(`[scoreService] generateDetailedScoreReport: Student not found for ID ${studentId}`);
-      return null;
-    }
-    const studentData = studentRows[0];
-    report.student_info = { id: studentData.id, name: studentData.name, student_id_str: studentData.student_id_str };
-    report.class_info = studentData.class_id ? { id: studentData.class_id, name: studentData.class_name } : null;
+        // 2. 获取考试基本信息 (预期只有一行)
+        const examQuery = 'SELECT id as exam_db_id, exam_name, exam_type, exam_date FROM exam WHERE id = ?;';
+        const examInfoRows = await db.query(examQuery, [examId]);
+        if (!examInfoRows || examInfoRows.length === 0) {
+            console.warn(`[scoreService] Exam with ID ${examId} not found.`);
+            return null;
+        }
+        const examInfo = examInfoRows[0];
 
-    const examInfoQuery = `
-      SELECT 
-        e.id, 
-        e.exam_name, 
-        DATE_FORMAT(e.exam_date, '%Y-%m-%d') as exam_date, 
-        e.subjects 
-      FROM exam e 
-      WHERE e.id = ?
-    `;
-    const examRows = await db.query(examInfoQuery, [examId]);
-    if (!examRows || examRows.length === 0) {
-      console.warn(`[scoreService] generateDetailedScoreReport: Exam not found for ID ${examId}`);
-      return null;
-    }
-    const examData = examRows[0];
-    const examSubjectList = examData.subjects ? examData.subjects.split(',').map(s => s.trim()).filter(s => s.length > 0) : [];
-    report.exam_info = { id: examData.id, name: examData.exam_name, date: examData.exam_date, subjects: examSubjectList };
+        // 3. 获取本次考试的所有科目及其满分 (预期多行)
+        const examSubjectsQuery = `
+            SELECT 
+                s.subject_name as subject_name, 
+                es.full_score,
+                s.id as subject_id 
+            FROM exam_subject es
+            JOIN subject s ON es.subject_id = s.id
+            WHERE es.exam_id = ?
+            ORDER BY s.subject_name; 
+        `;
+        const examSubjects = await db.query(examSubjectsQuery, [examId]);
+        
+        const subjectFullScoreMap = {};
+        if (Array.isArray(examSubjects)) {
+            examSubjects.forEach(sub => {
+                subjectFullScoreMap[sub.subject_name] = sub.full_score;
+            });
+        }
 
-    if (examSubjectList.length === 0) {
-      console.warn(`[scoreService] generateDetailedScoreReport: Exam ID ${examId} has no subjects listed.`);
-      return report; // Return report with basic info and empty scores
-    }
-
-    const subjectPlaceholders = examSubjectList.map(() => '?').join(',');
-    
-    // --- 2. Fetch student's specific scores for each subject ---
-    const studentScoresParams = [studentId, examId, ...examSubjectList];
-    // Ensure subjectPlaceholders is not empty before using it in IN clause
-    let studentSpecificScoresRaw = [];
-    if (subjectPlaceholders.length > 0) {
+        // 4. 获取该学生本次考试的各科成绩 (预期多行)
         const studentScoresQuery = `
             SELECT subject, score 
             FROM student_score 
-            WHERE student_id = ? AND exam_id = ? AND subject IN (${subjectPlaceholders})
+            WHERE student_id = ? AND exam_id = ?;
         `;
-        studentSpecificScoresRaw = await db.query(studentScoresQuery, studentScoresParams);
-    }
-    
-    const studentScoresMap = studentSpecificScoresRaw.reduce((map, item) => {
-        const scoreVal = parseFloat(item.score);
-        map[item.subject] = !isNaN(scoreVal) ? scoreVal : null; // Store null if score is not a valid number
-        return map;
-    }, {});
+        const studentScoresRows = await db.query(studentScoresQuery, [studentInfo.student_db_id, examId]);
+        
+        const studentScoresMap = studentScoresRows.reduce((acc, row) => {
+            acc[row.subject] = parseFloat(row.score);
+            return acc;
+        }, {});
 
-    let studentTotalScoreSum = 0;
-    let studentValidScoresCount = 0;
-
-    report.subject_details = examSubjectList.map(subject => {
-        const score = studentScoresMap[subject]; 
-        const finalStudentScore = (score !== undefined && score !== null) ? score : null;
-
-        if (finalStudentScore !== null) {
-            studentTotalScoreSum += finalStudentScore;
-            studentValidScoresCount++;
-        }
-        return {
-            subject: subject,
-            student_score: finalStudentScore,
-            class_average_score: null,
-            class_rank: null,
+        // 构建报告对象以匹配前端期望的结构
+        const report = {
+            student_info: {
+                name: studentInfo.user_display_name || studentInfo.student_name,
+                student_id_str: studentInfo.student_identifier,
+                avatar: studentInfo.user_avatar ? `/uploads/${studentInfo.user_avatar}` : null,
+            },
+            class_info: {
+                name: studentInfo.class_name,
+            },
+            exam_info: {
+                id: examInfo.exam_db_id,
+                name: examInfo.exam_name,
+                type: examInfo.exam_type,
+                date: dayjs(examInfo.exam_date).format('YYYY-MM-DD HH:mm'),
+            },
+            subject_details: [],
+            total_score_details: {
+                student_total_score: 0,
+                class_average_total_score: null,
+                class_total_score_rank: null,
+                grade_total_score_rank: null,
+            },
         };
-    });
 
-    report.total_score_details.student_total_score = studentValidScoresCount > 0 ? parseFloat(studentTotalScoreSum.toFixed(2)) : null;
+        let studentTotalScore = 0;
+        for (const subjectData of examSubjects) {
+            const subjectName = subjectData.subject_name;
+            const studentScore = studentScoresMap[subjectName] ?? null;
 
-    // --- 3. Fetch scores for CLASS statistics ---
-    let classRawScores = [];
-    if (report.class_info && report.class_info.id && subjectPlaceholders.length > 0) {
-        const classScoresParams = [report.class_info.id, examId, ...examSubjectList];
-        const classScoresQuery = `
-            SELECT ss.student_id, s.name as student_name, ss.subject, ss.score 
-            FROM student_score ss 
-            JOIN student s ON ss.student_id = s.id 
-            WHERE s.class_id = ? AND ss.exam_id = ? AND ss.subject IN (${subjectPlaceholders})
+            report.subject_details.push({
+                subject: subjectName,
+                subject_id: subjectData.subject_id,
+                student_score: studentScore,
+                full_score: parseFloat(subjectFullScoreMap[subjectName] || 100),
+                class_rank: null,
+                grade_rank: null,
+                class_average_score: null,
+                grade_average: null,
+                class_highest: null,
+                grade_highest: null,
+            });
+            if (studentScore !== null) {
+                studentTotalScore += studentScore;
+            }
+        }
+        report.total_score_details.student_total_score = parseFloat(studentTotalScore.toFixed(2));
+        
+        // 5. 获取班级所有学生在此次考试的各科成绩和总分
+        const classStudentsQuery = 'SELECT id FROM student WHERE class_id = ?;';
+        const classStudentRows = await db.query(classStudentsQuery, [studentInfo.class_id]);
+        const classStudentIds = classStudentRows.map(s => s.id);
+
+        let allClassScoresForExam = [];
+        if (classStudentIds.length > 0) {
+            // 为 IN 子句创建占位符 '?, ?, ?'
+            const placeholders = classStudentIds.map(() => '?').join(',');
+            
+            const allClassScoresQuery = `
+                SELECT student_id, subject, score 
+                FROM student_score 
+                WHERE exam_id = ? AND student_id IN (${placeholders});
+            `;
+            // 将 examId 和所有学生ID平铺到参数数组中
+            allClassScoresForExam = await db.query(allClassScoresQuery, [examId, ...classStudentIds]);
+        }
+        console.log(`[scoreService] Fetched ${allClassScoresForExam.length} score entries for ${classStudentIds.length} students in class for exam ${examId}`);
+
+        // 定义一个通用的统计处理函数
+        const processScoreGroup = (rawScoresForGroup, groupType) => {
+            // 按学生ID聚合，计算每个学生的总分
+            const groupStudentTotals = rawScoresForGroup.reduce((acc, scoreEntry) => {
+                const studentId = scoreEntry.student_id;
+                const scoreValue = parseFloat(scoreEntry.score);
+                if (!isNaN(scoreValue)) {
+                    acc[studentId] = (acc[studentId] || 0) + scoreValue;
+                }
+                return acc;
+            }, {});
+
+            // 按科目聚合，计算每个科目的分数列表
+            const subjectScoresInGroup = rawScoresForGroup.reduce((acc, scoreEntry) => {
+                const subject = scoreEntry.subject;
+                const scoreValue = parseFloat(scoreEntry.score);
+                if (!isNaN(scoreValue)) {
+                    if (!acc[subject]) {
+                        acc[subject] = [];
+                    }
+                    acc[subject].push(scoreValue);
+                }
+                return acc;
+            }, {});
+
+            const allStudentTotalScores = Object.values(groupStudentTotals);
+
+            // 如果是班级维度，更新报告中的班级统计信息
+            if (groupType === 'class') {
+                // 计算总分班级平均和排名
+                if (allStudentTotalScores.length > 0) {
+                    const totalSum = allStudentTotalScores.reduce((a, b) => a + b, 0);
+                    report.total_score_details.class_average_total_score = parseFloat((totalSum / allStudentTotalScores.length).toFixed(2));
+                }
+                report.total_score_details.class_total_score_rank = calculateRank(
+                    report.total_score_details.student_total_score,
+                    allStudentTotalScores
+                );
+                
+                // 遍历报告中的每个科目详情，更新班级统计数据
+                report.subject_details.forEach(detail => {
+                    const subject = detail.subject;
+                    const scoresForSubject = subjectScoresInGroup[subject] || [];
+                    
+                    if (scoresForSubject.length > 0) {
+                        const subjectSum = scoresForSubject.reduce((a, b) => a + b, 0);
+                        detail.class_average_score = parseFloat((subjectSum / scoresForSubject.length).toFixed(2));
+                        detail.class_highest = Math.max(...scoresForSubject);
+                        
+                        // 计算单科排名
+                        detail.class_rank = calculateRank(detail.student_score, scoresForSubject);
+                    }
+                });
+            }
+        };
+        
+        // 使用新逻辑处理班级成绩
+        processScoreGroup(allClassScoresForExam, 'class');
+
+        // 6. 年级排名和统计 - 逻辑重构
+        // a. 检查本次考试是否关联了特定班级
+        const examLinkedClassesQuery = 'SELECT class_id FROM exam_class_link WHERE exam_id = ?;';
+        const linkedClassRows = await db.query(examLinkedClassesQuery, [examId]);
+        const linkedClassIds = linkedClassRows.map(r => r.class_id);
+
+        let rankingStudentIds = []; // 用于排名的学生ID池
+
+        if (linkedClassIds.length > 0) {
+            // b. 如果考试关联了班级，排名范围限定在这些班级内
+            console.log(`[scoreService] Exam ${examId} is linked to specific classes. Ranking within these classes.`);
+            const rankingStudentsQuery = `SELECT id FROM student WHERE class_id IN (?);`;
+            const rankingStudentRows = await db.query(rankingStudentsQuery, [linkedClassIds]);
+            rankingStudentIds = rankingStudentRows.map(s => s.id);
+        } else {
+            // c. 如果考试未关联任何班级 (全体考试)，则按年级进行排名
+            console.log(`[scoreService] Exam ${examId} is a grade-wide exam. Ranking within the grade.`);
+            const gradeMatch = studentInfo.class_name ? studentInfo.class_name.match(/^(高一|高二|高三|初一|初二|初三|九年级|[一二三四五六]年级)/) : null;
+            const studentGrade = gradeMatch ? gradeMatch[0] : null;
+
+            if (studentGrade) {
+                const gradeClassesQuery = 'SELECT id FROM class WHERE class_name LIKE ?;';
+                const gradeClassRows = await db.query(gradeClassesQuery, [`${studentGrade}%`]);
+                const gradeClassIds = gradeClassRows.map(c => c.id);
+                if (gradeClassIds.length > 0) {
+                    const gradeStudentsQuery = `SELECT id FROM student WHERE class_id IN (?);`;
+                    const gradeStudentRows = await db.query(gradeStudentsQuery, [gradeClassIds]);
+                    rankingStudentIds = gradeStudentRows.map(s => s.id);
+                }
+            }
+        }
+        
+        if (rankingStudentIds.length > 0) {
+            const studentPlaceholders = rankingStudentIds.map(() => '?').join(',');
+            const allRankingScoresQuery = `
+                SELECT student_id, subject, score 
+                FROM student_score 
+                WHERE exam_id = ? AND student_id IN (${studentPlaceholders});
+            `;
+            const allRankingScoresForExam = await db.query(allRankingScoresQuery, [examId, ...rankingStudentIds]);
+            console.log(`[scoreService] Fetched ${allRankingScoresForExam.length} score entries for ${rankingStudentIds.length} students in the ranking pool for exam ${examId}`);
+
+            if (allRankingScoresForExam.length > 0) {
+                // d. 计算排名池的总分
+                const rankingScoresByStudent = allRankingScoresForExam.reduce((acc, score) => {
+                    const studentId = score.student_id;
+                    const scoreValue = parseFloat(score.score);
+                    if(!isNaN(scoreValue)) {
+                        acc[studentId] = (acc[studentId] || 0) + scoreValue;
+                    }
+                    return acc;
+                }, {});
+                const allRankingTotalScores = Object.values(rankingScoresByStudent);
+                report.total_score_details.grade_total_score_rank = calculateRank(
+                    report.total_score_details.student_total_score,
+                    allRankingTotalScores
+                );
+
+                // e. 计算排名池的单科成绩
+                const rankingScoresBySubject = allRankingScoresForExam.reduce((acc, scoreEntry) => {
+                    const subject = scoreEntry.subject;
+                    const scoreValue = parseFloat(scoreEntry.score);
+                    if (!isNaN(scoreValue)) {
+                        if (!acc[subject]) acc[subject] = [];
+                        acc[subject].push(scoreValue);
+                    }
+                    return acc;
+                }, {});
+
+                report.subject_details.forEach(detail => {
+                    const scoresForSubject = rankingScoresBySubject[detail.subject] || [];
+                    detail.grade_rank = calculateRank(detail.student_score, scoresForSubject);
+                });
+            }
+        }
+        
+        console.log('[scoreService] Final report object after rank/stats calculation:', JSON.stringify(report, null, 2));
+        return report;
+
+    } catch (error) {
+        console.error(`[scoreService] Error in generateDetailedScoreReport for student ID: ${studentId}, exam ID: ${examId}:`, error);
+        throw error;
+    }
+}
+
+/**
+ * 获取学生即将参加的考试列表
+ * @param {number} userId - 用户的 ID (user.id)
+ * @returns {Promise<Array>} - 返回包含 { exam_id, exam_name, exam_date, exam_type, subjects } 的对象数组
+ */
+async function getUpcomingExamsByStudent(userId) {
+    try {
+        if (!userId) {
+            console.warn('[getUpcomingExamsByStudent] User ID is required.');
+            return [];
+        }
+
+        // 1. 从 user.id 获取学生信息，特别是 班级ID (class_id)
+        const studentInfoQuery = 'SELECT class_id FROM student WHERE user_id = ?;';
+        const [studentInfo] = await db.query(studentInfoQuery, [userId]);
+
+        if (!studentInfo || !studentInfo.class_id) {
+            console.warn(`[getUpcomingExamsByStudent] No student or class info found for user_id: ${userId}`);
+            return [];
+        }
+
+        // 2. 查询与该学生班级直接关联的考试ID，以及所有未关联任何班级的"全体"考试ID
+        const upcomingExamsQuery = `
+            SELECT
+                e.id AS exam_id,
+                e.exam_name,
+                DATE_FORMAT(e.exam_date, '%Y-%m-%d %H:%i') AS exam_date,
+                e.exam_type,
+                COALESCE(GROUP_CONCAT(sub.subject_name ORDER BY sub.id SEPARATOR ','), '') AS subjects
+            FROM
+                exam e
+            LEFT JOIN 
+                exam_subject es ON e.id = es.exam_id
+            LEFT JOIN 
+                subject sub ON es.subject_id = sub.id
+            WHERE
+                e.exam_date >= CURDATE() AND
+                e.status IN (0, 1) AND (
+                    -- 匹配与学生班级关联的考试
+                    EXISTS (
+                        SELECT 1
+                        FROM exam_class_link ecl
+                        WHERE ecl.exam_id = e.id AND ecl.class_id = ?
+                    )
+                    OR
+                    -- 匹配没有关联任何班级的"全体"考试
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM exam_class_link ecl2
+                        WHERE ecl2.exam_id = e.id
+                    )
+                )
+            GROUP BY
+                e.id, e.exam_name, e.exam_date, e.exam_type
+            ORDER BY
+                e.exam_date ASC;
         `;
-        classRawScores = await db.query(classScoresQuery, classScoresParams);
+        
+        const exams = await db.query(upcomingExamsQuery, [studentInfo.class_id]);
+        
+        console.log(`[getUpcomingExamsByStudent] Found ${exams.length} upcoming exams for student with user_id ${userId} in class_id ${studentInfo.class_id}.`);
+        return exams;
+
+    } catch (error) {
+        console.error(`[getUpcomingExamsByStudent] Error fetching upcoming exams for user ID ${userId}:\n`, error);
+        throw error;
     }
-    
-    // --- 4. Fetch scores for GRADE statistics (all students in the exam) ---
-    let gradeRawScores = [];
-    if (subjectPlaceholders.length > 0) {
-        const gradeAllScoresParams = [examId, ...examSubjectList];
-        const gradeAllScoresQuery = `
-            SELECT ss.student_id, s.name as student_name, ss.subject, ss.score 
-            FROM student_score ss 
-            JOIN student s ON ss.student_id = s.id 
-            WHERE ss.exam_id = ? AND ss.subject IN (${subjectPlaceholders})
-        `;
-        gradeRawScores = await db.query(gradeAllScoresQuery, gradeAllScoresParams);
-    }
-
-    // Helper to process raw scores (for class or grade)
-    // This helper can be an inner function or defined in the same scope as calculateRank
-    // Helper to process raw scores (for class or grade)
-    // This helper should be an inner function of generateDetailedScoreReport or defined in a scope it can access report and calculateRank
-    const processScoreGroup = (rawScoresForGroup, groupType) => {
-      const scoresByStudentSubject = rawScoresForGroup.reduce((acc, item) => {
-          acc[item.student_id] = acc[item.student_id] || {};
-          const scoreVal = parseFloat(item.score);
-          acc[item.student_id][item.subject] = !isNaN(scoreVal) ? scoreVal : null;
-          return acc;
-      }, {});
-
-      // Calculate subject averages and ranks if this is for the class
-      if (groupType === 'class') {
-          report.subject_details.forEach(subjectDetail => { // This loop iterates through each subject ONCE for class stats
-              const scoresForThisSubjectInGroup = [];
-              for (const sidInGroup in scoresByStudentSubject) {
-                  if (scoresByStudentSubject[sidInGroup].hasOwnProperty(subjectDetail.subject)) {
-                      const score = scoresByStudentSubject[sidInGroup][subjectDetail.subject];
-                      if (score !== null) { // Only consider non-null scores for average and ranking pool
-                          scoresForThisSubjectInGroup.push(score);
-                      }
-                  }
-              }
-
-              if (scoresForThisSubjectInGroup.length > 0) {
-                  const sum = scoresForThisSubjectInGroup.reduce((a, b) => a + b, 0);
-                  subjectDetail.class_average_score = parseFloat((sum / scoresForThisSubjectInGroup.length).toFixed(2));
-              } else {
-                  subjectDetail.class_average_score = null; // No participants, average is null
-              }
-              
-              // Student's rank for this subject within the class
-              console.log(`[scoreService DEBUG] Calculating class_rank for subject: '${subjectDetail.subject}'`);
-              console.log(`[scoreService DEBUG]   - Student's score for this subject:`, subjectDetail.student_score);
-              console.log(`[scoreService DEBUG]   - Scores in class for this subject (for ranking pool):`, JSON.stringify(scoresForThisSubjectInGroup));
-              
-              subjectDetail.class_rank = calculateRank(subjectDetail.student_score, scoresForThisSubjectInGroup);
-              
-              console.log(`[scoreService DEBUG]   - Calculated class_rank:`, subjectDetail.class_rank);
-          });
-      }
-
-      // Calculate total scores and ranks for the group (class or grade)
-      const groupTotalScoresArray = []; // Array of valid total scores for ranking and average
-      for (const sidInGroup in scoresByStudentSubject) {
-          let currentStudentTotal = 0;
-          let currentStudentValidSubjects = 0;
-          examSubjectList.forEach(subject => { // Iterate through all possible subjects for the exam
-              const score = scoresByStudentSubject[sidInGroup][subject]; 
-              if (score !== null && score !== undefined) { 
-                  currentStudentTotal += score;
-                  currentStudentValidSubjects++;
-              }
-          });
-          if (currentStudentValidSubjects > 0) { 
-              groupTotalScoresArray.push(parseFloat(currentStudentTotal.toFixed(2)));
-          }
-      }
-
-      if (groupType === 'class') {
-          if (groupTotalScoresArray.length > 0) {
-              const totalSum = groupTotalScoresArray.reduce((a, b) => a + b, 0);
-              report.total_score_details.class_average_total_score = parseFloat((totalSum / groupTotalScoresArray.length).toFixed(2));
-          } else {
-              report.total_score_details.class_average_total_score = null; 
-          }
-          report.total_score_details.class_total_score_rank = calculateRank(report.total_score_details.student_total_score, groupTotalScoresArray);
-      } else if (groupType === 'grade') {
-          report.total_score_details.grade_total_score_rank = calculateRank(report.total_score_details.student_total_score, groupTotalScoresArray);
-      }
-  };
-
-    // Process for class if class_info exists
-    if (report.class_info && report.class_info.id) {
-        processScoreGroup(classRawScores, 'class');
-    }
-    // Process for grade (using all exam scores)
-    processScoreGroup(gradeRawScores, 'grade'); 
-
-    console.log(`[scoreService] Successfully generated detailed score report for student ID: ${studentId}, exam ID: ${examId}`);
-    return report;
-
-  } catch (error) {
-    console.error(`[scoreService] Error in generateDetailedScoreReport for student ID: ${studentId}, exam ID: ${examId}:`, error);
-    // Consider logging with a logging service if available, e.g.:
-    // if (global.logService) { // Or however logService is accessed
-    //   await global.logService.addLogEntry('error', 'score_report_generation', `Failed for student ${studentId}, exam ${examId}: ${error.message}`, 'system');
-    // }
-    throw error; // Re-throw to be handled by the route
-  }
 }
 
 module.exports = {
@@ -1130,4 +1257,5 @@ module.exports = {
   getScoresByStudentAndExam,
   generateDetailedScoreReport,
   getExamsTakenByStudent,
+  getUpcomingExamsByStudent,
 }; 

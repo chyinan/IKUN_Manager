@@ -419,6 +419,15 @@ export const getStudentScoreReport = (studentId: number, examId: number): Promis
     });
 };
 
+/**
+ * 获取指定学生即将参加的考试列表
+ * @param studentId - 学生的 user.id
+ * @returns
+ */
+export function getStudentUpcomingExams(studentId: number): Promise<ApiResponse<ExamTaken[]>> {
+    return request.get<ApiResponse<ExamTaken[]>>(`/student/${studentId}/exams-upcoming`);
+}
+
 export default {
   testConnection,
   getExamTypes,

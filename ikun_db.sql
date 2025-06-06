@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 05/06/2025 10:36:45
+ Date: 06/06/2025 11:13:43
 */
 
 SET NAMES utf8mb4;
@@ -135,7 +135,7 @@ CREATE TABLE `exam`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_exam_date`(`exam_date` ASC) USING BTREE,
   INDEX `idx_exam_type`(`exam_type` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 16 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '考试表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 17 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '考试表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of exam
@@ -143,8 +143,27 @@ CREATE TABLE `exam`  (
 INSERT INTO `exam` VALUES (1, '2025年3月高三月考', '月考', '2025-03-15 00:00:00', 60, '语文,数学,英语,物理,化学,生物', 2, NULL, '2025-04-02 19:15:11', '2025-04-20 01:34:58');
 INSERT INTO `exam` VALUES (2, '2024年秋季高三期中考试', '期中', '2024-11-10 09:00:00', NULL, '语文,数学,英语,物理,化学,生物', 0, NULL, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `exam` VALUES (3, '2024年秋季高三期末考试', '期末', '2025-01-20 09:00:00', NULL, '语文,数学,英语,物理,化学,生物', 2, NULL, '2025-04-02 19:15:11', '2025-04-20 01:34:52');
-INSERT INTO `exam` VALUES (4, '2025年4月高三月考', '月考', '2025-04-15 00:00:00', 160, '语文,数学,英语,物理,化学,生物', 1, 'test', '2025-04-02 19:15:11', '2025-04-29 09:39:13');
+INSERT INTO `exam` VALUES (4, '2025年4月高三月考', '月考', '2025-04-15 00:00:00', 160, '语文,数学,英语,物理,化学,生物', 2, 'test', '2025-04-02 19:15:11', '2025-06-06 10:45:30');
 INSERT INTO `exam` VALUES (5, '2024年秋季高二期末考试', '期末', '2025-01-18 09:00:00', NULL, '语文,数学,英语,物理,化学,生物', 0, NULL, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
+INSERT INTO `exam` VALUES (16, '2025年6月期末考试', '期末', '2025-06-07 10:46:11', 793, '', 0, '高考', '2025-06-06 10:46:30', '2025-06-06 10:46:30');
+
+-- ----------------------------
+-- Table structure for exam_class_link
+-- ----------------------------
+DROP TABLE IF EXISTS `exam_class_link`;
+CREATE TABLE `exam_class_link`  (
+  `exam_id` bigint NOT NULL COMMENT '考试ID',
+  `class_id` bigint NOT NULL COMMENT '班级ID',
+  PRIMARY KEY (`exam_id`, `class_id`) USING BTREE,
+  INDEX `idx_exam_id`(`exam_id` ASC) USING BTREE,
+  INDEX `idx_class_id`(`class_id` ASC) USING BTREE,
+  CONSTRAINT `fk_ecl_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_ecl_exam` FOREIGN KEY (`exam_id`) REFERENCES `exam` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '考试-班级关联表' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Records of exam_class_link
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for exam_subject
@@ -431,7 +450,7 @@ CREATE TABLE `system_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2875 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2888 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_log
@@ -646,6 +665,19 @@ INSERT INTO `system_log` VALUES (2871, 'database', '保存/更新成绩', '保�
 INSERT INTO `system_log` VALUES (2872, 'database', '保存/更新成绩', '保存/更新成绩 admin 保存/更新了学生 \"李娜\" (ID: 3) 在考试 \"2025年3月高三月考\" (ID: 1) 的 6 门科目成绩.', 'admin', '2025-06-05 10:27:08');
 INSERT INTO `system_log` VALUES (2873, 'system', 'connect', 'connect 客户端连接: 8EZJPtdo8PFqPZBjAAAB', 'System', '2025-06-05 10:27:35');
 INSERT INTO `system_log` VALUES (2874, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-05 10:32:19');
+INSERT INTO `system_log` VALUES (2875, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-05 13:08:19');
+INSERT INTO `system_log` VALUES (2876, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-05 13:08:38');
+INSERT INTO `system_log` VALUES (2877, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 00:38:45');
+INSERT INTO `system_log` VALUES (2878, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 08:25:09');
+INSERT INTO `system_log` VALUES (2879, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 08:38:02');
+INSERT INTO `system_log` VALUES (2880, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 08:44:50');
+INSERT INTO `system_log` VALUES (2881, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 08:54:01');
+INSERT INTO `system_log` VALUES (2882, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 09:33:38');
+INSERT INTO `system_log` VALUES (2883, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 09:39:22');
+INSERT INTO `system_log` VALUES (2884, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 09:54:41');
+INSERT INTO `system_log` VALUES (2885, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 10:45:03');
+INSERT INTO `system_log` VALUES (2886, 'database', '修改考试', '修改考试 admin 修改了考试 \"2025年4月高三月考\" (ID: 4) 的信息. 更新字段: exam_name, exam_type, status', 'admin', '2025-06-06 10:45:30');
+INSERT INTO `system_log` VALUES (2887, 'database', '新增考试', '新增考试 admin 新增了考试 \"2025年6月期末考试\" (类型: 期末, ID: 16)', 'admin', '2025-06-06 10:46:30');
 
 -- ----------------------------
 -- Table structure for user

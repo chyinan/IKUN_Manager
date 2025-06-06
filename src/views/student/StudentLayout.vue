@@ -2,13 +2,13 @@
   <el-container class="student-layout-container">
     <el-header class="student-header">
       <div class="logo-area">
-        IKUN 学生门户
+        GGS学生门户
       </div>
       <div class="user-actions">
         <span>欢迎您，{{ userStore.userInfo?.display_name || userStore.username }}</span>
         <el-dropdown @command="handleCommand">
           <span class="el-dropdown-link">
-            <el-avatar :src="userStore.avatar || defaultAvatar" size="small" style="margin-right: 8px;"></el-avatar>
+            <el-avatar :src="userStore.avatar" :icon="UserFilled" size="small" style="margin-right: 8px;"></el-avatar>
             个人中心<el-icon class="el-icon--right"><arrow-down /></el-icon>
           </span>
           <template #dropdown>
@@ -72,9 +72,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, House, Memo, Clock, Bell, Setting, Document } from '@element-plus/icons-vue'
-// Placeholder for default avatar if userStore.avatar is not set
-import defaultAvatar from '@/assets/default-avatar.png' // 您需要准备一个默认头像图片
+import { ArrowDown, House, Memo, Clock, Bell, Setting, Document, UserFilled } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

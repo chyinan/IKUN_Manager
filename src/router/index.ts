@@ -22,6 +22,7 @@ import Profile from '@/views/profile/index.vue'
 import Login from '@/views/login/index.vue'
 import NotFound from '@/views/error/404.vue'
 import CarouselManagement from '@/views/settings/CarouselManagement.vue'
+import AnnouncementManagement from '@/views/settings/AnnouncementManagement.vue'
 
 // 路由配置
 const router = createRouter({
@@ -110,6 +111,12 @@ const router = createRouter({
               name: 'CarouselManagement',
               component: CarouselManagement,
               meta: { title: '轮播图管理', icon: 'Picture', requiresAdmin: true }
+            },
+            {
+              path: 'announcements',
+              name: 'AnnouncementManagement',
+              component: AnnouncementManagement,
+              meta: { title: '通知管理', icon: 'Bell', requiresAdmin: true }
             }
           ]
         },

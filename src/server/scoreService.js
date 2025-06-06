@@ -1110,9 +1110,11 @@ async function generateDetailedScoreReport(studentId, examId) {
                 const gradeClassesQuery = 'SELECT id FROM class WHERE class_name LIKE ?;';
                 const gradeClassRows = await db.query(gradeClassesQuery, [`${studentGrade}%`]);
                 const gradeClassIds = gradeClassRows.map(c => c.id);
+                console.log(`[scoreService] Found grade class IDs for grade '${studentGrade}':`, gradeClassIds);
                 if (gradeClassIds.length > 0) {
-                    const gradeStudentsQuery = `SELECT id FROM student WHERE class_id IN (?);`;
-                    const gradeStudentRows = await db.query(gradeStudentsQuery, [gradeClassIds]);
+                    const placeholders = gradeClassIds.map(() => '?').join(',');
+                    const gradeStudentsQuery = `SELECT id FROM student WHERE class_id IN (${placeholders});`;
+                    const gradeStudentRows = await db.query(gradeStudentsQuery, gradeClassIds);
                     rankingStudentIds = gradeStudentRows.map(s => s.id);
                 }
             }

@@ -26,6 +26,7 @@ const isSameOrBefore = require('dayjs/plugin/isSameOrBefore'); // For date valid
 dayjs.extend(isSameOrBefore);
 const cron = require('node-cron'); // <-- Add node-cron
 const carouselService = require('./carouselService'); // <-- Import Carousel Service
+const announcementService = require('./announcementService'); // <-- Import Announcement Service
 const crypto = require('crypto'); // 用于生成更安全的随机密钥（如果需要）
 
 // --- Simple Middleware for Debugging ---
@@ -2316,6 +2317,79 @@ app.get(`${apiPrefix}/score-report/student/:studentId/exam/:examId`, authenticat
   }
 });
 // --- End Student Score Report Routes ---
+
+// --- Announcement Routes (New) ---
+// GET /api/announcements (for student portal - only published announcements)
+app.get(`${apiPrefix}/announcements`, authenticateToken, async (req, res) => {
+  try {
+    // req.query could be used for pagination in the future
+    const announcements = await announcementService.getPublishedAnnouncements(req.query);
+    res.json({ code: 200, data: announcements, message: '获取通知列表成功' });
+  } catch (error) {
+    console.error('[API] Error fetching published announcements:', error);
+    res.status(500).json({ code: 500, message: '获取通知列表失败: ' + error.message, data: null });
+  }
+});
+
+// GET /api/announcements/all (for admin management)
+app.get(`${apiPrefix}/announcements/all`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const announcements = await announcementService.getAllAnnouncements(req.query);
+    res.json({ code: 200, data: announcements, message: '获取所有通知成功' });
+  } catch (error) {
+    console.error('[API] Error fetching all announcements for admin:', error);
+    res.status(500).json({ code: 500, message: '后台获取所有通知失败: ' + error.message });
+  }
+});
+
+// POST /api/announcements (for admin to create an announcement)
+app.post(`${apiPrefix}/announcements`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const newAnnouncement = await announcementService.createAnnouncement(req.body, req.user.username);
+    res.status(201).json({ code: 201, data: newAnnouncement, message: '通知创建成功' });
+  } catch (error) {
+    console.error('[API] Error creating announcement:', error);
+    if (error.message === '标题和内容不能为空') {
+      return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: '创建通知失败: ' + error.message });
+  }
+});
+
+// PUT /api/announcements/:id (for admin to update an announcement)
+app.put(`${apiPrefix}/announcements/:id`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的通知ID' });
+
+    const updatedAnnouncement = await announcementService.updateAnnouncement(id, req.body, req.user.username);
+    res.json({ code: 200, data: updatedAnnouncement, message: '通知更新成功' });
+  } catch (error) {
+    console.error(`[API] Error updating announcement ${req.params.id}:`, error);
+    if (error.message === '找不到要更新的通知') {
+      return res.status(404).json({ code: 404, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: '更新通知失败: ' + error.message });
+  }
+});
+
+// DELETE /api/announcements/:id (for admin to delete an announcement)
+app.delete(`${apiPrefix}/announcements/:id`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的通知ID' });
+    
+    const success = await announcementService.deleteAnnouncement(id, req.user.username);
+    if (!success) {
+      return res.status(404).json({ code: 404, message: '删除失败，未找到通知' });
+    }
+    res.json({ code: 200, message: '通知删除成功' });
+  } catch (error) {
+    console.error(`[API] Error deleting announcement ${req.params.id}:`, error);
+    res.status(500).json({ code: 500, message: '删除通知失败: ' + error.message });
+  }
+});
+// --- End Announcement Routes ---
 
 // ... (Rest of the routes like Carousel, etc.)
 

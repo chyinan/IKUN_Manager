@@ -27,6 +27,7 @@ dayjs.extend(isSameOrBefore);
 const cron = require('node-cron'); // <-- Add node-cron
 const carouselService = require('./carouselService'); // <-- Import Carousel Service
 const announcementService = require('./announcementService'); // <-- Import Announcement Service
+const mailboxService = require('./mailboxService'); // <-- Import Mailbox Service
 const crypto = require('crypto'); // 用于生成更安全的随机密钥（如果需要）
 
 // --- Simple Middleware for Debugging ---
@@ -431,7 +432,7 @@ app.put(`${apiPrefix}/user/profile`, authenticateToken, async (req, res) => {
 
   try {
     // userService.updateUser can now handle display_name
-    const success = await userService.updateUser(userId, dataToUpdate); 
+    const success = await userService.updateUser(userId, dataToUpdate, operator); 
 
     if (success) {
       console.log(`[User Profile Update] Profile updated successfully for user ID: ${userId}`);
@@ -2391,10 +2392,111 @@ app.delete(`${apiPrefix}/announcements/:id`, authenticateToken, isAdmin, async (
 });
 // --- End Announcement Routes ---
 
-// ... (Rest of the routes like Carousel, etc.)
+// --- Mailbox Routes (New) ---
 
-// 新增：获取科目列表 (需要认证)
-app.get(`${apiPrefix}/subject/list`, authenticateToken, async (req, res) => {
+// [Student] Get all threads for the currently logged-in student
+app.get(`${apiPrefix}/mailbox/student-threads`, authenticateToken, async (req, res) => {
+    try {
+        const studentUserId = req.user.id;
+        const threads = await mailboxService.getThreadsForStudent(studentUserId);
+        res.json({ code: 200, data: threads, message: '获取我的消息列表成功' });
+    } catch (error) {
+        console.error(`[API] Error fetching threads for student ${req.user.id}:`, error);
+        res.status(500).json({ code: 500, message: '获取消息列表失败: ' + error.message });
+    }
+});
+
+// [Admin] Get all threads for admin view
+app.get(`${apiPrefix}/mailbox/admin-threads`, authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const threads = await mailboxService.getThreadsForAdmin(req.query);
+        res.json({ code: 200, data: threads, message: '获取所有信箱主题成功' });
+    } catch (error) {
+        console.error(`[API] Error fetching all threads for admin:`, error);
+        res.status(500).json({ code: 500, message: '获取信箱主题列表失败: ' + error.message });
+    }
+});
+
+// [Student] Create a new thread
+app.post(`${apiPrefix}/mailbox/threads`, authenticateToken, async (req, res) => {
+    try {
+        const { title, content } = req.body;
+        const studentUserId = req.user.id;
+
+        // Ensure only students can create threads
+        if (req.user.role !== 'student') {
+            return res.status(403).json({ code: 403, message: '只有学生才能发起新的对话' });
+        }
+
+        const newThread = await mailboxService.createThread(studentUserId, title, content);
+        res.status(201).json({ code: 201, data: newThread, message: '建议发送成功' });
+    } catch (error) {
+        console.error('[API] Error creating new thread:', error);
+        if (error.message.includes('不能为空')) {
+             return res.status(400).json({ code: 400, message: error.message });
+        }
+        res.status(500).json({ code: 500, message: '发送建议失败: ' + error.message });
+    }
+});
+
+// [Student & Admin] Get all messages for a single thread
+app.get(`${apiPrefix}/mailbox/threads/:threadId`, authenticateToken, async (req, res) => {
+    try {
+        const threadId = parseInt(req.params.threadId, 10);
+        if (isNaN(threadId)) return res.status(400).json({ code: 400, message: '无效的主题ID' });
+
+        // Authorization: Check if user is the student who owns the thread OR an admin
+        const threadOwnerId = await db.query('SELECT student_user_id FROM message_threads WHERE id = ?', [threadId]);
+        const isOwner = threadOwnerId.length > 0 && threadOwnerId[0].student_user_id === req.user.id;
+        const isAdminUser = req.user.role === 'admin';
+
+        if (!isOwner && !isAdminUser) {
+            return res.status(403).json({ code: 403, message: '无权访问此对话' });
+        }
+
+        const messages = await mailboxService.getMessagesInThread(threadId, req.user.id);
+        res.json({ code: 200, data: messages, message: '获取对话详情成功' });
+    } catch (error) {
+        console.error(`[API] Error getting messages for thread ${req.params.threadId}:`, error);
+        res.status(500).json({ code: 500, message: '获取对话详情失败: ' + error.message });
+    }
+});
+
+// [Student & Admin] Post a reply in a thread
+app.post(`${apiPrefix}/mailbox/threads/:threadId/reply`, authenticateToken, async (req, res) => {
+    try {
+        const threadId = parseInt(req.params.threadId, 10);
+        if (isNaN(threadId)) return res.status(400).json({ code: 400, message: '无效的主题ID' });
+
+        const { content } = req.body;
+        const senderUserId = req.user.id;
+        
+        // Authorization check (same as getting messages)
+        const threadOwnerId = await db.query('SELECT student_user_id FROM message_threads WHERE id = ?', [threadId]);
+        const isOwner = threadOwnerId.length > 0 && threadOwnerId[0].student_user_id === req.user.id;
+        const isAdminUser = req.user.role === 'admin';
+
+        if (!isOwner && !isAdminUser) {
+            return res.status(403).json({ code: 403, message: '无权回复此对话' });
+        }
+
+        const newReply = await mailboxService.replyToThread(threadId, senderUserId, content);
+        res.status(201).json({ code: 201, data: newReply, message: '回复成功' });
+    } catch (error) {
+        console.error(`[API] Error replying to thread ${req.params.threadId}:`, error);
+         if (error.message.includes('不能为空')) {
+             return res.status(400).json({ code: 400, message: error.message });
+        }
+        res.status(500).json({ code: 500, message: '回复失败: ' + error.message });
+    }
+});
+
+
+// --- End Mailbox Routes ---
+
+// --- Subject Routes (New) ---
+// GET /api/subject/list (for admin management)
+app.get(`${apiPrefix}/subject/list`, authenticateToken, isAdmin, async (req, res) => {
   try {
     console.log('获取科目列表');
     const subjects = await subjectService.getSubjectList();

@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 06/06/2025 14:49:55
+ Date: 06/06/2025 16:41:37
 */
 
 SET NAMES utf8mb4;
@@ -39,7 +39,7 @@ CREATE TABLE `announcements`  (
 -- ----------------------------
 INSERT INTO `announcements` VALUES (1, '关于 “五一” 假期安排的通知', '<p>尊敬的全体师生：</p><p>根据国家法定节假日安排，结合我校实际情况，现将2024年“五一”劳动节放假安排通知如下：</p><p><strong>一、放假时间</strong></p><p>5月1日（星期三）至5月5日（星期日）放假调休，共5天。4月28日（星期日）、5月11日（星期六）正常上班、上课。</p><p><strong>二、注意事项</strong></p><ol><li>请各部门、各班级在放假前做好安全自查工作，关闭门窗、水电，确保校园安全。</li><li>假期期间，请同学们注意个人安全，遵守交通规则，预防网络诈骗。</li><li>假期结束后，请按时返校，无故不得缺席。</li></ol><p>祝全体师生度过一个愉快、祥和的假期！</p><p>教务处</p><p>2024年4月25日</p>', '教务处', 'published', 1, '2024-04-25 10:00:00', '2025-06-06 14:49:05', '2025-06-06 14:49:05');
 INSERT INTO `announcements` VALUES (2, '校园歌手大赛初赛通知', '<h3>校园歌手大赛初赛即将拉开帷幕！</h3><p>展现你的才华，唱响青春的旋律！</p><ul><li><strong>比赛时间：</strong> 2024年5月15日 18:30</li><li><strong>比赛地点：</strong> 学校大礼堂</li><li><strong>报名方式：</strong> 请于5月10日前到学生会办公室报名。</li></ul><p>期待你的声音！</p>', '学生会', 'published', 0, '2024-05-02 15:30:00', '2025-06-06 14:49:05', '2025-06-06 14:49:05');
-INSERT INTO `announcements` VALUES (3, '图书馆开放时间调整通知 (草稿)', '<p>为配合期末复习，图书馆将延长开放时间... (此为草稿，学生不可见)</p>', '图书馆', 'draft', 0, NULL, '2025-06-06 14:49:05', '2025-06-06 14:49:05');
+INSERT INTO `announcements` VALUES (3, '图书馆开放时间调整通知 (草稿)', '<p><br></p>', '图书馆', 'draft', 0, '2025-06-06 15:32:14', '2025-06-06 14:49:05', '2025-06-06 15:35:25');
 
 -- ----------------------------
 -- Table structure for carousel_images
@@ -55,12 +55,14 @@ CREATE TABLE `carousel_images`  (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of carousel_images
 -- ----------------------------
-INSERT INTO `carousel_images` VALUES (3, 'carousel/banner-1749001721811-990541769.jpg', '', 'www.baidu.com', 0, 1, '2025-06-04 09:48:41', '2025-06-04 10:53:26');
+INSERT INTO `carousel_images` VALUES (3, 'carousel/banner-1749001721811-990541769.jpg', '', 'https://www.gzgs.edu.cn/', 0, 1, '2025-06-04 09:48:41', '2025-06-06 15:44:27');
+INSERT INTO `carousel_images` VALUES (6, 'carousel/09FC374735ADA7DDC94DB16A3A4_F86C84C5_297D2-1749196311075-505485432.jpg', '', '', 1, 1, '2025-06-06 15:51:51', '2025-06-06 15:51:51');
+INSERT INTO `carousel_images` VALUES (7, 'carousel/9F0A75F9D91DFE0A048DF29E452_153F41F9_24FE7-1749196672600-349520785.jpg', '', '', 3, 1, '2025-06-06 15:57:52', '2025-06-06 15:57:52');
 
 -- ----------------------------
 -- Table structure for class
@@ -169,7 +171,7 @@ INSERT INTO `exam` VALUES (2, '2024年秋季高三期中考试', '期中', '2024
 INSERT INTO `exam` VALUES (3, '2024年秋季高三期末考试', '期末', '2025-01-20 09:00:00', NULL, '语文,数学,英语,物理,化学,生物', 2, NULL, '2025-04-02 19:15:11', '2025-04-20 01:34:52');
 INSERT INTO `exam` VALUES (4, '2025年4月高三月考', '月考', '2025-04-15 00:00:00', 160, '语文,数学,英语,物理,化学,生物', 2, 'test', '2025-04-02 19:15:11', '2025-06-06 10:45:30');
 INSERT INTO `exam` VALUES (5, '2024年秋季高二期末考试', '期末', '2025-01-18 09:00:00', NULL, '语文,数学,英语,物理,化学,生物', 0, NULL, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `exam` VALUES (16, '2025年6月期末考试', '期末', '2025-06-07 10:46:11', 793, '语文,数学,英语,生物', 0, '高考', '2025-06-06 10:46:30', '2025-06-06 14:21:56');
+INSERT INTO `exam` VALUES (16, '高考', '期末', '2025-06-07 10:46:11', 793, '语文,数学,英语,生物,物理,化学', 0, '高考', '2025-06-06 10:46:30', '2025-06-06 15:45:38');
 
 -- ----------------------------
 -- Table structure for exam_class_link
@@ -207,7 +209,7 @@ CREATE TABLE `exam_subject`  (
   INDEX `idx_subject_id`(`subject_id` ASC) USING BTREE,
   CONSTRAINT `fk_es_exam` FOREIGN KEY (`exam_id`) REFERENCES `exam` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_es_subject` FOREIGN KEY (`subject_id`) REFERENCES `subject` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 182 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '考试科目关联表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 188 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '考试科目关联表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of exam_subject
@@ -270,10 +272,54 @@ INSERT INTO `exam_subject` VALUES (139, 23, 3, 100.00, 60.00, 1.00, '2025-03-17 
 INSERT INTO `exam_subject` VALUES (140, 23, 4, 100.00, 60.00, 1.00, '2025-03-17 18:33:58');
 INSERT INTO `exam_subject` VALUES (141, 23, 5, 100.00, 60.00, 1.00, '2025-03-17 18:33:58');
 INSERT INTO `exam_subject` VALUES (142, 23, 6, 100.00, 60.00, 1.00, '2025-03-17 18:33:58');
-INSERT INTO `exam_subject` VALUES (178, 16, 1, 100.00, 60.00, 1.00, '2025-06-06 14:21:56');
-INSERT INTO `exam_subject` VALUES (179, 16, 2, 100.00, 60.00, 1.00, '2025-06-06 14:21:56');
-INSERT INTO `exam_subject` VALUES (180, 16, 3, 100.00, 60.00, 1.00, '2025-06-06 14:21:56');
-INSERT INTO `exam_subject` VALUES (181, 16, 6, 100.00, 60.00, 1.00, '2025-06-06 14:21:56');
+INSERT INTO `exam_subject` VALUES (182, 16, 1, 100.00, 60.00, 1.00, '2025-06-06 15:45:38');
+INSERT INTO `exam_subject` VALUES (183, 16, 2, 100.00, 60.00, 1.00, '2025-06-06 15:45:38');
+INSERT INTO `exam_subject` VALUES (184, 16, 3, 100.00, 60.00, 1.00, '2025-06-06 15:45:38');
+INSERT INTO `exam_subject` VALUES (185, 16, 6, 100.00, 60.00, 1.00, '2025-06-06 15:45:38');
+INSERT INTO `exam_subject` VALUES (186, 16, 4, 100.00, 60.00, 1.00, '2025-06-06 15:45:38');
+INSERT INTO `exam_subject` VALUES (187, 16, 5, 100.00, 60.00, 1.00, '2025-06-06 15:45:38');
+
+-- ----------------------------
+-- Table structure for message_threads
+-- ----------------------------
+DROP TABLE IF EXISTS `message_threads`;
+CREATE TABLE `message_threads`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主题ID',
+  `student_user_id` bigint NOT NULL COMMENT '发起对话的学生用户ID (关联 user.id)',
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '主题标题',
+  `status` enum('open','closed_by_student','closed_by_admin') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'open' COMMENT '主题状态',
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_student_user_id`(`student_user_id` ASC) USING BTREE,
+  CONSTRAINT `fk_thread_student_user` FOREIGN KEY (`student_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱主题表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of message_threads
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for messages
+-- ----------------------------
+DROP TABLE IF EXISTS `messages`;
+CREATE TABLE `messages`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+  `thread_id` bigint NOT NULL COMMENT '所属主题ID (关联 message_threads.id)',
+  `sender_user_id` bigint NOT NULL COMMENT '发送者用户ID (关联 user.id)',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '消息内容',
+  `is_read` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已读 (主要用于标记给接收方的状态)',
+  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_thread_id`(`thread_id` ASC) USING BTREE,
+  INDEX `idx_sender_user_id`(`sender_user_id` ASC) USING BTREE,
+  CONSTRAINT `fk_message_sender_user` FOREIGN KEY (`sender_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_message_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of messages
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for student
@@ -302,7 +348,7 @@ CREATE TABLE `student`  (
 -- ----------------------------
 -- Records of student
 -- ----------------------------
-INSERT INTO `student` VALUES (1, 'S2023001', '张伟', '男', 1, '15876627195', '101@qq.com', 8, '2023-09-01', '2025-04-02 19:15:11', '2025-06-04 23:49:05');
+INSERT INTO `student` VALUES (1, 'S2023001', '张伟', '男', 1, '15876627199', '1011@qq.com', 8, '2023-09-01', '2025-04-02 19:15:11', '2025-06-06 15:43:15');
 INSERT INTO `student` VALUES (2, 'S2023002', '王芳', '女', 1, '2', '2', NULL, '2023-09-01', '2025-04-02 19:15:11', '2025-04-02 19:35:30');
 INSERT INTO `student` VALUES (3, 'S2023003', '李娜', '女', 1, '3', '3', NULL, '2023-09-01', '2025-04-02 19:15:11', '2025-04-02 19:35:31');
 INSERT INTO `student` VALUES (4, 'S2023004', '刘强', '男', 1, '4', '4', NULL, '2023-09-01', '2025-04-02 19:15:11', '2025-04-02 19:35:32');
@@ -477,7 +523,7 @@ CREATE TABLE `system_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2901 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2948 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_log
@@ -718,6 +764,53 @@ INSERT INTO `system_log` VALUES (2897, 'database', '更新', '更新 admin 更�
 INSERT INTO `system_log` VALUES (2898, 'database', '更新', '更新 admin 更新了考试 (ID: 16) 的信息。', 'admin', '2025-06-06 14:21:39');
 INSERT INTO `system_log` VALUES (2899, 'database', '更新', '更新 admin 更新了考试 (ID: 16) 的信息。', 'admin', '2025-06-06 14:21:56');
 INSERT INTO `system_log` VALUES (2900, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 14:34:29');
+INSERT INTO `system_log` VALUES (2901, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:04:17');
+INSERT INTO `system_log` VALUES (2902, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:05:41');
+INSERT INTO `system_log` VALUES (2903, 'user', '更新资料', '更新资料 用户ID 8 (N/A) 更新了资料: email', 'User:8', '2025-06-06 15:11:42');
+INSERT INTO `system_log` VALUES (2904, 'user', '更新学生联系方式', '更新学生联系方式 学生 (用户ID 8) 更新了联系方式: email', 'User:8', '2025-06-06 15:11:42');
+INSERT INTO `system_log` VALUES (2905, 'user', '更新个人资料', '更新个人资料 用户 \'S2023001\' 更新了个人资料 (email)。', 'S2023001', '2025-06-06 15:11:42');
+INSERT INTO `system_log` VALUES (2906, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:20:27');
+INSERT INTO `system_log` VALUES (2907, 'system', 'connect', 'connect 客户端连接: i-wQIt26ErlRVKsTAAAB', 'System', '2025-06-06 15:20:30');
+INSERT INTO `system_log` VALUES (2908, 'system', 'disconnect', 'disconnect 客户端断开: i-wQIt26ErlRVKsTAAAB, 原因: client namespace disconnect', 'System', '2025-06-06 15:20:35');
+INSERT INTO `system_log` VALUES (2909, 'error', '更新通知失败', '更新通知失败 更新通知 (ID: 3) 时出错: Cannot read properties of undefined (reading \'status\')', 'admin', '2025-06-06 15:21:33');
+INSERT INTO `system_log` VALUES (2910, 'error', '更新通知失败', '更新通知失败 更新通知 (ID: 3) 时出错: Cannot read properties of undefined (reading \'status\')', 'admin', '2025-06-06 15:28:31');
+INSERT INTO `system_log` VALUES (2911, 'error', '更新通知失败', '更新通知失败 更新通知 (ID: 3) 时出错: Cannot read properties of undefined (reading \'status\')', 'admin', '2025-06-06 15:28:54');
+INSERT INTO `system_log` VALUES (2912, 'error', '更新通知失败', '更新通知失败 更新通知 (ID: 3) 时出错: Cannot read properties of undefined (reading \'status\')', 'admin', '2025-06-06 15:29:12');
+INSERT INTO `system_log` VALUES (2913, 'database', '更新通知', '更新通知 admin 更新了通知: (ID: 3)', 'admin', '2025-06-06 15:32:13');
+INSERT INTO `system_log` VALUES (2914, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:32:26');
+INSERT INTO `system_log` VALUES (2915, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:32:38');
+INSERT INTO `system_log` VALUES (2916, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:32:50');
+INSERT INTO `system_log` VALUES (2917, 'database', '更新通知', '更新通知 admin 更新了通知: (ID: 3)', 'admin', '2025-06-06 15:33:10');
+INSERT INTO `system_log` VALUES (2918, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:33:21');
+INSERT INTO `system_log` VALUES (2919, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:35:05');
+INSERT INTO `system_log` VALUES (2920, 'database', '更新通知', '更新通知 admin 更新了通知: (ID: 3)', 'admin', '2025-06-06 15:35:17');
+INSERT INTO `system_log` VALUES (2921, 'database', '更新通知', '更新通知 admin 更新了通知: (ID: 3)', 'admin', '2025-06-06 15:35:25');
+INSERT INTO `system_log` VALUES (2922, 'system', 'connect', 'connect 客户端连接: rkDTh6mXXbAPb_buAAAB', 'System', '2025-06-06 15:35:56');
+INSERT INTO `system_log` VALUES (2923, 'system', 'disconnect', 'disconnect 客户端断开: rkDTh6mXXbAPb_buAAAB, 原因: client namespace disconnect', 'System', '2025-06-06 15:36:39');
+INSERT INTO `system_log` VALUES (2924, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:36:52');
+INSERT INTO `system_log` VALUES (2925, 'error', '更新用户资料失败', '更新用户资料失败 用户ID 8 更新资料时出错: Unknown column \'phone\' in \'field list\'', 'User:8', '2025-06-06 15:40:15');
+INSERT INTO `system_log` VALUES (2926, 'error', '更新用户资料失败', '更新用户资料失败 用户ID 8 更新资料时出错: Unknown column \'phone\' in \'field list\'', 'User:8', '2025-06-06 15:40:25');
+INSERT INTO `system_log` VALUES (2927, 'database', '更新用户资料', '更新用户资料 用户 (ID: 8) 资料已成功更新。', 'S2023001', '2025-06-06 15:43:15');
+INSERT INTO `system_log` VALUES (2928, 'user', '更新个人资料', '更新个人资料 用户 \'S2023001\' 更新了个人资料 (phone)。', 'S2023001', '2025-06-06 15:43:15');
+INSERT INTO `system_log` VALUES (2929, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:43:36');
+INSERT INTO `system_log` VALUES (2930, 'management', '更新轮播图', '更新轮播图 更新了轮播图: ID=3, 更新内容: {\"title\":\"\",\"link_url\":\"https://www.gzgs.edu.cn/\",\"display_order\":0,\"is_active\":1}', 'admin', '2025-06-06 15:44:27');
+INSERT INTO `system_log` VALUES (2931, 'auth', '登录失败', '登录失败 学号 \'S2023002\' 首次登录密码错误.', 'S2023002', '2025-06-06 15:44:44');
+INSERT INTO `system_log` VALUES (2932, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:44:51');
+INSERT INTO `system_log` VALUES (2933, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:45:11');
+INSERT INTO `system_log` VALUES (2934, 'database', '更新', '更新 admin 更新了考试 (ID: 16) 的信息。', 'admin', '2025-06-06 15:45:38');
+INSERT INTO `system_log` VALUES (2935, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:45:48');
+INSERT INTO `system_log` VALUES (2936, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:50:50');
+INSERT INTO `system_log` VALUES (2937, 'management', '添加轮播图', '添加轮播图 添加了新的轮播图: ID=6, 文件名=\'09FC374735ADA7DDC94DB16A3A4_F86C84C5_297D2-1749196311075-505485432.jpg\', 标题=\'\'', 'admin', '2025-06-06 15:51:51');
+INSERT INTO `system_log` VALUES (2938, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:52:01');
+INSERT INTO `system_log` VALUES (2939, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 15:57:29');
+INSERT INTO `system_log` VALUES (2940, 'system', 'connect', 'connect 客户端连接: gluUSPgse4YLF46TAAAB', 'System', '2025-06-06 15:57:31');
+INSERT INTO `system_log` VALUES (2941, 'system', 'disconnect', 'disconnect 客户端断开: gluUSPgse4YLF46TAAAB, 原因: client namespace disconnect', 'System', '2025-06-06 15:57:33');
+INSERT INTO `system_log` VALUES (2942, 'management', '添加轮播图', '添加轮播图 添加了新的轮播图: ID=7, 文件名=\'9F0A75F9D91DFE0A048DF29E452_153F41F9_24FE7-1749196672600-349520785.jpg\', 标题=\'\'', 'admin', '2025-06-06 15:57:52');
+INSERT INTO `system_log` VALUES (2943, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:58:05');
+INSERT INTO `system_log` VALUES (2944, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 15:59:23');
+INSERT INTO `system_log` VALUES (2945, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:04:59');
+INSERT INTO `system_log` VALUES (2946, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 16:12:50');
+INSERT INTO `system_log` VALUES (2947, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 16:38:26');
 
 -- ----------------------------
 -- Table structure for user
@@ -744,7 +837,7 @@ CREATE TABLE `user`  (
 INSERT INTO `user` VALUES (1, 'admin', '$2b$10$yGelu4IUCHu6sGk7WsIgxOOWp/WqJCd1oQkC8V6quTdrYE3AONoHm', 'admin@test.com', 'avatar-1-1748925908680-419831104.png', '2025-02-20 21:45:19', '2025-06-03 17:19:44', 'admin', NULL);
 INSERT INTO `user` VALUES (2, 'test', '$2b$10$MshDQphPxvIRK6mNiVd1f.8HhPV9ysV84hyUiRglzIzdXfuB0ETeC', 'test@example.com', NULL, '2025-02-20 21:45:19', '2025-04-06 02:07:25', 'student', NULL);
 INSERT INTO `user` VALUES (3, 'chyinan', '$2b$10$LeimjP0GK2OC9DObsO9WvuvHdksCwQsXNVA3uHNjIBadcuD3nBgb6', '1817175451@qq.com', 'avatar-3-1745847609124-586820353.png', '2025-02-20 21:51:36', '2025-04-28 21:40:09', 'student', NULL);
-INSERT INTO `user` VALUES (8, 'S2023001', '$2b$10$vvCCMqjv930BKa1I6IUYKeBt5HyDktViy/4unT.mQTAKfAHE1qczW', '101@qq.com', NULL, '2025-06-04 22:48:28', '2025-06-04 23:49:05', 'student', '张伟');
+INSERT INTO `user` VALUES (8, 'S2023001', '$2b$10$vvCCMqjv930BKa1I6IUYKeBt5HyDktViy/4unT.mQTAKfAHE1qczW', '1011@qq.com', NULL, '2025-06-04 22:48:28', '2025-06-06 15:11:42', 'student', '张伟');
 
 -- ----------------------------
 -- View structure for v_class_score_stats

@@ -211,143 +211,120 @@ async function updateUserEmail(userId, newEmail) {
 }
 
 /**
- * 更新用户信息
- * @param {number} userId 用户ID
- * @param {object} updateData 要更新的数据对象
- * @returns {Promise<boolean>} 更新是否成功
+ * 更新用户信息.
+ * This function now handles updating fields in both 'user' and related 'student' tables within a transaction.
+ * @param {number} userId - The ID of the user to update.
+ * @param {object} updateData - An object containing the data to update (e.g., { display_name, phone, email }).
+ * @param {string} operator - The username of the person performing the update, for logging purposes.
+ * @returns {Promise<boolean>} - True if any record was successfully updated, false otherwise.
  */
-async function updateUser(userId, updateData) {
+async function updateUser(userId, updateData, operator) {
   console.log(`[UserService] Updating user info for ID: ${userId}, data:`, updateData);
+  const connection = await db.getConnection();
   try {
     if (!userId || !updateData || Object.keys(updateData).length === 0) {
-      console.warn('[UserService] Invalid update parameters');
+      console.warn('[UserService] Invalid update parameters: userId or updateData is missing.');
       return false;
     }
+    
+    await connection.beginTransaction();
 
-    // Fields allowed to be updated by this general function
-    // Exclude password from here, as it should be updated via a separate, more secure flow (e.g., updateUserPassword)
-    const allowedFields = ['email', 'avatar', 'display_name']; // REMOVED 'phone'
-    const fieldsToUpdate = {};
-    let hasValidFields = false;
-
-    for (const field of allowedFields) {
-        if (updateData.hasOwnProperty(field)) {
-            // Add specific validation if needed, e.g., for email format, phone format
-            if (field === 'email' && updateData.email !== null && updateData.email !== undefined) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(updateData.email)) {
-                    throw new Error('无效的邮箱格式');
-                }
-                // Check for email uniqueness if it's being changed to a new value
-                const [currentUser] = await db.query('SELECT email FROM user WHERE id = ?', [userId]);
-                if (currentUser && currentUser.email !== updateData.email) {
-                    const [existingUserWithEmail] = await db.query('SELECT id FROM user WHERE email = ? AND id != ?', [updateData.email, userId]);
-                    if (existingUserWithEmail) {
-                        throw new Error('该邮箱已被其他用户注册');
-                    }
-                }
-            }
-            if (field === 'phone' && updateData.phone !== null && updateData.phone !== undefined && updateData.phone !== '') {
-                // Example: Basic phone validation (e.g., 11 digits for China)
-                // const phoneRegex = /^1\d{10}$/;
-                // if (!phoneRegex.test(updateData.phone)) {
-                //     throw new Error('手机号码格式不正确');
-                // }
-            }
-            fieldsToUpdate[field] = updateData[field];
-            hasValidFields = true;
-        }
+    // 1. Get user role to determine where to save profile info
+    const [userRows] = await connection.query('SELECT role FROM user WHERE id = ?', [userId]);
+    if (userRows.length === 0) {
+      throw new Error('用户不存在');
     }
+    const userRole = userRows[0].role;
+    
+    // 2. Separate data for different tables
+    const userTableData = {};
+    const studentTableData = {};
 
-    if (!hasValidFields) {
-        console.warn('[UserService] No valid fields to update provided');
-        return false; // Or throw an error: throw new Error('未提供可更新的有效字段');
+    // Assign data to the correct table object based on field name and user role
+    if (updateData.display_name !== undefined) userTableData.display_name = updateData.display_name;
+    if (updateData.avatar !== undefined) userTableData.avatar = updateData.avatar;
+    
+    if (updateData.email !== undefined) {
+      if (userRole === 'student') studentTableData.email = updateData.email;
+      else userTableData.email = updateData.email;
     }
+    if (updateData.phone !== undefined) {
+      if (userRole === 'student') studentTableData.phone = updateData.phone;
+      else console.warn(`[UserService] Phone update requested for non-student role '${userRole}', ignoring.`);
+    }
+    
+    let userUpdateOccurred = false;
+    let profileUpdateOccurred = false;
 
-    const fieldNames = Object.keys(fieldsToUpdate);
-    const fieldValues = Object.values(fieldsToUpdate);
-    fieldValues.push(userId); // For WHERE id = ?
-
-    const setClause = fieldNames.map(name => `${name} = ?`).join(', ');
-    const query = `UPDATE user SET ${setClause}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
-
-    const result = await db.query(query, fieldValues);
-    const success = result && result.affectedRows > 0;
-
-    if (success) {
-      console.log(`[UserService] User info updated successfully for ID: ${userId}`);
-       await logService.addLogEntry({
-           type: 'user',
-           operation: '更新资料',
-           content: `用户ID ${userId} (${updateData.username || 'N/A'}) 更新了资料: ${Object.keys(fieldsToUpdate).join(', ')}`,
-           operator: `User:${userId}` // Or req.user.username if available from a higher level
-       });
-
-      // NEW: Check if user is a student and update student table if necessary
-      try {
-        const [userRoleInfo] = await db.query('SELECT role FROM user WHERE id = ?', [userId]);
-        if (userRoleInfo && userRoleInfo.role === 'student') {
-          console.log(`[UserService] User ID ${userId} is a student. Checking if student contact info needs update.`);
-          const studentFieldsToUpdate = {};
-          if (updateData.hasOwnProperty('email') && updateData.email !== undefined) {
-            studentFieldsToUpdate.email = updateData.email;
-          }
-          if (updateData.hasOwnProperty('phone') && updateData.phone !== undefined) {
-            studentFieldsToUpdate.phone = updateData.phone;
-          }
-
-          if (Object.keys(studentFieldsToUpdate).length > 0) {
-            const studentFieldNames = Object.keys(studentFieldsToUpdate);
-            const studentFieldValues = Object.values(studentFieldsToUpdate);
-            studentFieldValues.push(userId); // For WHERE user_id = ?
-
-            const studentSetClause = studentFieldNames.map(name => `${name} = ?`).join(', ');
-            const studentUpdateQuery = `UPDATE student SET ${studentSetClause} WHERE user_id = ?`;
-            
-            console.log(`[UserService] Attempting to update student table for user_id ${userId} with data:`, studentFieldsToUpdate);
-            const studentUpdateResult = await db.query(studentUpdateQuery, studentFieldValues);
-
-            if (studentUpdateResult && studentUpdateResult.affectedRows > 0) {
-              console.log(`[UserService] Student contact info updated successfully for user_id: ${userId}`);
-              await logService.addLogEntry({
-                type: 'user',
-                operation: '更新学生联系方式',
-                content: `学生 (用户ID ${userId}) 更新了联系方式: ${Object.keys(studentFieldsToUpdate).join(', ')}`,
-                operator: `User:${userId}`
-              });
-            } else {
-              console.warn(`[UserService] Student contact info update failed or no changes for user_id: ${userId}. Student record might not exist with this user_id, or data was the same.`);
-            }
-          } else {
-            console.log(`[UserService] No email/phone data provided in updateData for student ${userId}. Skipping student table update.`);
-          }
-        }
-      } catch (studentUpdateError) {
-        // Log the error but don't let it fail the primary user update.
-        // The main 'success' variable still reflects the user table update status.
-        console.error(`[UserService] Error updating student table for user_id ${userId}:`, studentUpdateError);
-        await logService.addLogEntry({
-            type: 'error',
-            operation: '更新学生联系方式失败',
-            content: `用户ID ${userId} 更新学生表联系方式时出错: ${studentUpdateError.message}`,
-            operator: `User:${userId}`
-        });
+    // 3. Update 'user' table if there's data for it
+    if (Object.keys(userTableData).length > 0) {
+      // Add validation for fields if necessary (e.g., email format/uniqueness for non-students)
+      if (userTableData.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userTableData.email)) throw new Error('无效的邮箱格式');
+        const [existing] = await connection.query('SELECT id FROM user WHERE email = ? AND id != ?', [userTableData.email, userId]);
+        if (existing.length > 0) throw new Error('该邮箱已被其他用户注册');
       }
-    } else {
-      console.warn(`[UserService] User info update failed or no changes made for ID: ${userId}`);
+
+      const userSetClause = Object.keys(userTableData).map(key => `\`${key}\` = ?`).join(', ');
+      const userValues = [...Object.values(userTableData), userId];
+      const userSql = `UPDATE user SET ${userSetClause}, update_time = CURRENT_TIMESTAMP WHERE id = ?`;
+      const [userResult] = await connection.query(userSql, userValues);
+      userUpdateOccurred = userResult.affectedRows > 0;
     }
 
-    return success;
+    // 4. Update 'student' table if the user is a student and there's relevant data
+    if (userRole === 'student' && Object.keys(studentTableData).length > 0) {
+      // Add validation for student-specific fields
+      if (studentTableData.phone) {
+        const phoneRegex = /^1[3-9]\d{9}$/;
+        if (!phoneRegex.test(studentTableData.phone)) throw new Error('手机号码格式不正确');
+      }
+       if (studentTableData.email) {
+         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+         if (!emailRegex.test(studentTableData.email)) throw new Error('无效的邮箱格式');
+         const [existing] = await connection.query('SELECT id FROM student WHERE email = ? AND user_id != ?', [studentTableData.email, userId]);
+         if (existing.length > 0) throw new Error('该邮箱已被其他学生注册');
+      }
+
+      const studentSetClause = Object.keys(studentTableData).map(key => `\`${key}\` = ?`).join(', ');
+      const studentValues = [...Object.values(studentTableData), userId];
+      const studentSql = `UPDATE student SET ${studentSetClause}, update_time = CURRENT_TIMESTAMP WHERE user_id = ?`;
+      const [studentResult] = await connection.query(studentSql, studentValues);
+      profileUpdateOccurred = studentResult.affectedRows > 0;
+    }
+
+    // If we've reached here, the logic is done. Commit the transaction.
+    await connection.commit();
+    console.log(`[UserService] User profile update transaction committed for user ID: ${userId}. User table changed: ${userUpdateOccurred}, Profile table changed: ${profileUpdateOccurred}`);
+    
+    // Log the successful update if anything changed
+    if (userUpdateOccurred || profileUpdateOccurred) {
+        await logService.addLogEntry({
+          type: 'database',
+          operation: '更新用户资料',
+          content: `用户 (ID: ${userId}) 资料已成功更新。`,
+          operator: operator,
+        });
+    }
+
+    return userUpdateOccurred || profileUpdateOccurred; // Return true if at least one update happened
+
   } catch (error) {
+    if (connection) await connection.rollback(); // Ensure rollback on error
     console.error(`[UserService] Error updating user info for ID ${userId}:`, error);
-    // Log specific update errors before re-throwing
+    // Log the detailed error
     await logService.addLogEntry({
         type: 'error',
         operation: '更新用户资料失败',
         content: `用户ID ${userId} 更新资料时出错: ${error.message}`,
-        operator: `User:${userId}`
+        operator: operator,
     });
-    throw error; // Re-throw to be caught by the route handler in server.js
+    throw error; // Re-throw to be handled by the server route
+  } finally {
+    if (connection) {
+        connection.release();
+    }
   }
 }
 

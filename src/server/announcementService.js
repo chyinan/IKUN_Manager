@@ -162,10 +162,13 @@ async function updateAnnouncement(id, announcementData, operator) {
     console.log(`[AnnouncementService] Admin '${operator}' updating announcement ID: ${id}`);
     
     // Fetch the current status to see if we are publishing a draft
-    const [existing] = await db.query('SELECT status, published_at FROM announcements WHERE id = ?', [id]);
-    if (!existing || existing.length === 0) {
+    const existingRows = await db.query('SELECT status, published_at FROM announcements WHERE id = ?', [id]);
+    
+    // Check if we found the announcement
+    if (!existingRows || existingRows.length === 0) {
       throw new Error('找不到要更新的通知');
     }
+    const currentAnnouncement = existingRows[0]; // Get the actual object for the announcement
 
     const updateFields = [];
     const values = [];
@@ -177,16 +180,19 @@ async function updateAnnouncement(id, announcementData, operator) {
     if (is_pinned !== undefined) { updateFields.push('is_pinned = ?'); values.push(is_pinned); }
     
     // If a draft is being published now, set the published_at date.
-    if (status === 'published' && existing[0].status === 'draft') {
+    if (status === 'published' && currentAnnouncement.status === 'draft') {
       updateFields.push('published_at = ?');
       values.push(new Date());
     }
 
     if (updateFields.length === 0) {
-      return { message: "没有提供可更新的字段" };
+      console.log(`[AnnouncementService] No fields to update for announcement ID: ${id}. Returning current data.`);
+      // If no fields are to be updated, we can just return the latest data from the DB.
+      const updatedRows = await db.query('SELECT * from announcements WHERE id = ?', [id]);
+      return updatedRows[0];
     }
 
-    const query = `UPDATE announcements SET ${updateFields.join(', ')} WHERE id = ?`;
+    const query = `UPDATE announcements SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
     values.push(id);
     
     await db.query(query, values);
@@ -198,8 +204,9 @@ async function updateAnnouncement(id, announcementData, operator) {
       operator: operator
     });
     
-    // Return the updated object by fetching it again (or just returning the input)
-    return { id, ...announcementData };
+    // Return the updated object by fetching it again to ensure data consistency
+    const refetchedRows = await db.query('SELECT * from announcements WHERE id = ?', [id]);
+    return refetchedRows[0];
 
   } catch (error) {
     console.error(`[AnnouncementService] Error updating announcement ${id}:`, error);

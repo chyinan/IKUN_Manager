@@ -20,7 +20,7 @@
         </el-table-column>
         <el-table-column prop="is_pinned" label="是否置顶" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_pinned ? 'danger' : ''" effect="plain">
+            <el-tag :type="row.is_pinned ? 'danger' : 'info'" effect="plain">
               {{ row.is_pinned ? '是' : '否' }}
             </el-tag>
           </template>
@@ -69,8 +69,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio label="published">发布</el-radio>
-            <el-radio label="draft">存为草稿</el-radio>
+            <el-radio value="published">发布</el-radio>
+            <el-radio value="draft">存为草稿</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="置顶" prop="is_pinned">

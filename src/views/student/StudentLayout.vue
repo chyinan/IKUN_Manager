@@ -31,17 +31,10 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-sub-menu index="/student-portal/my-scores"> 
-            <template #title>
-              <el-icon><Memo /></el-icon>
-              <span>我的成绩</span>
-            </template>
-            <el-menu-item index="/student-portal/my-scores/detailed">
-              <el-icon><Document /></el-icon>
-              <span>详细成绩报告</span>
-            </el-menu-item>
-            <!-- Future: Add ranking details menu item here -->
-          </el-sub-menu>
+          <el-menu-item index="/student-portal/my-scores">
+            <el-icon><Memo /></el-icon>
+            <span>我的成绩</span>
+          </el-menu-item>
           <el-menu-item index="/student-portal/upcoming-exams">
             <el-icon><Clock /></el-icon>
             <span>待考考试</span>

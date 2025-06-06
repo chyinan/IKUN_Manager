@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type { ApiResponse } from '@/types/response';
+import type { ApiResponse } from '@/types/common';
 
 export interface Announcement {
   id: number;

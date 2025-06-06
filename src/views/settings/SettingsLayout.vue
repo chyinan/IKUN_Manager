@@ -22,6 +22,25 @@
   background-color: var(--el-bg-color-page);
   // 确保内容区域至少填满视口高度减去可能的头部和导航栏高度
   min-height: calc(100vh - 50px - 34px); // 假设顶部导航50px, tagsView 34px (根据您的 DefaultLayout 调整)
+  display: flex;
+  flex-direction: column;
+
+  & > :deep(div) {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+
+    & > .el-card {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+
+      .el-card__body {
+        flex-grow: 1;
+        overflow-y: auto; // Add scroll if content exceeds card height
+      }
+    }
+  }
 }
 
 /* 

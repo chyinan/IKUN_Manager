@@ -146,8 +146,8 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { updatePassword, uploadAvatar, updateUserInfo } from '@/api/user'
-import type { FormInstance, FormRules } from 'element-plus'
+import { updatePassword, uploadFile, updateUserInfo } from '@/api/user'
+import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { 
   Lock, SwitchButton, Delete, ArrowRight
 } from '@element-plus/icons-vue'
@@ -248,42 +248,29 @@ const avatarError = () => {
   userInfo.avatar = defaultAvatar
 }
 
-// 重命名: 上传头像处理函数
-const handleUploadAvatar = async (options: any) => {
+// 处理头像上传
+const handleUploadAvatar = async (options: UploadRequestOptions) => {
+  loading.avatar = true
   try {
-    // Check if the file exists on the options object
-    if (!options || !options.file) {
-      ElMessage.error('未选择文件');
-      return;
-    }
-    const fileToUpload: File = options.file; // Extract the file
-
-    loading.avatar = true
-    // Removed FormData creation
-    // const formData = new FormData()
-    // formData.append('file', options.file)
-    
-    // Corrected: Pass the File object directly
-    const response = await uploadAvatar(fileToUpload)
-    
-    if (response?.code === 200 && response.data?.avatarUrl) {
-      const newAvatarUrl = response.data.avatarUrl;
-      userInfo.avatar = newAvatarUrl;
-      userStore.setAvatar(newAvatarUrl);
-      initialAvatar.value = newAvatarUrl;
-      ElMessage.success('头像更新成功');
+    const response = await uploadFile(options.file)
+    if (response.code === 200) {
+      const newAvatarUrl = response.data.filePath
+      // Now, update the user's info with the new avatar URL
+      await userStore.updateUserProfile({ avatar: newAvatarUrl })
+      userInfo.avatar = newAvatarUrl // Update local display
+      initialAvatar.value = newAvatarUrl // Update initial value to prevent "unsaved changes"
+      ElMessage.success('头像更换成功')
     } else {
-      ElMessage.error(response?.message || '上传头像失败，未收到有效的头像URL');
+      ElMessage.error(response.message || '头像上传失败')
     }
   } catch (error: any) {
-    console.error('上传头像失败 (catch):', error);
-    ElMessage.error(error.response?.data?.message || error.message || '上传头像失败');
+    ElMessage.error(error.message || '头像上传失败')
   } finally {
     loading.avatar = false
   }
 }
 
-// 更新用户信息
+// 处理信息更新
 const handleUpdateInfo = async () => {
   if (!formRef.value) return
   

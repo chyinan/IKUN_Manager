@@ -25,12 +25,18 @@ export interface SubjectAverage {
 
 // 班级成绩数据
 export interface ClassScoreData {
-  name: string
-  value: number[]
+  student_id: number;
+  student_number: string;
+  student_name: string;
+  exam_time: string;
+  exam_type: string;
+  exam_name: string;
+  subjects: { [key: string]: number };
 }
 
 // 科目统计
 export interface SubjectStats {
+  subject: string;
   sum: number
   count: number
   avg?: number

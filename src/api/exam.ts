@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { ExamItem, ExamItemResponse, ApiResponse, Subject, ExamListResponse, ExamInfo } from '@/types/common'
+import type { Exam, ExamItemResponse, ApiResponse, Subject, ExamListResponse, ExamInfo, ExamFormData } from '@/types/common'
 import type { AxiosResponse } from 'axios'
 
 /**
@@ -46,7 +46,7 @@ export function getExamDetail(id: number): Promise<ApiResponse<ExamInfo>> {
  * @param data 考试信息
  * @returns Promise resolving to ApiResponse containing the created ExamInfo
  */
-export function addExam(data: Partial<ExamItem>): Promise<ApiResponse<ExamInfo>> {
+export function addExam(data: Partial<ExamFormData>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用addExam API, 数据:', data);
   return request.post<ApiResponse<ExamInfo>>('/exam/add', data)
     .catch(error => {
@@ -67,7 +67,7 @@ export function addExam(data: Partial<ExamItem>): Promise<ApiResponse<ExamInfo>>
  * @param data 考试信息
  * @returns Promise resolving to ApiResponse containing the updated ExamInfo
  */
-export function updateExam(id: number, data: Partial<ExamItem>): Promise<ApiResponse<ExamInfo>> {
+export function updateExam(id: number, data: Partial<ExamFormData>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用updateExam API, ID:', id, '数据:', data);
   return request.put<ApiResponse<ExamInfo>>(`/exam/${id}`, data)
     .catch(error => {
@@ -275,9 +275,9 @@ export function updateExamStatus(id: number, status: number): Promise<ApiRespons
 }
 
 // 创建考试记录（如果不存在）
-export function createExamIfNotExists(data: Partial<ExamItem>): Promise<ApiResponse<ExamItemResponse>> {
-  console.log('调用 createExamIfNotExists API, 数据:', data);
-  return request.post<ApiResponse<ExamItemResponse>>('/exam/find-or-create', data)
+export function createExamIfNotExists(data: Partial<ExamFormData>): Promise<ApiResponse<ExamItemResponse>> {
+  console.log('调用createExamIfNotExists API, 数据:', data);
+  return request.post<ApiResponse<ExamItemResponse>>('/exam/createIfNotExists', data)
     .catch(error => {
       console.error('createExamIfNotExists API catch block:', error);
       throw error;

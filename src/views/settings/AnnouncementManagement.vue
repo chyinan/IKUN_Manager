@@ -95,8 +95,9 @@ import {
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
-  type AdminAnnouncement,
 } from '@/api/announcement';
+import type { AdminAnnouncement } from '@/api/announcement';
+import { uploadFile } from '@/api/user';
 
 // Import WangEditor
 import '@wangeditor/editor/dist/css/style.css';
@@ -117,8 +118,8 @@ const fetchAnnouncements = async () => {
     } else {
       ElMessage.error(res.message || '获取通知列表失败');
     }
-  } catch (e) {
-    ElMessage.error('获取通知列表时发生网络错误');
+  } catch (e: any) {
+    ElMessage.error(e.message || '获取通知列表时发生网络错误');
   } finally {
     loading.value = false;
   }
@@ -177,18 +178,28 @@ const handleSubmit = async () => {
         };
 
         if (form.value.id) {
-          // Update
-          await updateAnnouncement(form.value.id, dataToSend);
-          ElMessage.success('更新成功');
+          // Update existing announcement
+          const { id, ...updateData } = dataToSend; // Exclude id from the payload for update
+          const res = await updateAnnouncement(form.value.id, updateData);
+          if (res.code === 200) {
+            ElMessage.success('更新成功');
+          } else {
+            ElMessage.error(res.message || '更新失败');
+          }
         } else {
-          // Create
-          await createAnnouncement(dataToSend);
-          ElMessage.success('发布成功');
+          // Create new announcement
+          const { id, ...createData } = dataToSend; // Exclude id for creation
+          const res = await createAnnouncement(createData);
+          if (res.code === 201) {
+            ElMessage.success('发布成功');
+          } else {
+            ElMessage.error(res.message || '发布失败');
+          }
         }
         dialogVisible.value = false;
         fetchAnnouncements(); // Refresh table
-      } catch (e) {
-        ElMessage.error('操作失败');
+      } catch (e: any) {
+        ElMessage.error(e.message || '操作失败');
       } finally {
         submitLoading.value = false;
       }
@@ -198,11 +209,15 @@ const handleSubmit = async () => {
 
 const handleDelete = async (id: number) => {
   try {
-    await deleteAnnouncement(id);
-    ElMessage.success('删除成功');
-    fetchAnnouncements(); // Refresh table
-  } catch (e) {
-    ElMessage.error('删除失败');
+    const res = await deleteAnnouncement(id);
+    if (res.code === 200) {
+      ElMessage.success('删除成功');
+      fetchAnnouncements(); // Refresh table
+    } else {
+      ElMessage.error(res.message || '删除失败');
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '删除失败');
   }
 };
 
@@ -210,9 +225,33 @@ const handleDelete = async (id: number) => {
 // --- Rich Text Editor ---
 const editorRef = shallowRef();
 const toolbarConfig: Partial<IToolbarConfig> = {};
+
+// Custom upload function for the editor
+type InsertFnType = (url: string, alt: string, href: string) => void;
+const customUpload = async (file: File, insertFn: InsertFnType) => {
+  try {
+    const res = await uploadFile(file); // Pass the File object directly
+    if (res.code === 200 && res.data.filePath) {
+      const fullUrl = res.data.filePath.startsWith('http') ? res.data.filePath : `/api${res.data.filePath}`;
+      insertFn(fullUrl, file.name, fullUrl);
+      ElMessage.success('图片上传成功');
+    } else {
+      ElMessage.error(res.message || '图片上传失败');
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '图片上传时发生错误');
+  }
+};
+
+
 const editorConfig: Partial<IEditorConfig> = {
   placeholder: '请输入内容...',
-  MENU_CONF: {},
+  MENU_CONF: {
+    uploadImage: {
+      server: '/api/upload/image', // This is just a placeholder, customUpload will be used
+      customUpload: customUpload,
+    },
+  },
 };
 
 const handleCreated = (editor: any) => {
@@ -245,4 +284,4 @@ onMounted(() => {
     }
   }
 }
-</style> 
+</style>

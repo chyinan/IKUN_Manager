@@ -1,1135 +1,450 @@
 <template>
-  <div class="exam-container">
-    <!-- 页面标题区域 -->
-    <div class="page-header-area">
-      <div class="page-header">
-        <el-icon :size="24"><Calendar /></el-icon>
-        <div class="header-content">
-          <h2 class="header-title">考试管理</h2>
-          <div class="header-desc">管理学校各类考试信息</div>
-        </div>
-      </div>
-      
-      <div class="header-actions">
-        <el-button type="primary" @click="handleAddExam" :icon="Plus">新增考试</el-button>
-      </div>
-    </div>
-    
-    <!-- 搜索和筛选区域 -->
-    <el-card class="filter-card">
+  <div class="app-container">
+    <el-card>
       <template #header>
-        <div class="filter-header">
-          <span>搜索与筛选</span>
-          <el-button 
-            text
-            @click="clearFilters" 
-            type="primary" 
-            :disabled="!hasActiveFilters"
-          >
-            清除筛选
+        <div class="card-header">
+          <span>考试管理</span>
+          <el-button type="primary" @click="handleOpenDialog()">
+            <el-icon class="el-icon--left"><Plus /></el-icon>
+            新建考试
           </el-button>
         </div>
       </template>
-      
-      <div class="filter-content">
-        <!-- 搜索区域 -->
-        <div class="search-section">
-          <div class="section-title">
-            <el-icon><Search /></el-icon>
-            <span>关键词搜索</span>
-          </div>
-          <el-input
-            v-model="searchKeyword"
-            placeholder="输入考试名称搜索"
-            clearable
-            class="filter-item keyword-search-input"
-            @clear="handleSearch"
-            @keyup.enter="handleSearch"
-          >
-          </el-input>
-        </div>
-        
-        <!-- 筛选条件 -->
-        <div class="filter-section">
-          <div class="section-title">
-            <el-icon><Filter /></el-icon>
-            <span>筛选条件</span>
-          </div>
-          <!-- 使用嵌套 div 进行布局 -->
-          <div class="filter-layout">
-            <!-- 第一行：考试类型和状态 -->
-            <div class="filter-row">
-              <el-select
-                v-model="filterExamType"
-                placeholder="考试类型"
-                clearable
-                @change="handleFilterChange"
-                class="filter-item"
-              >
-                <el-option
-                  v-for="item in dynamicExamTypeOptions"
-                  :key="item"
-                  :label="item"
-                  :value="item"
-                />
-              </el-select>
-              
-              <el-select
-                v-model="statusFilter"
-                placeholder="考试状态"
-                clearable
-                @change="handleFilterChange"
-                class="filter-item"
-              >
-                <el-option label="未开始" :value="0" />
-                <el-option label="进行中" :value="1" />
-                <el-option label="已结束" :value="2" />
-              </el-select>
-            </div>
-            
-            <!-- 第二行：日期范围 -->
-            <div class="filter-row">
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                format="YYYY/MM/DD"
-                value-format="YYYY-MM-DD"
-                @change="handleFilterChange"
-                class="filter-item date-picker-full-width"
-              />
-            </div>
-          </div>
-        </div>
+
+      <!-- 搜索和筛选 -->
+      <div class="filter-container">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="按考试名称搜索"
+          class="filter-item"
+          style="width: 200px;"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+        <el-select
+          v-model="filterExamType"
+          placeholder="按考试类型筛选"
+          class="filter-item"
+          style="width: 150px;"
+          clearable
+          @change="handleFilter"
+        >
+          <el-option v-for="item in examTypeOptions" :key="item" :label="item" :value="item" />
+        </el-select>
+        <el-select
+          v-model="filterStatus"
+          placeholder="按状态筛选"
+          class="filter-item"
+          style="width: 130px;"
+          clearable
+          @change="handleFilter"
+        >
+          <el-option label="未发布" :value="0" />
+          <el-option label="已发布" :value="1" />
+          <el-option label="已结束" :value="2" />
+        </el-select>
+        <el-button class="filter-item" type="primary" icon="Search" @click="handleFilter">筛选</el-button>
       </div>
-      
-      <!-- 筛选结果显示 -->
-      <div class="filter-results" v-if="hasActiveFilters">
-        <div class="results-info">
-          <el-icon><InfoFilled /></el-icon>
-          <span>当前筛选条件下共有 <strong>{{ filteredExamList.length }}</strong> 条数据</span>
-        </div>
-        
-        <div class="active-filters">
-          <el-tag 
-            v-if="searchKeyword" 
-            closable 
-            @close="searchKeyword = ''; handleSearch()"
-            class="filter-tag"
-          >
-            关键词: {{ searchKeyword }}
-          </el-tag>
-          
-          <el-tag 
-            v-if="filterExamType" 
-            closable 
-            @close="filterExamType = ''; handleFilterChange()"
-            type="success"
-            class="filter-tag"
-          >
-            考试类型: {{ filterExamType }}
-          </el-tag>
-          
-          <el-tag 
-            v-if="dateRange" 
-            closable 
-            @close="dateRange = null; handleFilterChange()"
-            type="warning"
-            class="filter-tag"
-          >
-            日期范围: {{ formatDateRangeDisplay(dateRange) }}
-          </el-tag>
-          
-          <el-tag 
-            v-if="statusFilter !== null && statusFilter !== undefined" 
-            closable 
-            @close="statusFilter = null; handleFilterChange()"
-            type="danger"
-            class="filter-tag"
-          >
-            考试状态: {{ getStatusText(statusFilter) }}
-          </el-tag>
-        </div>
-      </div>
-    </el-card>
-    
-    <!-- 考试列表 -->
-    <el-card class="exam-list-card">
-      <template #header>
-        <div class="list-header">
-          <span>考试列表</span>
-          <span class="data-count">共 {{ filteredExamList.length }} 条数据</span>
-        </div>
-      </template>
-      
-      <el-table
-        :data="paginatedExamList"
-        style="width: 100%"
-        border
-        stripe
-        highlight-current-row
-        :row-style="{cursor: 'pointer'}"
-        v-loading="loading"
-        :empty-text="emptyText"
-      >
-        <!-- 序号列 -->
-        <el-table-column type="index" width="60" align="center" label="#" />
-        
-        <!-- 考试名称列 -->
-        <el-table-column label="考试名称" min-width="180">
-          <template #default="{row}">
-            <div class="exam-name">
-              <el-tag :type="getExamTypeTag(row.examType)" effect="plain" size="small">
-                {{ row.examType }}
-              </el-tag>
-              <span>{{ row.examName }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        
-        <!-- 考试日期列 -->
-        <el-table-column label="考试日期" width="120" align="center">
-          <template #default="{row}">
-            {{ formatDate(row.startTime) }}
-          </template>
-        </el-table-column>
-        
-        <!-- 考试时长列 -->
-        <el-table-column label="考试时长" width="100" align="center">
-          <template #default="{row}">
-            {{ row.duration }} 分钟
-          </template>
-        </el-table-column>
-        
-        <!-- 考试科目列 -->
-        <el-table-column prop="subjects" label="关联科目" min-width="150">
+
+      <!-- 考试列表 -->
+      <el-table :data="paginatedExams" v-loading="loading" style="width: 100%">
+        <el-table-column prop="examName" label="考试名称" min-width="180" />
+        <el-table-column prop="examType" label="考试类型" width="120" />
+        <el-table-column prop="examDate" label="考试日期" width="120" />
+        <el-table-column prop="startTime" label="开始时间" width="120" />
+        <el-table-column prop="duration" label="时长(分钟)" width="110" />
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <span v-if="Array.isArray(row.subjects) && row.subjects.length > 0">
-              {{ row.subjects.join(', ') }}
-            </span>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        
-        <!-- 状态列 -->
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{row}">
-            <el-tag :type="getStatusType(row.status)" effect="dark" size="small">
+            <el-tag :type="getStatusTagType(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        
-        <!-- 新增：适用班级列 -->
-        <el-table-column label="适用班级" min-width="200">
+        <el-table-column label="操作" fixed="right" width="220">
           <template #default="{ row }">
-            <div v-if="row.classNames && row.classNames.length" class="class-tags-container">
-              <el-tag
-                v-for="className in row.classNames"
-                :key="className"
-                type="primary"
-                effect="plain"
-                class="class-tag"
-              >
-                {{ className }}
-              </el-tag>
-            </div>
-            <span v-else>全体</span>
-          </template>
-        </el-table-column>
-        
-        <!-- 创建时间列 -->
-        <el-table-column label="创建时间" width="180" align="center">
-          <template #default="{row}">
-            {{ formatDateTime(row.createTime) }}
-          </template>
-        </el-table-column>
-        
-        <!-- 操作列 -->
-        <el-table-column label="操作" width="200" align="center">
-          <template #default="{row}">
-            <div class="operation-buttons">
-              <el-button-group>
-                <el-button size="small" type="primary" @click="handleEditExam(row)" :icon="Edit">
-                  编辑
-                </el-button>
-                <el-button 
-                  size="small" 
-                  type="danger" 
-                  @click="handleDeleteExam(row)" 
-                  :icon="Delete"
-                  :disabled="row.status === 2"
-                >
-                  删除
-                </el-button>
-              </el-button-group>
-            </div>
+            <el-button type="primary" link @click="handleOpenDialog(row)">编辑</el-button>
+            <el-button type="danger" link @click="handleDelete(row.id)">删除</el-button>
+            <el-button
+              v-if="row.status === 0"
+              type="success"
+              link
+              @click="handlePublish(row.id, true)"
+            >
+              发布
+            </el-button>
+            <el-button
+              v-if="row.status === 1"
+              type="warning"
+              link
+              @click="handlePublish(row.id, false)"
+            >
+              取消发布
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
       
-      <!-- 分页器 -->
+      <!-- 分页 -->
       <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :total="filteredExamList.length"
-        :page-sizes="[10, 20, 30, 50]"
-        layout="total, sizes, prev, pager, next, jumper"
-        class="pagination"
+        background
+        layout="prev, pager, next, total"
+        :total="totalExams"
+        :page-size="pageSize"
+        :current-page="currentPage"
+        @current-change="handlePageChange"
+        class="pagination-container"
       />
     </el-card>
-    
-    <!-- 新增/编辑考试对话框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="isEditMode ? '编辑考试' : '新增考试'"
-      width="800px"
-      top="5vh" 
-      :close-on-click-modal="false"
-      @close="handleDialogClose"
-    >
-      <el-form
-        ref="examFormRef"
-        :model="examForm"
-        :rules="examRules"
-        label-width="100px"
-        label-position="right"
-      >
-        <el-row :gutter="20">
+
+    <!-- 新建/编辑考试对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="60%" :close-on-click-modal="false">
+      <el-form ref="examFormRef" :model="examForm" :rules="rules" label-width="100px">
+        <el-row>
           <el-col :span="12">
             <el-form-item label="考试名称" prop="exam_name">
-              <el-input v-model="examForm.exam_name" placeholder="请输入考试名称" />
+              <el-input v-model="examForm.exam_name" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="考试类型" prop="exam_type">
-              <el-select 
-                v-model="examForm.exam_type" 
-                placeholder="请选择或输入考试类型" 
-                style="width: 100%"
-                filterable
-                allow-create
-                default-first-option
-                :reserve-keyword="false"
-              >
-                <el-option
-                  v-for="item in dynamicExamTypeOptions"
-                  :key="item"
-                  :label="item"
-                  :value="item"
-                />
-              </el-select>
+              <el-input v-model="examForm.exam_type" />
             </el-form-item>
           </el-col>
         </el-row>
-        
-        <el-row :gutter="20">
+        <el-row>
           <el-col :span="12">
-            <el-form-item label="开始时间" prop="start_time">
-              <el-date-picker
-                v-model="examForm.start_time"
-                type="datetime"
-                placeholder="选择开始日期时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%;"
-              />
+            <el-form-item label="考试日期" prop="exam_date">
+              <el-date-picker v-model="examForm.exam_date" type="date" placeholder="选择日期" style="width: 100%;" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="结束时间" prop="end_time">
-              <el-date-picker
-                v-model="examForm.end_time"
-                type="datetime"
-                placeholder="选择结束日期时间"
-                value-format="YYYY-MM-DD HH:mm:ss"
-                style="width: 100%;"
-              />
+            <el-form-item label="开始时间" prop="start_time">
+              <el-time-picker v-model="examForm.start_time" placeholder="选择时间" style="width: 100%;" />
             </el-form-item>
           </el-col>
         </el-row>
-
-        <el-form-item label="考试科目" prop="subjects">
-           <el-select
-            v-model="examForm.subjects"
-            multiple
-            filterable
-            placeholder="请选择考试科目"
-            style="width: 100%;"
-          >
-            <el-option
-              v-for="item in subjectList"
-              :key="item.id"
-              :label="item.subject_name"
-              :value="item.id"
-            />
-          </el-select>
+        <el-form-item label="考试时长" prop="duration">
+          <el-input-number v-model="examForm.duration" :min="1" /> 分钟
         </el-form-item>
-
-        <!-- 新增：适用班级 -->
-        <el-form-item label="适用班级" prop="classIds">
-          <el-select
-            v-model="examForm.classIds"
-            multiple
-            filterable
-            clearable
-            placeholder="请选择适用的班级 (可多选，不选则为全体)"
-            style="width: 100%;"
-          >
-            <el-option
-              v-for="item in classList"
-              :key="item.id"
-              :label="item.class_name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-
         <el-form-item label="考试描述" prop="description">
-          <el-input
-            v-model="examForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入考试描述信息"
-          />
+          <el-input v-model="examForm.description" type="textarea" />
         </el-form-item>
-
-        <el-form-item label="考试状态">
-          <el-radio-group v-model="examForm.status">
-            <el-radio :value="0">未开始</el-radio>
-            <el-radio :value="1">进行中</el-radio>
-            <el-radio :value="2">已结束</el-radio>
-          </el-radio-group>
+        <el-form-item label="关联班级" prop="classIds">
+          <el-select v-model="examForm.classIds" multiple placeholder="选择班级" style="width: 100%;">
+            <el-option
+              v-for="cls in allClassList"
+              :key="cls.id"
+              :label="cls.className"
+              :value="cls.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="考试科目" prop="subjectIds">
+          <el-select v-model="examForm.subjectIds" multiple placeholder="选择科目" style="width: 100%;">
+            <el-option
+              v-for="sub in allSubjects"
+              :key="sub.id"
+              :label="sub.subject_name"
+              :value="sub.id"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
-      
       <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitLoading">
-            {{ isEditMode ? '保存更新' : '立即创建' }}
-          </el-button>
-        </div>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">提交</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { Plus, Calendar, Search, Edit, Delete, Filter, InfoFilled } from '@element-plus/icons-vue'
-import { 
-  getExamList, 
-  addExam, 
-  updateExam, 
-  deleteExam, 
-  getExamTypeOptions,
-  getExamSubjects,
-} from '@/api/exam'
-import { getClassList } from '@/api/class'
-import dayjs from 'dayjs'
+<script lang="ts" setup>
+import { ref, reactive, onMounted, computed } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import type { FormInstance, FormRules } from 'element-plus';
+import {
+  getExamList, addExam, updateExam, deleteExam, publishExam, unpublishExam,
+  getExamTypeOptions, getExamSubjects
+} from '@/api/exam';
+import { getClassList } from '@/api/class';
+import type { Exam as ExamType, ExamFormData, ExamItemResponse, ClassItemResponse, Subject as SubjectType } from '@/types/common';
+import dayjs from 'dayjs';
 
-// 考试类型选项
-const dynamicExamTypeOptions = ref<string[]>([])
-const examTypeLoading = ref(false)
+// --- State ---
+const loading = ref(false);
+const submitLoading = ref(false);
+const allExams = ref<ExamType[]>([]);
+const filteredExams = ref<ExamType[]>([]);
+const searchKeyword = ref('');
+const filterExamType = ref('');
+const filterStatus = ref<number | ''>('');
+const currentPage = ref(1);
+const pageSize = ref(10);
+const dialogVisible = ref(false);
+const dialogTitle = ref('');
+const examFormRef = ref<FormInstance>();
+const examForm = ref<Partial<ExamFormData>>({});
+const allClassList = ref<{ id: number; className: string }[]>([]);
+const allSubjects = ref<SubjectType[]>([]);
+const examTypeOptions = ref<string[]>([]);
 
-// 科目选项
-const subjectList = ref<Subject[]>([])
-
-// 状态和数据
-const loading = ref(true)
-const submitLoading = ref(false)
-const examList = ref<Exam[]>([])
-const statusFilter = ref<number | null>(null)
-const classList = ref<Class[]>([])
-
-// 检查是否有激活的筛选条件
-const hasActiveFilters = computed(() => {
-  return !!searchKeyword.value || !!filterExamType.value || !!dateRange.value || statusFilter.value !== null;
-})
-
-// 格式化日期范围显示
-const formatDateRangeDisplay = (range: [string, string] | null) => {
-  if (!range) return '';
-  return `${range[0]} 至 ${range[1]}`;
-}
-
-// 清除所有筛选条件
-const clearFilters = () => {
-  searchKeyword.value = '';
-  filterExamType.value = '';
-  dateRange.value = null;
-  statusFilter.value = null;
-  currentPage.value = 1;
-  fetchExams();
-}
-
-// 筛选数据计算属性
-const filteredExamList = computed(() => {
-  // 如果没有筛选条件，直接返回所有数据
-  if (!searchKeyword.value.trim() && !filterExamType.value && !dateRange.value && statusFilter.value === null) {
-    return examList.value;
-  }
-  
-  // 应用筛选逻辑
-  return examList.value.filter(exam => {
-    let matchType = true;
-    let matchDate = true;
-    let matchKeyword = true;
-    let matchStatus = true;
-    
-    // 考试类型筛选
-    if (filterExamType.value) {
-      matchType = exam.examType === filterExamType.value;
-    }
-    
-    // 日期范围筛选
-    if (dateRange.value && dateRange.value.length === 2) {
-      const examDate = new Date(exam.startTime);
-      const startDate = new Date(dateRange.value[0]);
-      const endDate = new Date(dateRange.value[1]);
-      
-      // 设置结束日期为当天的23:59:59，确保包含当天
-      endDate.setHours(23, 59, 59);
-      
-      matchDate = examDate >= startDate && examDate <= endDate;
-    }
-    
-    // 关键词筛选
-    if (searchKeyword.value.trim()) {
-      matchKeyword = exam.examName.toLowerCase().includes(searchKeyword.value.toLowerCase());
-    }
-    
-    // 状态筛选
-    if (statusFilter.value !== null) {
-      matchStatus = exam.status === statusFilter.value;
-    }
-    
-    return matchType && matchDate && matchKeyword && matchStatus;
-  });
-});
-
-// 分页后的数据显示
-const paginatedExamList = computed(() => {
+// --- Computed Properties ---
+const totalExams = computed(() => filteredExams.value.length);
+const paginatedExams = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
-  return filteredExamList.value.slice(start, end);
+  return filteredExams.value.slice(start, end);
 });
 
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(10)
-const searchKeyword = ref('')
-const filterExamType = ref('')
-const dateRange = ref<[string, string] | null>(null)
-const emptyText = ref('暂无考试数据')
+// --- Mappers ---
+const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
+  id: item.id,
+  examName: item.exam_name,
+  examType: item.exam_type,
+  examDate: item.exam_date,
+  startTime: item.start_time,
+  duration: item.duration,
+  status: item.status,
+  description: item.description,
+  createTime: item.create_time,
+  subjects: item.subjects ? item.subjects.split(',') : [],
+  subjectIds: item.subject_ids ? item.subject_ids.split(',').map(Number) : [],
+  classNames: item.class_names ? item.class_names.split(',') : [],
+  classIds: item.class_ids ? item.class_ids.split(',').map(Number) : [],
+});
 
-// 对话框相关
-const dialogVisible = ref(false)
-const isEditMode = ref(false)
-const examFormRef = ref<FormInstance>()
+const mapClassItemResponseToClassOption = (item: ClassItemResponse) => ({
+  id: item.id,
+  className: item.class_name,
+});
 
-// 考试表单
-const examForm = ref<ExamFormData>({
-  id: null,
-  exam_name: '',
-  exam_type: '',
-  start_time: '',
-  end_time: '',
-  subjects: [],
-  classIds: [],
-  description: '',
-  status: 0,
-})
-
-// 表单验证规则
-const examRules = reactive<FormRules>({
-  exam_name: [{ required: true, message: '请输入考试名称', trigger: 'blur' }],
-  exam_type: [{ required: true, message: '请选择或输入考试类型', trigger: 'change' }],
-  start_time: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
-  end_time: [{ required: true, message: '请选择结束时间', trigger: 'change' }],
-  subjects: [{ required: true, type: 'array', min: 1, message: '请至少选择一门考试科目', trigger: 'change' }],
-})
-
-// 格式化日期
-const formatDate = (dateStr: string | null | Date) => {
-  if (!dateStr) return 'N/A';
-  return dayjs(dateStr).format('YYYY-MM-DD');
-}
-
-// 格式化日期时间
-const formatDateTime = (dateTimeStr: string | null | Date) => {
-  if (!dateTimeStr) return 'N/A';
-  return dayjs(dateTimeStr).format('YYYY-MM-DD HH:mm:ss');
-}
-
-// 获取考试类型标签样式
-const getExamTypeTag = (type: string | null | undefined): '' | 'success' | 'info' | 'warning' | 'danger' => {
-  if (!type) return 'info';
-  if (type.includes('期末')) return 'danger';
-  if (type.includes('期中')) return 'warning';
-  if (type.includes('月考')) return 'success';
-  return 'info';
-}
-
-// 获取状态类型
-const getStatusType = (status: number | null | undefined): 'info' | 'primary' | 'success' | 'warning' | 'danger' => {
-  switch (status) {
-    case 0: return 'info';
-    case 1: return 'primary';
-    case 2: return 'success';
-    default: return 'info';
-  }
-}
-
-// 获取状态文本
-const getStatusText = (status: number | null | undefined) => {
-  switch (status) {
-    case 0: return '未开始';
-    case 1: return '进行中';
-    case 2: return '已结束';
-    default: return '未知';
-  }
-}
-
-// 筛选变化处理
-const handleFilterChange = () => {
-  currentPage.value = 1;
-  fetchExams();
-}
-
-// 搜索处理
-const handleSearch = () => {
-  currentPage.value = 1;
-  fetchExams();
-}
-
-// 获取考试列表
+// --- Data Fetching ---
 const fetchExams = async () => {
   loading.value = true;
   try {
-    const params: ExamQueryParams = {
-      page: currentPage.value,
-      pageSize: pageSize.value,
-      keyword: searchKeyword.value,
-      examType: filterExamType.value,
-      startDate: dateRange.value ? dateRange.value[0] : undefined,
-      endDate: dateRange.value ? dateRange.value[1] : undefined,
-      status: statusFilter.value || undefined
-    };
-    
-    const res = await getExamList(params);
-    console.log('考试列表API响应:', res);
-    
-    if (res.code === 200 && res.data && Array.isArray(res.data.list)) {
-      examList.value = res.data.list.map(item => ({
-        id: item.id,
-        examName: item.exam_name,
-        examType: item.exam_type,
-        startTime: item.exam_date,
-        endTime: item.end_time || null,
-        status: item.status !== undefined ? item.status : 0,
-        description: item.description || null,
-        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : null,
-        duration: item.duration || 0,
-        subjects: item.subjects ? item.subjects.split(',') : [],
-        subjectIds: item.subject_ids ? item.subject_ids.split(',').map(Number) : [],
-        classIds: item.class_ids ? item.class_ids.split(',').map(Number) : [],
-        classNames: item.class_names ? item.class_names.split(',') : [],
-      }));
-      total.value = res.data.total || res.data.list.length;
+    const res = await getExamList({ page: 1, pageSize: 9999 });
+    if (res.code === 200) {
+      allExams.value = res.data.list.map(mapExamItemResponseToExamType);
+      handleFilter(); // Apply initial filter
     } else {
-      ElMessage.warning(res.message || '获取考试列表失败');
-      examList.value = [];
-      total.value = 0;
+      ElMessage.error(res.message || '获取考试列表失败');
     }
   } catch (error: any) {
-    console.error('获取考试列表失败:', error);
     ElMessage.error(error.message || '获取考试列表失败');
-    examList.value = [];
-    total.value = 0;
   } finally {
     loading.value = false;
   }
 };
 
-// 获取动态考试类型选项
-const fetchExamTypes = async () => {
-  examTypeLoading.value = true;
+const fetchDependencies = async () => {
   try {
-    const res = await getExamTypeOptions();
-    if (res.code === 200 && Array.isArray(res.data)) {
-      // 将从后端获取的类型列表赋值给 ref
-      dynamicExamTypeOptions.value = res.data;
-      console.log('成功获取动态考试类型:', dynamicExamTypeOptions.value);
+    const [classRes, subjectRes, typeRes] = await Promise.all([
+      getClassList({ page: 1, pageSize: 9999 }),
+      getExamSubjects(),
+      getExamTypeOptions()
+    ]);
+
+    if (classRes.code === 200) {
+      allClassList.value = classRes.data.map(mapClassItemResponseToClassOption);
     } else {
-      ElMessage.warning(res.message || '获取考试类型选项失败');
-      dynamicExamTypeOptions.value = []; // 清空以防万一
+      ElMessage.error(classRes.message || '获取班级列表失败');
+    }
+
+    if (subjectRes.code === 200) {
+      allSubjects.value = subjectRes.data;
+    } else {
+      ElMessage.error(subjectRes.message || '获取科目列表失败');
+    }
+
+    if (typeRes.code === 200) {
+      examTypeOptions.value = typeRes.data;
+    } else {
+      ElMessage.error(typeRes.message || '获取考试类型失败');
     }
   } catch (error: any) {
-    console.error('获取考试类型选项失败 (catch):', error);
-    ElMessage.error(error.message || '获取考试类型选项失败');
-    dynamicExamTypeOptions.value = []; // 清空
-  } finally {
-    examTypeLoading.value = false;
+    ElMessage.error(error.message || '获取依赖数据失败');
   }
 };
 
-// 新增考试
-const handleAddExam = () => {
-  isEditMode.value = false
-  resetForm()
-  dialogVisible.value = true
-}
+onMounted(() => {
+  fetchExams();
+  fetchDependencies();
+});
 
-// 编辑考试
-const handleEditExam = (row: Exam) => {
-  isEditMode.value = true
-  dialogVisible.value = true
-  
-  // 将 ExamItem 数据填充到 examForm
-  examForm.value = {
-    id: row.id,
-    exam_name: row.examName,
-    exam_type: row.examType,
-    start_time: row.startTime || null, // 使用 startTime, 无效时设为 null
-    end_time: row.endTime || null, // 使用 endTime, 无效时设为 null
-    status: row.status,
-    description: row.description, // 使用 description
-    createTime: row.createTime, // 填充 createTime
-    classIds: Array.isArray(row.classIds) ? row.classIds : [],
-    subjects: row.subjectIds || [],
+// --- Filtering and Pagination ---
+const handleFilter = () => {
+  currentPage.value = 1;
+  let filtered = allExams.value;
+
+  if (searchKeyword.value) {
+    filtered = filtered.filter(exam => exam.examName.includes(searchKeyword.value));
   }
-  console.log('编辑考试, 表单数据:', examForm.value)
-}
-
-// 删除考试
-const handleDeleteExam = async (row: Exam) => {
-  if (!row.id) {
-    ElMessage.warning('无效的考试ID')
-    return
+  if (filterExamType.value) {
+    filtered = filtered.filter(exam => exam.examType === filterExamType.value);
+  }
+  if (filterStatus.value !== '') {
+    filtered = filtered.filter(exam => exam.status === filterStatus.value);
   }
   
-  ElMessageBox.confirm(
-    `确定要删除考试 "${row.examName}" 吗？此操作不可恢复。`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(async () => {
-    try {
-      const res = await deleteExam(row.id!)
-      
-      if (res.code === 200) {
-        ElMessage.success('删除成功')
-        
-        // 从列表中移除
-        examList.value = examList.value.filter(item => item.id !== row.id)
-        
-        // 如果当前页没有数据了，且不是第一页，则回到上一页
-        if (examList.value.length === 0 && currentPage.value > 1) {
-          currentPage.value--
-          fetchExams()
-        }
-      } else {
-        ElMessage.error(res.message || '删除失败')
-      }
-    } catch (error) {
-      console.error('删除考试失败:', error)
-      ElMessage.error('删除考试失败')
-      
-      // 开发环境下模拟成功
-      if (import.meta.env.DEV) {
-        ElMessage.success('模拟删除成功')
-        examList.value = examList.value.filter(item => item.id !== row.id)
-      }
-    }
-  }).catch(() => {
-    // 用户取消操作
-  })
-}
+  filteredExams.value = filtered;
+};
 
-// 重置表单
+const handleSearch = () => {
+  handleFilter();
+};
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
+};
+
+// --- Dialog and Form Handling ---
+const rules = reactive<FormRules>({
+  exam_name: [{ required: true, message: '请输入考试名称', trigger: 'blur' }],
+  exam_type: [{ required: true, message: '请输入考试类型', trigger: 'blur' }],
+  exam_date: [{ required: true, message: '请选择考试日期', trigger: 'change' }],
+  start_time: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
+  duration: [{ required: true, type: 'number', message: '请输入考试时长', trigger: 'blur' }],
+  classIds: [{ required: true, type: 'array', message: '请选择关联班级', trigger: 'change' }],
+  subjectIds: [{ required: true, type: 'array', message: '请选择考试科目', trigger: 'change' }],
+});
+
 const resetForm = () => {
   examForm.value = {
-    id: null,
     exam_name: '',
     exam_type: '',
-    start_time: '',
-    end_time: '',
-    status: 0,
-    description: null,
-    createTime: '',
-    classIds: [], // 新增：重置适用班级
-    subjects: [],
-  }
-}
-
-// 处理对话框关闭 - 添加这个函数
-const handleDialogClose = () => {
-  console.log('Exam dialog closed');
-  // Add any cleanup logic here if needed, like resetting validation
-  examFormRef.value?.resetFields(); // Example: clear validation on close
+    exam_date: null,
+    start_time: null,
+    duration: 120,
+    description: '',
+    classIds: [],
+    subjectIds: [],
+  };
+  examFormRef.value?.resetFields();
 };
 
-// 提交表单
+const handleOpenDialog = (row?: ExamType) => {
+  if (row) {
+    dialogTitle.value = '编辑考试';
+    examForm.value = {
+      id: row.id,
+      exam_name: row.examName,
+      exam_type: row.examType,
+      exam_date: row.examDate ? dayjs(row.examDate).toDate() : null,
+      start_time: row.startTime ? dayjs(`${row.examDate} ${row.startTime}`).toDate() : null,
+      duration: row.duration,
+      description: row.description || '',
+      classIds: row.classIds,
+      subjectIds: row.subjectIds,
+    };
+  } else {
+    dialogTitle.value = '新建考试';
+    resetForm();
+  }
+  dialogVisible.value = true;
+};
+
 const handleSubmit = async () => {
-  if (!examFormRef.value) return
-
-  try {
-    await examFormRef.value.validate()
-    submitLoading.value = true
-
-    // 准备提交的数据
-    const backendData = {
-      id: examForm.value.id || undefined,
-      exam_name: examForm.value.exam_name,
-      exam_type: examForm.value.exam_type,
-      start_time: examForm.value.start_time,
-      end_time: examForm.value.end_time,
-      status: examForm.value.status,
-      description: examForm.value.description,
-      classIds: examForm.value.classIds,
-      subjects: examForm.value.subjects,
-    }
-
-    let res: ApiResponse<any>;
-    if (isEditMode.value) {
-      // Add check for valid ID before calling updateExam
-      if (typeof backendData.id !== 'number' || backendData.id <= 0) {
-        ElMessage.error('无效的考试ID，无法更新');
+  if (!examFormRef.value) return;
+  await examFormRef.value.validate(async (valid) => {
+    if (valid) {
+      submitLoading.value = true;
+      try {
+        const formData: Partial<ExamFormData> = {
+          ...examForm.value,
+          exam_date: examForm.value.exam_date,
+          start_time: examForm.value.start_time,
+        };
+        
+        if (examForm.value.id) {
+          await updateExam(examForm.value.id, formData);
+          ElMessage.success('更新成功');
+        } else {
+          await addExam(formData);
+          ElMessage.success('添加成功');
+        }
+        dialogVisible.value = false;
+        fetchExams();
+      } catch (error: any) {
+        ElMessage.error(error.message || '操作失败');
+      } finally {
         submitLoading.value = false;
-        return;
       }
-      res = await updateExam(backendData.id, backendData)
-    } else {
-      const addData = { ...backendData };
-      delete addData.id;
-      res = await addExam(addData)
     }
+  });
+};
 
-    if (res?.code === 200 || res?.code === 201) {
-      ElMessage.success(isEditMode.value ? '更新成功' : '创建成功')
-      dialogVisible.value = false
-      fetchExams()
-    } else {
-      ElMessage.error(res?.message || (isEditMode.value ? '更新失败' : '创建失败'))
+// --- Actions ---
+const handleDelete = (id: number) => {
+  ElMessageBox.confirm('确定要删除这个考试吗？', '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await deleteExam(id);
+      ElMessage.success('删除成功');
+      fetchExams();
+    } catch (error: any) {
+      ElMessage.error(error.message || '删除失败');
     }
+  });
+};
+
+const handlePublish = async (id: number, publish: boolean) => {
+  try {
+    if (publish) {
+      await publishExam(id);
+      ElMessage.success('发布成功');
+    } else {
+      await unpublishExam(id);
+      ElMessage.success('取消发布成功');
+    }
+    fetchExams();
   } catch (error: any) {
-    console.error(isEditMode.value ? '更新考试失败:' : '创建考试失败:', error)
-    const errorMsg = error.response?.data?.message || error.message || (isEditMode.value ? '更新失败' : '创建失败')
-    ElMessage.error(errorMsg)
-  } finally {
-    submitLoading.value = false
-  }
-}
-
-// 获取所有班级列表
-const fetchAllClasses = async () => {
-  try {
-    const res = await getClassList({ page: 1, pageSize: 999 }); // 获取所有班级
-    if (res.code === 200) {
-      classList.value = res.data;
-    } else {
-      ElMessage.error(res.message || '获取班级列表失败');
-    }
-  } catch (error) {
-    console.error('获取班级列表时发生网络错误:', error);
-    ElMessage.error('获取班级列表时发生网络错误');
+    ElMessage.error(error.message || '操作失败');
   }
 };
 
-// 获取科目列表
-const fetchSubjects = async () => {
-  try {
-    const res = await getExamSubjects();
-    if (res.code === 200) {
-      subjectList.value = res.data;
-    }
-  } catch (error) {
-    console.error('获取科目列表失败:', error);
+// --- UI Helpers ---
+const getStatusText = (status: number): string => {
+  switch (status) {
+    case 0: return '未发布';
+    case 1: return '已发布';
+    case 2: return '已结束';
+    default: return '未知';
   }
 };
 
-// 页面初始化
-onMounted(async () => {
-  await fetchExams();
-  await fetchExamTypes();
-  await fetchAllClasses(); // 新增：获取班级列表
-  await fetchSubjects(); // 新增：获取科目列表
-  console.log('考试管理页面初始化完成，已启用筛选功能');
-})
+const getStatusTagType = (status: number) => {
+  switch (status) {
+    case 0: return 'info';
+    case 1: return 'success';
+    case 2: return 'danger';
+    default: return 'warning';
+  }
+};
 </script>
 
-<style lang="scss" scoped>
-/* Dark mode overrides for exam management page */
-
-/* Specific rule for .page-header-area in dark mode */
-html.dark .page-header-area {
-  background-color: #263445 !important;
-  border: 1px solid #263445 !important; /* Border color matches background */
-  color: #d1d5db !important;
-}
-
-/* General card rules */
-html.dark .filter-card,
-html.dark .table-card,
-html.dark .exam-list-card { /* .exam-list-card was added for consistency */
-  background-color: #263445 !important; /* Card background */
-  border: 1px solid #263445 !important; /* Border color matches background */
-  color: #d1d5db !important; /* Default text color for card content */
-}
-
-html.dark .page-header-area .header-title, /* Target title within .page-header-area */
-html.dark .page-header-area .header-desc, /* Target description within .page-header-area */
-html.dark .filter-card .card-header span,
-html.dark .table-card .card-header span,
-html.dark .exam-list-card .list-header span { /* Added for .exam-list-card title */
-  color: #f3f4f6 !important; /* Lighter text for titles */
-}
-
-/* Page Header specific styles for light mode */
-.page-header-area {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+<style scoped>
+.app-container {
   padding: 20px;
-  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
-  border-radius: 8px;
-  margin-bottom: 20px;
-  border: 1px solid var(--el-border-color-lighter);
-  transition: background-color 0.3s, border-color 0.3s;
 }
-
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.header-title {
-  font-size: 22px;
-  font-weight: bold;
-  color: var(--el-text-color-primary);
-  margin: 0;
-}
-
-.header-desc {
-  color: var(--el-text-color-secondary);
-  font-size: 14px;
-}
-
-/* Filter Card */
-.filter-card {
-  margin-bottom: 20px;
-  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
-  border: 1px solid var(--el-border-color-lighter);
-  transition: background-color 0.3s, border-color 0.3s;
-}
-
-.filter-header {
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: bold;
-  color: var(--el-text-color-primary);
 }
-
-.filter-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* Adjust based on content */
-  gap: 30px;
-  padding: 10px 0;
-}
-
-.search-section, .filter-section {
+.filter-container {
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  gap: 10px;
+  margin-bottom: 20px;
 }
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  margin-bottom: 5px;
-}
-
-.filter-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.filter-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
-}
-
 .filter-item {
-  width: 100%;
+  margin-right: 10px;
 }
-
-.date-picker-full-width {
-  width: 100%;
-}
-
-/* Adjust grid for single column on smaller screens if needed */
-@media (max-width: 992px) {
-  .filter-content {
-    grid-template-columns: 1fr;
-  }
-  .filter-row {
-    grid-template-columns: 1fr; /* Stack filters on smaller screens */
-  }
-}
-
-.filter-results {
+.pagination-container {
   margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px dashed var(--el-border-color-lighter);
-}
-
-.results-info {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 10px;
-}
-.results-info strong {
-  color: var(--el-color-primary);
-}
-
-.active-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-/* Exam List Card */
-.exam-list-card {
-  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
-  border: 1px solid var(--el-border-color-lighter);
-  transition: background-color 0.3s, border-color 0.3s;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: bold;
-  color: var(--el-text-color-primary);
-}
-.data-count {
-  font-size: 14px;
-  font-weight: normal;
-  color: var(--el-text-color-secondary);
-}
-
-/* Exam table specific styles */
-.exam-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.operation-buttons {
-  display: flex;
-  justify-content: center; /* Center buttons in the cell */
-  gap: 10px;
-}
-
-/* Pagination */
-.pagination {
   display: flex;
   justify-content: flex-end;
-  margin-top: 20px;
-  background-color: var(--el-bg-color-overlay);
-  padding: 10px 15px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-/* Dialog Styles */
-.dark :deep(.el-dialog) {
-  background-color: #263445;
-}
-.dark :deep(.el-dialog__header) {
-  color: #E0E0E0;
-}
-.dark :deep(.el-dialog__title) {
-   color: #E0E0E0;
-}
-.dark :deep(.el-dialog__body) {
-  color: var(--el-text-color-primary); 
-  background-color: #2c3e50; /* Darker background for body */
-}
-.dark :deep(.el-dialog__footer) {
-  background-color: #2c3e50; /* Darker background for footer */
-}
-
-.dark :deep(.el-form-item__label) {
-  color: #C0C0C0;
-}
-
-.dark :deep(.el-transfer-panel) {
-  background-color: #374151;
-  border-color: var(--el-border-color-darker);
-}
-.dark :deep(.el-transfer-panel__header) {
-   background-color: #4b5563;
-   color: #E0E0E0;
-}
-
-.dark :deep(.el-transfer-panel .el-checkbox__label) {
-   color: #C0C0C0;
-}
-.dark :deep(.el-transfer-panel .el-checkbox__input.is-checked .el-checkbox__inner) {
-   background-color: var(--el-color-primary);
-   border-color: var(--el-color-primary);
-}
-
-/* Remove specific dark-component-bg rules */
-
-.operation-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens */
-  gap: 10px; /* Add gap between items */
-
-  .filter-items {
-    display: flex;
-    flex-wrap: wrap; /* Allow filter items to wrap */
-    gap: 10px;
-    align-items: center;
-  }
-}
-
-.class-tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.class-tag {
-  margin: 2px 0;
-}
-
-@media (max-width: 768px) {
-  .filter-layout {
-    flex-direction: column;
-  }
 }
 </style> 

@@ -38,9 +38,9 @@ export interface CarouselImageData {
 
 /**
  * 获取所有轮播图 (供管理后台使用)
- * @returns AxiosPromise<CarouselListResponse>
+ * @returns Promise<CarouselListResponse>
  */
-export function getAllCarouselImages(): AxiosPromise<CarouselListResponse> {
+export function getAllCarouselImages(): Promise<CarouselListResponse> {
   return request({
     url: '/carousel/all',
     method: 'get'
@@ -49,9 +49,9 @@ export function getAllCarouselImages(): AxiosPromise<CarouselListResponse> {
 
 /**
  * 获取公开的、激活的轮播图 (供学生门户等前端使用)
- * @returns AxiosPromise<CarouselListResponse>
+ * @returns Promise<CarouselListResponse>
  */
-export function getActiveCarouselImages(): AxiosPromise<CarouselListResponse> {
+export function getActiveCarouselImages(): Promise<CarouselListResponse> {
   return request({
     url: '/carousel',
     method: 'get'
@@ -61,9 +61,9 @@ export function getActiveCarouselImages(): AxiosPromise<CarouselListResponse> {
 /**
  * 添加新的轮播图
  * @param data FormData 包含 imageFile 和其他可选字段 (title, link_url, display_order, is_active)
- * @returns AxiosPromise<CarouselDetailResponse>
+ * @returns Promise<CarouselDetailResponse>
  */
-export function addCarouselImage(data: FormData): AxiosPromise<CarouselDetailResponse> {
+export function addCarouselImage(data: FormData): Promise<CarouselDetailResponse> {
   return request({
     url: '/carousel',
     method: 'post',
@@ -78,9 +78,9 @@ export function addCarouselImage(data: FormData): AxiosPromise<CarouselDetailRes
  * 更新轮播图信息
  * @param id 轮播图ID
  * @param data 更新的数据，可以包含 title, link_url, display_order, is_active
- * @returns AxiosPromise<CarouselDetailResponse>
+ * @returns Promise<CarouselDetailResponse>
  */
-export function updateCarouselImage(id: number, data: Partial<CarouselImageData>): AxiosPromise<CarouselDetailResponse> {
+export function updateCarouselImage(id: number, data: Partial<CarouselImageData>): Promise<CarouselDetailResponse> {
   return request({
     url: `/carousel/${id}`,
     method: 'put',
@@ -91,9 +91,9 @@ export function updateCarouselImage(id: number, data: Partial<CarouselImageData>
 /**
  * 删除轮播图
  * @param id 轮播图ID
- * @returns AxiosPromise
+ * @returns Promise<any>
  */
-export function deleteCarouselImage(id: number): AxiosPromise<any> {
+export function deleteCarouselImage(id: number): Promise<any> {
   return request({
     url: `/carousel/${id}`,
     method: 'delete'
@@ -103,9 +103,9 @@ export function deleteCarouselImage(id: number): AxiosPromise<any> {
 /**
  * 更新轮播图顺序
  * @param orderData 包含顺序更新信息的数组，例如 [{ id: 1, display_order: 0 }, { id: 2, display_order: 1 }]
- * @returns AxiosPromise
+ * @returns Promise<any>
  */
-export function updateCarouselOrder(orderData: Array<{ id: number; display_order: number }>): AxiosPromise<any> {
+export function updateCarouselOrder(orderData: Array<{ id: number; display_order: number }>): Promise<any> {
   return request({
     url: '/carousel/order',
     method: 'post',

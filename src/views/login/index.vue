@@ -25,7 +25,7 @@
               placeholder="用户名"
               prefix-icon="User"
               clearable
-              @keyup.enter="handleLogin"
+              @keyup.enter="handleLogin(loginFormRef)"
             />
           </el-form-item>
           
@@ -37,7 +37,7 @@
               prefix-icon="Lock"
               show-password
               clearable
-              @keyup.enter="handleLogin"
+              @keyup.enter="handleLogin(loginFormRef)"
             />
           </el-form-item>
           
@@ -46,7 +46,7 @@
               type="primary"
               :loading="loading"
               class="login-button"
-              @click="handleLogin"
+              @click="handleLogin(loginFormRef)"
             >
               登录
             </el-button>
@@ -102,22 +102,17 @@
   }
   
   // 处理登录
-  const handleLogin = async () => {
-    if (!loginFormRef.value) return
+  const handleLogin = async (formEl: FormInstance | undefined) => {
+    if (!formEl) return;
     
-    await loginFormRef.value.validate(async (valid) => {
-      if (!valid) {
-        ElMessage.warning('请正确填写登录信息')
-        return
-      }
-      
-      loading.value = true
-      
+    try {
+      await formEl.validate();
+      // Validation passed
+      loading.value = true;
       try {
-        const success = await userStore.loginAction(loginForm.value)
-        console.log('[LoginComponent] loginAction success status:', success);
-        
+        const success = await userStore.login(loginForm.value);
         if (success) {
+          ElMessage.success('登录成功');
           // Determine target path based on user role
           let targetPath = '/dashboard'; // Default for admin or if role is not student
           if (userStore.isStudent) { 
@@ -151,12 +146,16 @@
           console.log('[LoginComponent] Login success was false, not navigating.');
         }
       } catch (error) {
-        console.error('[LoginComponent] Unknown error during login process:', error) 
+        console.error('[LoginComponent] Unknown error during login process:', error);
       } finally {
-        loading.value = false
+        loading.value = false;
       }
-    })
-  }
+    } catch (validationError) {
+      // Validation failed
+      console.log('Validation failed:', validationError);
+      ElMessage.error('请检查您输入的内容');
+    }
+  };
   </script>
   
   <style scoped>

@@ -248,25 +248,51 @@ export interface ExamItemResponse extends BaseFields {
   start_time: string
   end_time?: string
   duration?: number | null
-  subjects?: string | string[] | null
   status: number
   description?: string | null
   create_time: string
+  subjects: string
+  subject_ids: string
+  class_names: string
+  class_ids: string
 }
 
-// 考试类型 - 前端使用格式
-export interface ExamItem extends BaseFields {
+// 考试类型 - 前端使用格式 (Adapter Pattern)
+export interface Exam extends BaseFields {
   examName: string
   examType: string
+  examDate: string
   startTime: string
-  endTime: string
+  endTime?: string
+  duration?: number | null
   status: number
   description?: string | null
   createTime: string
+  subjects: string[]
+  subjectIds: number[]
+  classNames: string[]
+  classIds: number[]
 }
 
-// 考试详情类型
-export interface ExamInfo extends ExamItem {
+// 考试表单数据接口
+export interface ExamFormData {
+  id?: number | null
+  exam_name: string
+  exam_type: string
+  exam_date: Date | null
+  start_time: Date | null
+  duration: number | null
+  status: number
+  description: string
+  subjectIds: number[]
+  classIds: number[]
+}
+
+// 考试类型 - 后端响应格式 (for lists)
+// (ExamItemResponse can be reused if the structure is the same)
+
+// 考试信息 (详细)
+export interface ExamInfo extends Omit<Exam, 'subjects'> {
   subjects: Subject[]
   totalScore: number
   averageScore: number
@@ -328,6 +354,7 @@ export interface LoginData {
   createTime?: string; // Assuming create_time from backend is string
   display_name?: string; // Add display_name
   studentInfo?: StudentRelatedInfo | null; // Add studentInfo using the new type
+  phone?: string | null; // Add phone property
 }
 
 // User Info Data (Frontend)

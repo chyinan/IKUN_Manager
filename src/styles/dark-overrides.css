@@ -1,6 +1,14 @@
 /* src/styles/dark-overrides.css */
 
 /* Override specific component variables in dark mode globally */
+html.dark {
+  /* 
+    统一设置页面背景色。这将影响所有使用此变量作为背景的容器，
+    例如 AppMain, SettingsLayout 等，确保全局背景统一。
+    这是解决用户反馈背景色不一致问题的核心。
+  */
+  --el-bg-color-page: #1f2937 !important;
+}
 
 /* Primary Button Overrides */
 html.dark .el-button--primary {
@@ -97,28 +105,34 @@ html.dark .el-select.is-focus .el-input__wrapper {
 
 /* Add other global dark mode overrides here if needed */
 
-/* Additions for View Container Backgrounds */
-
-/* Global Dark Mode Backgrounds for View Containers */
-html.dark .dashboard-container,
-html.dark .emp-container,
-html.dark .dept-container,
-html.dark .class-container,
-html.dark .student-container,
-html.dark .exam-container,
-html.dark .score-container,
-html.dark .log-container,
-html.dark .settings-container,
-html.dark .profile-container,
-html.dark .empReport-container, /* Assuming class name */
-html.dark .stuReport-container,  /* Assuming class name */
-html.dark .app-main /* Add AppMain background */ {
-  background-color: #1f2937;
-  /* Transition should ideally be on the base class for entering/leaving dark mode */
-  /* transition: background-color 0.3s ease; */
+/* 
+  --- GENERAL LAYOUT & CARD OVERRIDES ---
+  This section ensures a consistent background color for main content areas
+  and applies a default dark theme to all el-card components.
+*/
+html.dark .app-main {
+  background-color: #1f2937 !important; /* Use a darker, more consistent background */
 }
 
-/* Add more global overrides as needed */
+html.dark .el-card {
+  background-color: #1f2937 !important; /* Dark background for all cards */
+  color: #d1d5db !important; /* Lighter text for cards */
+  border: 1px solid #374151 !important; /* Subtle border for cards */
+  border-bottom: 1px solid #374151 !important;
+}
+
+html.dark .el-card__header {
+  color: #d1d5db !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+/* --- END GENERAL LAYOUT & CARD OVERRIDES --- */
+
+/* 
+  [REMOVED] Redundant background color definitions for individual view containers.
+  This is now handled globally by the '--el-bg-color-page' variable override,
+  ensuring a single source of truth for the page background color in dark mode.
+*/
 
 /* === Dark Mode Table Overrides === */
 html.dark {

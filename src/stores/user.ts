@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { login, logout, getUserInfo } from '@/api/user'
+import { login, logout, getUserInfo, updateUserProfile as apiUpdateUserProfile } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import type { LoginData, UserInfo, ApiResponse } from '@/types/common'
 import router from '@/router'
@@ -321,25 +321,61 @@ export const useUserStore = defineStore('user', () => {
     return result;
   });
 
+  const updateUserProfile = async (data: Partial<UserInfo>) => {
+    try {
+      // The API expects a specific shape, so we create it from the incoming data.
+      // This also handles the type mismatch where data.phone could be `null`.
+      const apiData = {
+        email: data.email,
+        display_name: data.display_name,
+        phone: data.phone === null ? undefined : data.phone,
+        avatar: data.avatar,
+      };
+
+      const res = await apiUpdateUserProfile(apiData);
+      if (res.code === 200 && res.data) {
+        // Update local state with the full user info object returned from the API
+        const fullUserInfo = {
+          ...userInfo.value,
+          ...res.data,
+        } as UserInfo;
+
+        _updateState(token.value, fullUserInfo);
+
+        ElMessage.success('个人资料更新成功！');
+        return true;
+      } else {
+        ElMessage.error(res.message || '资料更新失败');
+        return false;
+      }
+    } catch (error: any) {
+      console.error('[User Store] updateUserProfile failed:', error);
+      ElMessage.error(error.message || '更新资料时发生错误');
+      return false;
+    }
+  };
+
+  // --- RETURN ---
+  // Expose state, getters, and actions
   return {
     token,
     userInfo,
     username,
     avatar,
-    roles,     // Expose roles array
+    roles,
     permissions,
-    loginAction,
-    getUserInfoAction,
-    logoutAction,
-    resetState,
-    setAvatar,
-    isAdmin,  // Expose isAdmin
-    isStudent, // Expose isStudent
+    isLoggedIn: computed(() => !!token.value),
+    isAdmin: computed(() => roles.value.includes('admin')),
+    isStudent: computed(() => roles.value.includes('student')),
+    isEmployee: computed(() => roles.value.includes('employee')),
+    login: loginAction,
+    logout: logoutAction,
+    getUserInfo: getUserInfoAction,
     setUserInfo,
-    loadUserInfo,
+    setAvatar,
+    rehydrateStateFromSession,
     updateUserEmailAction,
-    fetchAndSetUserInfo,
-    rehydrateStateFromSession
+    updateUserProfile,
   }
 }, {
   // Optional: Enable persistence if needed, though manual localStorage is used here

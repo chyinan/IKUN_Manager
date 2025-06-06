@@ -114,7 +114,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick, computed } from 'vue';
 import { useUserStore } from '@/stores/user';
-import { getStudentExamsTaken, getStudentScoreReport, type ExamTaken, type StudentScoreReport } from '@/api/score';
+import { getStudentExamsTaken, getStudentScoreReport } from '@/api/score';
+import type { ExamTaken, StudentScoreReport } from '@/api/score';
 import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts/core';
 import { RadarChart, BarChart } from 'echarts/charts';
@@ -163,7 +164,7 @@ const fetchExamsTaken = async () => {
     } else {
       ElMessage.error(res.message || '获取已参加考试列表失败');
     }
-  } catch (error) {
+  } catch (error: any) {
     ElMessage.error('获取已参加考试列表时发生网络错误');
     console.error('[MyDetailedScores] Error fetching exams taken:', error);
   } finally {
@@ -185,7 +186,7 @@ const filteredExamsByName = computed(() => {
 
 const fetchScoreReport = async () => {
   // Get student PK directly from the store here
-  const currentStudentPk = userStore.userInfo.studentInfo?.student_pk;
+  const currentStudentPk = userStore.userInfo?.studentInfo?.student_pk;
 
   // Print current values for debugging
   console.log(`[MyDetailedScores.vue fetchScoreReport] Attempting to fetch. Student PK from store: ${currentStudentPk}, Selected Exam ID: ${selectedExamId.value}`);
@@ -252,11 +253,13 @@ const fetchScoreReport = async () => {
         console.warn('[MyDetailedScores.vue DEBUG] scoreReport.value is missing subject_details or total_score_details after assignment.');
       }
     } else {
-      console.error('[MyDetailedScores.vue DEBUG] Failed to fetch score report or res.data is null/undefined.', res);
-      ElMessage.error(res.message || '获取成绩报告失败，无数据返回');
+      // Handle cases where API returns success code but no data
+      scoreReport.value = null; // Ensure report is cleared
+      ElMessage.warning(res.message || '获取成绩报告失败，无数据返回');
     }
-  } catch (error) {
-    ElMessage.error('获取成绩报告时发生网络错误');
+  } catch (error: any) {
+    console.error('[MyDetailedScores.vue] fetchScoreReport error:', error);
+    ElMessage.error(error.message || '获取成绩报告时发生网络错误');
   } finally {
     loadingReport.value = false;
   }
@@ -302,12 +305,8 @@ const initRadarChart = () => {
 
     // --- Data Preparation Logic START ---
     const indicators = scoreReport.value.subject_details.map(subject => ({
-      name: subject.subject,
-      // IMPORTANT: Determine a 'max' value for each subject.
-      // This could be a fixed value (e.g., 100 or 150 if all subjects have the same full marks)
-      // or dynamically determined if full marks vary and are available in subject_details.
-      // For now, let's assume a default max, e.g., 100. Replace with actual logic.
-      max: subject.full_score ?? 100 // Use dynamic full_score, fallback to 100
+      name: subject.subject_name,
+      max: 100 // Assuming max score is 100 as full_score is not available
     }));
     console.log('[DEBUG] Radar indicators:', JSON.parse(JSON.stringify(indicators)));
 
@@ -382,7 +381,7 @@ const initRadarChart = () => {
     radarChartInstance.setOption(option);
     console.log('[DEBUG] Radar chart option set.');
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[DEBUG] Error initializing radar chart:', error);
     if (radarChartRef.value) {
         radarChartRef.value.innerHTML = `<p style="text-align:center; color:red;">雷达图加载失败: ${error.message}</p>`;

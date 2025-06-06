@@ -83,7 +83,7 @@ export const updateUserInfo = (data: Partial<UserInfo>): Promise<ApiResponse<any
  * 更新用户信息 (例如邮箱、电话、显示名称)
  * 后端接口: PUT /api/user/profile
  */
-export const updateUserProfileDetails = (data: { email?: string; phone?: string; display_name?: string }): Promise<ApiResponse<UserInfo>> => {
+export const updateUserProfile = (data: { email?: string; phone?: string; display_name?: string }): Promise<ApiResponse<UserInfo>> => {
   return request.put<ApiResponse<UserInfo>>('/user/profile', data)
     .catch(error => {
         console.error('[API user.ts] Update user profile details failed:', error);
@@ -92,16 +92,14 @@ export const updateUserProfileDetails = (data: { email?: string; phone?: string;
 }
 
 /**
- * 上传用户头像
+ * 上传文件（例如头像）
  */
-export const uploadAvatar = (file: File): Promise<ApiResponse<{ avatarUrl: string }>> => {
+export const uploadFile = (file: File): Promise<ApiResponse<{ filePath: string }>> => {
   const formData = new FormData();
-  formData.append('avatar', file);
-  return request.post<ApiResponse<{ avatarUrl: string }>>('/user/avatar', formData, {
-    // Content-Type 会由浏览器自动设置，不需要手动指定
-  })
+  formData.append('file', file); // Use 'file' to match generic backend handler
+  return request.post<ApiResponse<{ filePath: string }>>('/upload/file', formData) // Use a generic endpoint
     .catch(error => {
-        console.error('[API user.ts] Upload avatar failed:', error);
+        console.error('[API user.ts] Upload file failed:', error);
         throw error;
     });
 }

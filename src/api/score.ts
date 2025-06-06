@@ -342,12 +342,13 @@ export const getScoresByExamAndClass = (examId: number, classId: number): Promis
     });
 };
 
-// Interface for the response of /api/student/:studentId/exams-taken
+// 成绩详细报告接口
 export interface ExamTaken {
   exam_id: number;
   exam_name: string;
   exam_date: string; // Assuming 'YYYY-MM-DD'
-  exam_type: string; // Added exam_type
+  exam_type: string;
+  subjects?: string; // Add optional subjects string
 }
 
 // Interface for the detailed score report

@@ -68,9 +68,12 @@
                     <el-icon><UserFilled /></el-icon>
                 </el-avatar>
                 <div class="message-content">
-                    <div class="sender-info">
-                        <span class="name">{{ message.sender_name }}</span>
-                        <span class="time">{{ message.created_at }}</span>
+                    <div class="message-header">
+                        <span class="sender-info">
+                            <span class="role-tag">{{ message.sender_role === 'student' ? '学生' : '管理员' }}</span>
+                            <span class="sender">{{ message.sender_name }}</span>
+                        </span>
+                        <span class="time">{{ formatDateTime(message.create_time) }}</span>
                     </div>
                     <div class="bubble">{{ message.content }}</div>
                 </div>
@@ -229,6 +232,11 @@ const formatStatus = (status: MailboxThread['status']) => {
   }
 };
 
+const formatDateTime = (timestamp: string) => {
+  const date = new Date(timestamp);
+  return date.toLocaleString();
+};
+
 onMounted(() => {
   fetchThreads();
 });
@@ -271,18 +279,27 @@ onMounted(() => {
     flex-direction: column;
 }
 
-.sender-info {
+.message-header {
     display: flex;
     align-items: center;
     margin-bottom: 5px;
 }
 
-.sender-info .name {
+.sender-info {
+    display: flex;
+    align-items: center;
+}
+
+.role-tag {
     font-weight: bold;
     margin-right: 8px;
 }
 
-.sender-info .time {
+.sender {
+    margin-right: 8px;
+}
+
+.time {
     font-size: 12px;
     color: #999;
 }

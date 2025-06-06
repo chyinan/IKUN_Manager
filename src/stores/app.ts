@@ -9,6 +9,7 @@ interface SidebarState {
 interface AppState {
   sidebar: SidebarState;
   device: 'desktop' | 'mobile';
+  isDarkMode: boolean;
 }
 
 export const useAppStore = defineStore('app', {
@@ -17,7 +18,8 @@ export const useAppStore = defineStore('app', {
       opened: true, // Default sidebar state
       withoutAnimation: false
     },
-    device: 'desktop' // Default device type
+    device: 'desktop', // Default device type
+    isDarkMode: localStorage.getItem('theme') === 'dark',
   }),
   actions: {
     toggleSideBar() {
@@ -33,6 +35,17 @@ export const useAppStore = defineStore('app', {
     },
     setSidebarOpened(opened: boolean) {
         this.sidebar.opened = opened;
+    },
+    toggleDarkMode(isDark?: boolean) {
+      const newMode = typeof isDark === 'boolean' ? isDark : !this.isDarkMode;
+      this.isDarkMode = newMode;
+      if (newMode) {
+        localStorage.setItem('theme', 'dark');
+        document.documentElement.classList.add('dark');
+      } else {
+        localStorage.setItem('theme', 'light');
+        document.documentElement.classList.remove('dark');
+      }
     }
   }
 }) 

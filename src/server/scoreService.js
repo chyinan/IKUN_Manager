@@ -46,6 +46,11 @@ async function getScoreList(params = {}) {
       values.push(`%${params.studentName}%`);
     }
 
+    if (params.classId) {
+      conditions.push('s.class_id = ?');
+      values.push(params.classId);
+    }
+
     if (params.className) {
       conditions.push('c.class_name LIKE ?');
       values.push(`%${params.className}%`);

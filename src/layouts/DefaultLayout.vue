@@ -94,7 +94,8 @@ import { computed, ref, onMounted, provide, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { useDark, useToggle } from '@vueuse/core'
+import { useAppStore } from '@/stores/app'
+import type { IElectronAPI } from '@/preload.d'; // Import IElectronAPI
 import { 
   Expand, 
   Fold, 
@@ -113,35 +114,44 @@ import Navbar from '@/components/Navbar.vue'
 import AppMain from '@/components/AppMain.vue'
 import defaultLogo from '@/assets/logo.png' 
 import favicon from '/favicon.png' // Import from public
-import { useAppStore } from '@/stores/app'
-import type { IElectronAPI } from '@/preload.d'; // Import IElectronAPI
 
 // 路由
 const route = useRoute()
 const router = useRouter()
 
-// 用户存储
+// Pinia Stores
 const userStore = useUserStore()
+const appStore = useAppStore()
 
 // 侧边栏折叠状态
 const sidebarCollapse = ref(false)
 
-// *** Local Dark Mode Implementation with localStorage ***
-const STORAGE_KEY = 'theme-preference' // Key for localStorage
+// --- Robust Dark Mode Control ---
+const isDark = ref(appStore.isDarkMode); // Initialize from store
 
-// Initialize isDark: Try reading from localStorage, default to false (light)
-const initializeIsDark = () => {
-  const storedPreference = localStorage.getItem(STORAGE_KEY);
-  // Check for 'dark', consider null/other values as light
-  return storedPreference === 'dark'; 
-}
+const toggleDark = (value?: boolean) => {
+  // Determine the new state. If a boolean is passed, use it. Otherwise, toggle.
+  const newState = typeof value === 'boolean' ? value : !isDark.value;
+  
+  // Update the local ref
+  isDark.value = newState;
+  
+  // Update the class on the <html> element
+  if (newState) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  // Update the app store
+  appStore.toggleDarkMode(newState);
 
-const isDark = useDark()
+  console.log(`[DefaultLayout] Dark mode toggled. New state: ${newState}`);
+};
 
-const toggleDark = useToggle(isDark)
-console.log('[DefaultLayout Top Level] Initial Local isDark:', isDark.value);
-console.log('[DefaultLayout Top Level] typeof local toggleDark:', typeof toggleDark);
-// *** End Local Implementation ***
+// Watch for changes from other sources (like browser/system preference if useDark was used)
+// This is a simplified example; a full implementation might watch for storage changes.
+// For now, we primarily control it via our toggle.
 
 // Electron相关
 const isElectron = ref(!!window.electronAPI)
@@ -186,25 +196,16 @@ const logNavigationPath = (path: string, childRoute: any) => {
 };
 
 onMounted(() => {
-  console.log('[DefaultLayout Combined onMounted] START');
-  // Log local values
-  console.log('[DefaultLayout Combined onMounted] Local isDark value:', isDark.value); 
-  console.log('[DefaultLayout Combined onMounted] typeof local toggleDark:', typeof toggleDark);
-
-  // Apply initial theme based on the already initialized local ref
-  // The class should already match the initialized isDark state
-  console.log('[DefaultLayout Combined onMounted] Initial theme class should match isDark state.');
-  // Optional: Force re-apply class for robustness, though initializeIsDark should handle it.
+  // On mount, ensure the class list and local state match the store's state.
+  isDark.value = appStore.isDarkMode;
   if (isDark.value) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
+    document.documentElement.classList.add('dark');
   } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
   }
+  console.log(`[DefaultLayout onMounted] Initialized dark mode state from store: ${isDark.value}`);
 
   // --- Electron Initialization Logic --- 
-  // Use type assertion here
   const electronAPI = window.electronAPI as IElectronAPI | undefined;
   if (isElectron.value && electronAPI && typeof electronAPI.onWindowStateChange === 'function') {
     console.log('[DefaultLayout Combined onMounted] Setting up Electron listeners...');

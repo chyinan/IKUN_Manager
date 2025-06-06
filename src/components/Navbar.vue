@@ -104,7 +104,7 @@ const handleCommand = (command: string) => {
       cancelButtonText: '取消',
       type: 'warning'
     }).then(() => {
-      userStore.logoutAction()
+      handleLogout()
     }).catch(() => {
       console.log('[Navbar] Logout cancelled by user.');
     })
@@ -118,6 +118,15 @@ const handleThemeChange = (value: boolean | string | number) => {
     props.toggleDark(); 
   } else {
     console.error('Navbar: props.toggleDark is not a function!', props.toggleDark);
+  }
+}
+
+const handleLogout = async () => {
+  try {
+    await userStore.logout()
+    // No need to redirect here, the store action should handle it
+  } catch (error) {
+    console.error('An error occurred during logout in Navbar:', error)
   }
 }
 </script>

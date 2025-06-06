@@ -55,7 +55,7 @@
               v-model="row.is_active"
               :active-value="true" 
               :inactive-value="false"
-              @change="(value) => handleStatusChange(row, value)"
+              @change="(value: boolean) => handleStatusChange(row, value)"
             />
           </template>
         </el-table-column>
@@ -135,7 +135,7 @@ import {
   type CarouselImageData
 } from '@/api/carousel';
 import { getCarouselIntervalConfig, updateCarouselIntervalConfig } from '@/api/config';
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadInstance, type UploadProps, type UploadRawFile } from 'element-plus';
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadInstance, type UploadProps, type UploadRawFile, genFileId } from 'element-plus';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 import { formatDateTime } from '@/utils/date'; // 假设您有日期格式化工具
 
@@ -171,31 +171,20 @@ const formRules = reactive<FormRules>({
 // 获取图片完整URL (根据后端返回的路径是否已包含/uploads/来决定是否拼接)
 const getImageFullUrl = (imageUrl: string | undefined): string => {
   if (!imageUrl) return '';
-  // 如果 imageUrl 已经是 /uploads/ 开头，或者是一个完整的URL，直接用
+  // Assuming backend returns a full relative path like /uploads/carousel/image.jpg
   if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('http')) {
     return imageUrl; 
   }
-  // 默认情况下，如果 API_BASE_URL 设置了，并且它不是一个指向前端开发服务器的URL（例如，它指向后端API）
-  // 且图片路径不是 /uploads/ 开头，可能需要拼接。
-  // 但通常静态资源由后端express.static在/uploads路径提供，所以前端可以直接用 /uploads/ 开头的路径
-  // 如果 VITE_APP_BASE_API 指向的是后端服务地址，如 http://localhost:3000
-  // 并且图片URL是 uploads/carousel/image.jpg (没有前导斜杠)
-  // 那么可以这样： return `${API_BASE_URL.replace(/\/$/, '')}/${imageUrl.replace(/^\//, '')}`;
-  // 为了安全和通用，如果不是 /uploads/ 开头也不是完整URL，这里返回原始值，依赖于服务器配置的正确性
-  // 或者，更常见的是，后端API直接返回 /uploads/carousel/image.jpg 这样的相对路径
-  // 确保这里的逻辑与您的后端 API (carouselService.js 中的 UPLOADS_DIR 和返回的 image_url) 匹配
-  // 假设后端 image_url 已经是 /uploads/carousel/imagename.ext
-  return imageUrl; 
+  // Fallback for safety, though the above should be the primary case.
+  return `${(API_BASE_URL || '').replace(/\/$/, '')}/${imageUrl.replace(/^\//, '')}`;
 };
 
 const fetchCarouselImages = async () => {
   loading.value = true;
   try {
     const res = await getAllCarouselImages();
-    // 直接使用 res.data 作为 API 响应体 (AxiosResponse<ApiResponse<CarouselImage[]>>)
     if (res.code === 200) {
-      // 后端返回的 is_active 可能是 0 或 1，转换为 boolean
-      carouselImages.value = res.data.map(img => ({ ...img, is_active: !!img.is_active }));
+      carouselImages.value = res.data.map((img: CarouselImage) => ({ ...img, is_active: !!img.is_active }));
     } else {
       ElMessage.error(res.message || '获取轮播图列表失败');
     }
@@ -254,50 +243,52 @@ const handleOpenEditDialog = (rowData: CarouselImage) => {
 };
 
 const handleCloseDialog = () => {
-  resetForm();
   dialogVisible.value = false;
+  resetForm();
 };
 
 const handleUploadChange: UploadProps['onChange'] = (uploadFile) => {
-  if (uploadFile.raw) {
-    selectedFile.value = uploadFile.raw;
-    // 强制更新表单项以触发校验（如果需要）
-    // imageFormRef.value?.validateField('imageFile');
-  }
+  selectedFile.value = uploadFile.raw || null;
 };
 
-const handleUploadExceed: UploadProps['onExceed'] = () => {
-  ElMessage.warning('只能上传一个文件，请先移除已选文件');
+const handleUploadExceed: UploadProps['onExceed'] = (files) => {
+  const file = files[0] as UploadRawFile;
+  file.uid = genFileId();
+  uploadRef.value?.clearFiles();
+  uploadRef.value?.handleStart(file); // This will trigger onChange
 };
 
-const handleStatusChange = async (row: CarouselImage, newStatusValue: boolean | string | number) => {
-  const newStatus = !!newStatusValue; // 确保是布尔值
+const handleStatusChange = async (rowData: CarouselImage, newStatus: boolean) => {
   try {
-    // 直接传递布尔值给API
-    await updateCarouselImage(row.id, { is_active: newStatus });
-    ElMessage.success('状态更新成功');
-    // 更新本地数据，避免重新请求整个列表
-    const index = carouselImages.value.findIndex(item => item.id === row.id);
-    if (index !== -1) {
-      carouselImages.value[index].is_active = newStatus;
+    const res = await updateCarouselImage(rowData.id, { is_active: newStatus });
+    if (res.code === 200) {
+      ElMessage.success('状态更新成功');
+      // Optional: you can find and update the item in carouselImages.value locally
+      // to avoid a full refetch, but refetching is safer.
+      const index = carouselImages.value.findIndex(img => img.id === rowData.id);
+      if (index !== -1) {
+        carouselImages.value[index].is_active = newStatus;
+      }
+    } else {
+      // Revert switch state on failure
+      rowData.is_active = !newStatus;
+      ElMessage.error(res.message || '状态更新失败');
     }
   } catch (error: any) {
-    console.error('Error updating status:', error);
-    ElMessage.error(error?.response?.data?.message || '状态更新失败');
-    // 状态改回去，确保UI与实际状态一致
-    const index = carouselImages.value.findIndex(item => item.id === row.id);
-    if (index !== -1) {
-       carouselImages.value[index].is_active = !newStatus; 
-    }
+    console.error(`Error updating status for image ${rowData.id}:`, error);
+    // Revert switch state on failure
+    rowData.is_active = !newStatus;
+    ElMessage.error(error?.response?.data?.message || error.message || '状态更新失败');
   }
 };
 
 const handleSubmitForm = async () => {
   if (!imageFormRef.value) return;
+  
   await imageFormRef.value.validate(async (valid) => {
     if (valid) {
       if (dialogMode.value === 'add' && !selectedFile.value) {
-        ElMessage.error('请选择要上传的图片文件');
+        ElMessage.warning('请选择要上传的图片文件。');
         return;
       }
 
@@ -305,40 +296,39 @@ const handleSubmitForm = async () => {
       try {
         const formData = new FormData();
         
-        // 为添加模式准备图片文件
+        // Append file only in add mode
         if (dialogMode.value === 'add' && selectedFile.value) {
           formData.append('imageFile', selectedFile.value);
         }
 
-        // 添加其他表单数据
-        // 确保只添加已定义的值，避免发送 "undefined" 字符串
-        if (currentImageForm.title !== undefined) formData.append('title', currentImageForm.title);
-        if (currentImageForm.link_url !== undefined) formData.append('link_url', currentImageForm.link_url || ''); // 发空字符串如果未定义
-        if (currentImageForm.display_order !== undefined) formData.append('display_order', String(currentImageForm.display_order));
+        // Append other fields, ensuring not to append null values
+        if (currentImageForm.title) formData.append('title', currentImageForm.title);
+        if (currentImageForm.link_url) formData.append('link_url', currentImageForm.link_url);
+        formData.append('display_order', String(currentImageForm.display_order || 0));
         formData.append('is_active', String(!!currentImageForm.is_active));
 
         if (dialogMode.value === 'add') {
           const res = await addCarouselImage(formData);
           if (res.code === 201) {
             ElMessage.success('添加成功');
-            fetchCarouselImages(); // 重新加载列表
             dialogVisible.value = false;
+            fetchCarouselImages(); // Refresh list
           } else {
             ElMessage.error(res.message || '添加失败');
           }
         } else if (currentImageForm.id) {
-          // 编辑模式下，我们只更新元数据。如果允许更换图片，则需要不同的API或逻辑
-          const updateData: Partial<CarouselImageData> = {
+          // For edit, we don't send file, so we send a plain object, not FormData
+          const updateData: CarouselImageData = {
             title: currentImageForm.title,
-            link_url: currentImageForm.link_url || '',
+            link_url: currentImageForm.link_url,
             display_order: currentImageForm.display_order,
-            is_active: !!currentImageForm.is_active,
+            is_active: currentImageForm.is_active,
           };
           const res = await updateCarouselImage(currentImageForm.id, updateData);
           if (res.code === 200) {
             ElMessage.success('更新成功');
-            fetchCarouselImages(); // 重新加载列表
             dialogVisible.value = false;
+            fetchCarouselImages(); // Refresh list
           } else {
             ElMessage.error(res.message || '更新失败');
           }
@@ -353,51 +343,37 @@ const handleSubmitForm = async () => {
   });
 };
 
-const handleDeleteImage = async (id: number) => {
-  try {
-    await ElMessageBox.confirm('确定要删除此轮播图吗？此操作不可恢复。', '警告', {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-    // 用户确认删除
-    // loading.value = true; // 可以用表格的loading或单独的删除loading
-    const res = await deleteCarouselImage(id);
-    if (res.code === 200) { // 假设后端删除成功返回200
+const handleDeleteImage = (id: number) => {
+  ElMessageBox.confirm('确定要删除这个轮播图吗？此操作不可逆。', '警告', {
+    confirmButtonText: '确定删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await deleteCarouselImage(id);
       ElMessage.success('删除成功');
-      fetchCarouselImages(); // 重新加载列表
-    } else {
-      ElMessage.error(res.message || '删除失败');
+      fetchCarouselImages(); // Refresh list
+    } catch (error: any) {
+      console.error(`Error deleting image ${id}:`, error);
+      ElMessage.error(error?.response?.data?.message || error.message || '删除失败');
     }
-  } catch (error: any) {
-    if (error === 'cancel' || (typeof error === 'string' && error.includes('cancel'))) {
-      // 用户点击了取消，不做任何事
-      ElMessage.info('取消删除');
-      return;
-    }
-    console.error('Error deleting image:', error);
-    ElMessage.error(error?.response?.data?.message || '删除操作失败');
-  } finally {
-    // loading.value = false;
-  }
+  }).catch(() => {
+    // User clicked cancel
+  });
 };
 
 const handleSaveInterval = async () => {
-  if (carouselInterval.value <= 0) {
-    ElMessage.warning('切换时间必须大于0毫秒');
-    return;
-  }
   intervalLoading.value = true;
   try {
     const res = await updateCarouselIntervalConfig({ carouselInterval: carouselInterval.value });
     if (res.code === 200) {
-      ElMessage.success('轮播图切换时间更新成功');
+      ElMessage.success('切换时间保存成功！');
     } else {
       ElMessage.error(res.message || '更新轮播图切换时间失败');
     }
   } catch (error: any) {
-    console.error('Error updating carousel interval:', error);
-    ElMessage.error(error?.response?.data?.message || error.message || '更新轮播图切换时间网络错误');
+    console.error('Error saving carousel interval:', error);
+    ElMessage.error(error?.response?.data?.message || error.message || '保存失败');
   } finally {
     intervalLoading.value = false;
   }
@@ -405,18 +381,10 @@ const handleSaveInterval = async () => {
 
 </script>
 
-<style lang="scss" scoped>
-.carousel-management {
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .el-upload__tip {
-    color: #909399;
-    font-size: 12px;
-    margin-top: 7px;
-  }
+<style scoped>
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-
-</style> 
+</style>

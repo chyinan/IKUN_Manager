@@ -1668,7 +1668,7 @@ app.get(`${apiPrefix}/score/exam-types`, authenticateToken, async (req, res) => 
 app.get(`${apiPrefix}/score/list`, authenticateToken, async (req, res) => {
   try {
     console.log('获取成绩列表, 查询参数:', req.query);
-    const result = await scoreService.getScores(req.query);
+    const result = await scoreService.getScoreList(req.query);
     res.json({ code: 200, data: result, message: '获取成绩列表成功' });
   } catch (error) {
     console.error('获取成绩列表失败:', error);

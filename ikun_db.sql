@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 06/06/2025 18:34:31
+ Date: 07/06/2025 15:41:05
 */
 
 SET NAMES utf8mb4;
@@ -84,7 +84,6 @@ CREATE TABLE `class`  (
 -- ----------------------------
 INSERT INTO `class` VALUES (1, '高三(1)班', '王老师', 'test', '2025-04-02 19:15:11', '2025-04-13 00:44:55');
 INSERT INTO `class` VALUES (2, '高三(2)班', '李老师', '666', '2025-04-02 19:15:11', '2025-04-20 01:47:30');
-INSERT INTO `class` VALUES (3, '高二(1)班', '张老师', NULL, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 
 -- ----------------------------
 -- Table structure for department
@@ -287,7 +286,7 @@ CREATE TABLE `message_threads`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主题ID',
   `student_user_id` bigint NOT NULL COMMENT '发起对话的学生用户ID (关联 user.id)',
   `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '主题标题',
-  `status` enum('open','closed_by_student','closed_by_admin') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'open' COMMENT '主题状态',
+  `status` enum('open','in_progress','replied','resolved','rejected') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'open' COMMENT '主题状态: open(待处理), in_progress(受理中), replied(已回复), resolved(已解决), rejected(已拒绝)',
   `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
   PRIMARY KEY (`id`) USING BTREE,
@@ -298,7 +297,7 @@ CREATE TABLE `message_threads`  (
 -- ----------------------------
 -- Records of message_threads
 -- ----------------------------
-INSERT INTO `message_threads` VALUES (1, 8, '宿舍断电', 'open', '2025-06-06 18:27:43', '2025-06-06 18:27:43');
+INSERT INTO `message_threads` VALUES (1, 8, '宿舍断电', 'replied', '2025-06-06 18:27:43', '2025-06-06 19:11:14');
 
 -- ----------------------------
 -- Table structure for messages
@@ -316,12 +315,14 @@ CREATE TABLE `messages`  (
   INDEX `idx_sender_user_id`(`sender_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_message_sender_user` FOREIGN KEY (`sender_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_message_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of messages
 -- ----------------------------
-INSERT INTO `messages` VALUES (1, 1, 8, '每晚11点就断电怎么行？？？我还要写代码呢', 0, '2025-06-06 18:27:43');
+INSERT INTO `messages` VALUES (1, 1, 8, '每晚11点就断电怎么行？？？我还要写代码呢', 1, '2025-06-06 18:27:43');
+INSERT INTO `messages` VALUES (2, 1, 8, '请回答', 1, '2025-06-06 18:48:46');
+INSERT INTO `messages` VALUES (3, 1, 1, '好的，我已收到，马上责令学校保持不断电', 1, '2025-06-06 18:58:39');
 
 -- ----------------------------
 -- Table structure for student
@@ -343,7 +344,7 @@ CREATE TABLE `student`  (
   UNIQUE INDEX `uk_student_id`(`student_id` ASC) USING BTREE,
   INDEX `idx_class_id`(`class_id` ASC) USING BTREE,
   INDEX `idx_student_user_id`(`user_id` ASC) USING BTREE,
-  CONSTRAINT `fk_student_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_student_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_student_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB AUTO_INCREMENT = 34 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生表' ROW_FORMAT = Dynamic;
 
@@ -360,11 +361,6 @@ INSERT INTO `student` VALUES (7, 'S2023012', '周杰', '男', 2, '13800138001', 
 INSERT INTO `student` VALUES (8, 'S2023013', '吴磊', '男', 2, NULL, NULL, NULL, '2023-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student` VALUES (9, 'S2023014', '郑娟', '女', 2, NULL, NULL, NULL, '2023-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student` VALUES (10, 'S2023015', '孙悦', '女', 2, NULL, NULL, NULL, '2023-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student` VALUES (11, 'S2024001', '马超', '男', 3, NULL, NULL, NULL, '2024-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student` VALUES (12, 'S2024002', '关羽', '男', 3, NULL, NULL, NULL, '2024-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student` VALUES (13, 'S2024003', '黄月英', '女', 3, NULL, NULL, NULL, '2024-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student` VALUES (14, 'S2024004', '孙尚香', '女', 3, NULL, NULL, NULL, '2024-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student` VALUES (15, 'S2024005', '诸葛亮', '男', 3, NULL, NULL, NULL, '2024-09-01', '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 
 -- ----------------------------
 -- Table structure for student_score
@@ -384,7 +380,7 @@ CREATE TABLE `student_score`  (
   INDEX `idx_exam_id`(`exam_id` ASC) USING BTREE,
   CONSTRAINT `fk_score_exam` FOREIGN KEY (`exam_id`) REFERENCES `exam` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_score_student` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 183 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生成绩表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 195 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '学生成绩表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of student_score
@@ -413,25 +409,13 @@ INSERT INTO `student_score` VALUES (27, 7, 3, '英语', 89.0, '2025-04-02 19:15:
 INSERT INTO `student_score` VALUES (28, 7, 3, '物理', 92.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student_score` VALUES (29, 7, 3, '化学', 88.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student_score` VALUES (30, 7, 3, '生物', 85.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (31, 11, 5, '语文', 82.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (32, 11, 5, '数学', 77.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (33, 11, 5, '英语', 85.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (34, 11, 5, '物理', 79.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (35, 11, 5, '化学', 74.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (36, 11, 5, '生物', 81.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (37, 14, 5, '语文', 93.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (38, 14, 5, '数学', 89.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (39, 14, 5, '英语', 96.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (40, 14, 5, '物理', 85.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (41, 14, 5, '化学', 90.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (42, 14, 5, '生物', 88.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student_score` VALUES (43, 1, 4, '语文', 100.0, '2025-04-04 02:29:11', '2025-04-05 23:58:19');
 INSERT INTO `student_score` VALUES (44, 1, 4, '数学', 100.0, '2025-04-04 02:29:11', '2025-04-05 23:57:51');
 INSERT INTO `student_score` VALUES (45, 1, 4, '英语', 100.0, '2025-04-04 02:29:11', '2025-04-06 01:17:20');
-INSERT INTO `student_score` VALUES (46, 1, 4, '物理', 37.5, '2025-04-04 02:29:11', '2025-06-04 10:58:28');
+INSERT INTO `student_score` VALUES (46, 1, 4, '物理', 42.0, '2025-04-04 02:29:11', '2025-06-06 23:53:31');
 INSERT INTO `student_score` VALUES (47, 1, 4, '化学', 100.0, '2025-04-04 02:29:11', '2025-04-04 02:29:11');
 INSERT INTO `student_score` VALUES (48, 1, 4, '生物', 100.0, '2025-04-04 02:29:11', '2025-04-04 02:29:11');
-INSERT INTO `student_score` VALUES (49, 1, 1, '语文', 99.0, '2025-04-04 02:29:57', '2025-04-04 02:31:26');
+INSERT INTO `student_score` VALUES (49, 1, 1, '语文', 99.5, '2025-04-04 02:29:57', '2025-06-06 22:27:33');
 INSERT INTO `student_score` VALUES (50, 1, 1, '数学', 100.0, '2025-04-04 02:29:57', '2025-04-04 02:29:57');
 INSERT INTO `student_score` VALUES (51, 1, 1, '英语', 66.0, '2025-04-04 02:29:57', '2025-04-04 02:31:26');
 INSERT INTO `student_score` VALUES (52, 1, 1, '物理', 77.0, '2025-04-04 02:29:57', '2025-04-04 02:31:26');
@@ -525,53 +509,11 @@ CREATE TABLE `system_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2965 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 3044 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_log
 -- ----------------------------
-INSERT INTO `system_log` VALUES (2665, 'system', 'connect', 'connect 客户端连接: 9CQSLdKRll9dwViBAAAB', 'System', '2025-06-02 19:35:07');
-INSERT INTO `system_log` VALUES (2666, 'system', 'disconnect', 'disconnect 客户端断开: 9CQSLdKRll9dwViBAAAB, 原因: client namespace disconnect', 'System', '2025-06-02 19:35:07');
-INSERT INTO `system_log` VALUES (2667, 'system', 'connect', 'connect 客户端连接: feobi_90P4F7BAq_AAAD', 'System', '2025-06-02 19:41:07');
-INSERT INTO `system_log` VALUES (2668, 'system', 'disconnect', 'disconnect 客户端断开: feobi_90P4F7BAq_AAAD, 原因: client namespace disconnect', 'System', '2025-06-02 19:41:08');
-INSERT INTO `system_log` VALUES (2669, 'system', 'connect', 'connect 客户端连接: VRSlIgVOVxu3y92KAAAB', 'System', '2025-06-02 21:59:36');
-INSERT INTO `system_log` VALUES (2670, 'system', 'disconnect', 'disconnect 客户端断开: VRSlIgVOVxu3y92KAAAB, 原因: client namespace disconnect', 'System', '2025-06-02 21:59:37');
-INSERT INTO `system_log` VALUES (2671, 'system', 'connect', 'connect 客户端连接: 1hW2oxuBHIHx-3f2AAAD', 'System', '2025-06-02 22:12:58');
-INSERT INTO `system_log` VALUES (2672, 'system', 'disconnect', 'disconnect 客户端断开: 1hW2oxuBHIHx-3f2AAAD, 原因: client namespace disconnect', 'System', '2025-06-02 22:13:00');
-INSERT INTO `system_log` VALUES (2673, 'system', 'connect', 'connect 客户端连接: 12xSnTo4RB55ZIWRAAAB', 'System', '2025-06-03 12:45:25');
-INSERT INTO `system_log` VALUES (2674, 'system', 'disconnect', 'disconnect 客户端断开: 12xSnTo4RB55ZIWRAAAB, 原因: client namespace disconnect', 'System', '2025-06-03 12:45:25');
-INSERT INTO `system_log` VALUES (2675, 'system', 'connect', 'connect 客户端连接: Y2LaXNIlc_k8pqwzAAAD', 'System', '2025-06-03 12:45:58');
-INSERT INTO `system_log` VALUES (2676, 'system', 'disconnect', 'disconnect 客户端断开: Y2LaXNIlc_k8pqwzAAAD, 原因: client namespace disconnect', 'System', '2025-06-03 12:46:02');
-INSERT INTO `system_log` VALUES (2677, 'system', 'connect', 'connect 客户端连接: oYUiOaco_EyOsQ1fAAAF', 'System', '2025-06-03 12:46:13');
-INSERT INTO `system_log` VALUES (2678, 'system', 'disconnect', 'disconnect 客户端断开: oYUiOaco_EyOsQ1fAAAF, 原因: client namespace disconnect', 'System', '2025-06-03 12:46:14');
-INSERT INTO `system_log` VALUES (2679, 'system', 'connect', 'connect 客户端连接: JZIeZfUQ9IsMVmL6AAAH', 'System', '2025-06-03 12:57:09');
-INSERT INTO `system_log` VALUES (2680, 'system', 'disconnect', 'disconnect 客户端断开: JZIeZfUQ9IsMVmL6AAAH, 原因: client namespace disconnect', 'System', '2025-06-03 12:57:10');
-INSERT INTO `system_log` VALUES (2681, 'system', 'connect', 'connect 客户端连接: 1hsbcwZY3cC-t1tbAAAJ', 'System', '2025-06-03 13:00:04');
-INSERT INTO `system_log` VALUES (2682, 'system', 'disconnect', 'disconnect 客户端断开: 1hsbcwZY3cC-t1tbAAAJ, 原因: client namespace disconnect', 'System', '2025-06-03 13:00:04');
-INSERT INTO `system_log` VALUES (2683, 'system', 'connect', 'connect 客户端连接: _yo7qqjcWJX0LDcBAAAL', 'System', '2025-06-03 13:04:59');
-INSERT INTO `system_log` VALUES (2684, 'system', 'disconnect', 'disconnect 客户端断开: _yo7qqjcWJX0LDcBAAAL, 原因: client namespace disconnect', 'System', '2025-06-03 13:04:59');
-INSERT INTO `system_log` VALUES (2685, 'system', 'connect', 'connect 客户端连接: Dwh-w0ASZuFye9UxAAAN', 'System', '2025-06-03 13:05:00');
-INSERT INTO `system_log` VALUES (2686, 'system', 'disconnect', 'disconnect 客户端断开: Dwh-w0ASZuFye9UxAAAN, 原因: client namespace disconnect', 'System', '2025-06-03 13:05:02');
-INSERT INTO `system_log` VALUES (2687, 'system', 'connect', 'connect 客户端连接: eV0m8C6jr56ubDs7AAAP', 'System', '2025-06-03 13:05:21');
-INSERT INTO `system_log` VALUES (2688, 'system', 'disconnect', 'disconnect 客户端断开: eV0m8C6jr56ubDs7AAAP, 原因: client namespace disconnect', 'System', '2025-06-03 13:05:21');
-INSERT INTO `system_log` VALUES (2689, 'system', 'connect', 'connect 客户端连接: 3WyShT3FG0BeujbWAAAR', 'System', '2025-06-03 13:09:25');
-INSERT INTO `system_log` VALUES (2690, 'system', 'disconnect', 'disconnect 客户端断开: 3WyShT3FG0BeujbWAAAR, 原因: client namespace disconnect', 'System', '2025-06-03 13:09:26');
-INSERT INTO `system_log` VALUES (2691, 'system', 'connect', 'connect 客户端连接: fx_BiZi2rPQ4Ucc5AAAT', 'System', '2025-06-03 13:09:50');
-INSERT INTO `system_log` VALUES (2692, 'system', 'disconnect', 'disconnect 客户端断开: fx_BiZi2rPQ4Ucc5AAAT, 原因: client namespace disconnect', 'System', '2025-06-03 13:09:51');
-INSERT INTO `system_log` VALUES (2693, 'system', 'connect', 'connect 客户端连接: xsmoFJFUzFaRt6iPAAAV', 'System', '2025-06-03 13:17:43');
-INSERT INTO `system_log` VALUES (2694, 'system', 'disconnect', 'disconnect 客户端断开: xsmoFJFUzFaRt6iPAAAV, 原因: client namespace disconnect', 'System', '2025-06-03 13:17:43');
-INSERT INTO `system_log` VALUES (2695, 'system', 'connect', 'connect 客户端连接: 6tXhlmemKVyH25YKAAAB', 'System', '2025-06-03 15:04:36');
-INSERT INTO `system_log` VALUES (2696, 'system', 'disconnect', 'disconnect 客户端断开: 6tXhlmemKVyH25YKAAAB, 原因: client namespace disconnect', 'System', '2025-06-03 15:04:37');
-INSERT INTO `system_log` VALUES (2697, 'system', 'connect', 'connect 客户端连接: e85U0i-7w4GA7nqwAAAD', 'System', '2025-06-03 15:07:53');
-INSERT INTO `system_log` VALUES (2698, 'system', 'disconnect', 'disconnect 客户端断开: e85U0i-7w4GA7nqwAAAD, 原因: client namespace disconnect', 'System', '2025-06-03 15:07:54');
-INSERT INTO `system_log` VALUES (2699, 'system', 'connect', 'connect 客户端连接: fgMcrnqUMBVXOKvUAAAF', 'System', '2025-06-03 16:16:08');
-INSERT INTO `system_log` VALUES (2700, 'system', 'disconnect', 'disconnect 客户端断开: fgMcrnqUMBVXOKvUAAAF, 原因: client namespace disconnect', 'System', '2025-06-03 16:16:09');
-INSERT INTO `system_log` VALUES (2701, 'system', 'connect', 'connect 客户端连接: l4_VOUbPTc-pqtnvAAAH', 'System', '2025-06-03 16:16:33');
-INSERT INTO `system_log` VALUES (2702, 'system', 'disconnect', 'disconnect 客户端断开: l4_VOUbPTc-pqtnvAAAH, 原因: client namespace disconnect', 'System', '2025-06-03 16:16:34');
-INSERT INTO `system_log` VALUES (2703, 'system', 'connect', 'connect 客户端连接: 4pXlLj9zqF7gC4XnAAAJ', 'System', '2025-06-03 16:16:38');
-INSERT INTO `system_log` VALUES (2704, 'system', 'disconnect', 'disconnect 客户端断开: 4pXlLj9zqF7gC4XnAAAJ, 原因: client namespace disconnect', 'System', '2025-06-03 16:16:49');
-INSERT INTO `system_log` VALUES (2705, 'system', 'connect', 'connect 客户端连接: H-sMXkhLUq-y4ykVAAAL', 'System', '2025-06-03 16:16:51');
-INSERT INTO `system_log` VALUES (2706, 'system', 'disconnect', 'disconnect 客户端断开: H-sMXkhLUq-y4ykVAAAL, 原因: client namespace disconnect', 'System', '2025-06-03 16:16:51');
 INSERT INTO `system_log` VALUES (2707, 'system', 'connect', 'connect 客户端连接: wM-MLIfMQg8cqps1AAAB', 'System', '2025-06-03 20:10:23');
 INSERT INTO `system_log` VALUES (2708, 'system', 'disconnect', 'disconnect 客户端断开: wM-MLIfMQg8cqps1AAAB, 原因: client namespace disconnect', 'System', '2025-06-03 20:10:24');
 INSERT INTO `system_log` VALUES (2709, 'auth', '登录成功', '登录成功 用户 \'admin\' (角色: admin) 登录成功。', 'admin', '2025-06-03 20:15:57');
@@ -830,6 +772,85 @@ INSERT INTO `system_log` VALUES (2961, 'mailbox', '创建主题', '创建主题 
 INSERT INTO `system_log` VALUES (2962, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:30:46');
 INSERT INTO `system_log` VALUES (2963, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:31:00');
 INSERT INTO `system_log` VALUES (2964, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:31:54');
+INSERT INTO `system_log` VALUES (2965, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:43:15');
+INSERT INTO `system_log` VALUES (2966, 'mailbox', '回复消息', '回复消息 用户 (ID: 8) 在主题 (ID: 1) 中发布了新回复', 'User:8', '2025-06-06 18:48:46');
+INSERT INTO `system_log` VALUES (2967, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 18:49:15');
+INSERT INTO `system_log` VALUES (2968, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 18:49:20');
+INSERT INTO `system_log` VALUES (2969, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 18:55:45');
+INSERT INTO `system_log` VALUES (2970, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 18:57:51');
+INSERT INTO `system_log` VALUES (2971, 'mailbox', '回复消息', '回复消息 用户 (ID: 1) 在主题 (ID: 1) 中发布了新回复', 'User:1', '2025-06-06 18:58:39');
+INSERT INTO `system_log` VALUES (2972, 'mailbox', '更新状态', '更新状态 管理员 \'admin\' 将主题 (ID: 1) 的状态更新为 \'resolved\'', 'admin', '2025-06-06 19:11:06');
+INSERT INTO `system_log` VALUES (2973, 'mailbox', '更新状态', '更新状态 管理员 \'admin\' 将主题 (ID: 1) 的状态更新为 \'replied\'', 'admin', '2025-06-06 19:11:14');
+INSERT INTO `system_log` VALUES (2974, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:14:22');
+INSERT INTO `system_log` VALUES (2975, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:14:30');
+INSERT INTO `system_log` VALUES (2976, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:19:21');
+INSERT INTO `system_log` VALUES (2977, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:19:58');
+INSERT INTO `system_log` VALUES (2978, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:20:09');
+INSERT INTO `system_log` VALUES (2979, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:30:23');
+INSERT INTO `system_log` VALUES (2980, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:51:26');
+INSERT INTO `system_log` VALUES (2981, 'system', 'connect', 'connect 客户端连接: XvvhXdfrk1YEG6OeAAAB', 'System', '2025-06-06 19:51:28');
+INSERT INTO `system_log` VALUES (2982, 'system', 'disconnect', 'disconnect 客户端断开: XvvhXdfrk1YEG6OeAAAB, 原因: client namespace disconnect', 'System', '2025-06-06 19:51:29');
+INSERT INTO `system_log` VALUES (2983, 'system', 'connect', 'connect 客户端连接: W5TjfvFzTPUz-IZgAAAD', 'System', '2025-06-06 19:51:30');
+INSERT INTO `system_log` VALUES (2984, 'system', 'disconnect', 'disconnect 客户端断开: W5TjfvFzTPUz-IZgAAAD, 原因: client namespace disconnect', 'System', '2025-06-06 19:51:38');
+INSERT INTO `system_log` VALUES (2985, 'system', 'connect', 'connect 客户端连接: 57awE9ux4iXG2_fSAAAF', 'System', '2025-06-06 19:51:53');
+INSERT INTO `system_log` VALUES (2986, 'system', 'disconnect', 'disconnect 客户端断开: 57awE9ux4iXG2_fSAAAF, 原因: client namespace disconnect', 'System', '2025-06-06 19:51:55');
+INSERT INTO `system_log` VALUES (2987, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 19:52:33');
+INSERT INTO `system_log` VALUES (2988, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 19:53:31');
+INSERT INTO `system_log` VALUES (2989, 'system', 'connect', 'connect 客户端连接: 1KHjxDFm2Th1rSdCAAAB', 'System', '2025-06-06 19:57:31');
+INSERT INTO `system_log` VALUES (2990, 'system', 'disconnect', 'disconnect 客户端断开: 1KHjxDFm2Th1rSdCAAAB, 原因: client namespace disconnect', 'System', '2025-06-06 19:57:33');
+INSERT INTO `system_log` VALUES (2991, 'system', 'connect', 'connect 客户端连接: w7TS29iCtqrbkLr7AAAB', 'System', '2025-06-06 20:59:00');
+INSERT INTO `system_log` VALUES (2992, 'system', 'disconnect', 'disconnect 客户端断开: w7TS29iCtqrbkLr7AAAB, 原因: client namespace disconnect', 'System', '2025-06-06 20:59:02');
+INSERT INTO `system_log` VALUES (2993, 'database', '保存/更新成绩', '保存/更新成绩 admin 保存/更新了学生 \"张伟\" (ID: 1) 在考试 \"2025年3月高三月考\" (ID: 1) 的 6 门科目成绩.', 'admin', '2025-06-06 22:27:33');
+INSERT INTO `system_log` VALUES (2994, 'system', 'connect', 'connect 客户端连接: MV9TgtQTuy59qFygAAAD', 'System', '2025-06-06 22:27:44');
+INSERT INTO `system_log` VALUES (2995, 'system', 'disconnect', 'disconnect 客户端断开: MV9TgtQTuy59qFygAAAD, 原因: client namespace disconnect', 'System', '2025-06-06 22:27:45');
+INSERT INTO `system_log` VALUES (2996, 'system', 'connect', 'connect 客户端连接: 1J24sUCjvJMXamg2AAAF', 'System', '2025-06-06 22:30:31');
+INSERT INTO `system_log` VALUES (2997, 'system', 'disconnect', 'disconnect 客户端断开: 1J24sUCjvJMXamg2AAAF, 原因: client namespace disconnect', 'System', '2025-06-06 22:30:32');
+INSERT INTO `system_log` VALUES (2998, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-06 22:35:04');
+INSERT INTO `system_log` VALUES (2999, 'auth', '登录失败', '登录失败 用户 \'admin\' 密码错误.', 'admin', '2025-06-06 22:35:43');
+INSERT INTO `system_log` VALUES (3000, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 22:35:47');
+INSERT INTO `system_log` VALUES (3001, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 22:48:01');
+INSERT INTO `system_log` VALUES (3002, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-06 23:02:35');
+INSERT INTO `system_log` VALUES (3003, 'system', 'connect', 'connect 客户端连接: L0FVlF9WbBS7_xcKAAAB', 'System', '2025-06-06 23:52:53');
+INSERT INTO `system_log` VALUES (3004, 'system', 'disconnect', 'disconnect 客户端断开: L0FVlF9WbBS7_xcKAAAB, 原因: client namespace disconnect', 'System', '2025-06-06 23:52:55');
+INSERT INTO `system_log` VALUES (3005, 'database', '保存/更新成绩', '保存/更新成绩 admin 保存/更新了学生 \"张伟\" (ID: 1) 在考试 \"2025年4月高三月考\" (ID: 4) 的 6 门科目成绩.', 'admin', '2025-06-06 23:53:31');
+INSERT INTO `system_log` VALUES (3006, 'system', 'connect', 'connect 客户端连接: jdFVMte2_LbhJm_IAAAD', 'System', '2025-06-06 23:54:10');
+INSERT INTO `system_log` VALUES (3007, 'system', 'disconnect', 'disconnect 客户端断开: jdFVMte2_LbhJm_IAAAD, 原因: client namespace disconnect', 'System', '2025-06-06 23:54:12');
+INSERT INTO `system_log` VALUES (3008, 'system', 'connect', 'connect 客户端连接: BefG-huNl7Backl2AAAF', 'System', '2025-06-06 23:57:37');
+INSERT INTO `system_log` VALUES (3009, 'system', 'disconnect', 'disconnect 客户端断开: BefG-huNl7Backl2AAAF, 原因: client namespace disconnect', 'System', '2025-06-06 23:57:38');
+INSERT INTO `system_log` VALUES (3010, 'system', 'connect', 'connect 客户端连接: 8RePJ0XwhfdJhPfLAAAH', 'System', '2025-06-07 00:03:36');
+INSERT INTO `system_log` VALUES (3011, 'system', 'disconnect', 'disconnect 客户端断开: 8RePJ0XwhfdJhPfLAAAH, 原因: client namespace disconnect', 'System', '2025-06-07 00:03:37');
+INSERT INTO `system_log` VALUES (3012, 'system', 'connect', 'connect 客户端连接: TkLcVkrGd4aFXUwEAAAJ', 'System', '2025-06-07 00:04:05');
+INSERT INTO `system_log` VALUES (3013, 'system', 'disconnect', 'disconnect 客户端断开: TkLcVkrGd4aFXUwEAAAJ, 原因: client namespace disconnect', 'System', '2025-06-07 00:04:06');
+INSERT INTO `system_log` VALUES (3014, 'system', 'connect', 'connect 客户端连接: JztmyIoBXUuR-D51AAAL', 'System', '2025-06-07 00:23:26');
+INSERT INTO `system_log` VALUES (3015, 'system', 'disconnect', 'disconnect 客户端断开: JztmyIoBXUuR-D51AAAL, 原因: client namespace disconnect', 'System', '2025-06-07 00:23:28');
+INSERT INTO `system_log` VALUES (3016, 'system', 'connect', 'connect 客户端连接: _eK2YtZ4xHv9YHceAAAN', 'System', '2025-06-07 00:27:38');
+INSERT INTO `system_log` VALUES (3017, 'system', 'disconnect', 'disconnect 客户端断开: _eK2YtZ4xHv9YHceAAAN, 原因: client namespace disconnect', 'System', '2025-06-07 00:27:39');
+INSERT INTO `system_log` VALUES (3018, 'system', 'connect', 'connect 客户端连接: 6nATz4D223DPAxY0AAAP', 'System', '2025-06-07 00:31:15');
+INSERT INTO `system_log` VALUES (3019, 'system', 'disconnect', 'disconnect 客户端断开: 6nATz4D223DPAxY0AAAP, 原因: client namespace disconnect', 'System', '2025-06-07 00:31:16');
+INSERT INTO `system_log` VALUES (3020, 'system', 'connect', 'connect 客户端连接: bXJmdUCsxX8ItJMQAAAR', 'System', '2025-06-07 00:31:25');
+INSERT INTO `system_log` VALUES (3021, 'system', 'disconnect', 'disconnect 客户端断开: bXJmdUCsxX8ItJMQAAAR, 原因: client namespace disconnect', 'System', '2025-06-07 00:31:29');
+INSERT INTO `system_log` VALUES (3022, 'system', 'connect', 'connect 客户端连接: GOLcrqPf6cOMuxqnAAAT', 'System', '2025-06-07 00:42:04');
+INSERT INTO `system_log` VALUES (3023, 'system', 'disconnect', 'disconnect 客户端断开: GOLcrqPf6cOMuxqnAAAT, 原因: client namespace disconnect', 'System', '2025-06-07 00:42:06');
+INSERT INTO `system_log` VALUES (3024, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-07 00:45:22');
+INSERT INTO `system_log` VALUES (3025, 'system', '自动清理日志', '自动清理日志 成功删除 42 条 3 天前的旧日志', 'system-cron', '2025-06-07 02:00:00');
+INSERT INTO `system_log` VALUES (3026, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-07 13:47:20');
+INSERT INTO `system_log` VALUES (3027, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-07 13:49:13');
+INSERT INTO `system_log` VALUES (3028, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-07 14:01:39');
+INSERT INTO `system_log` VALUES (3029, 'system', 'connect', 'connect 客户端连接: y67SlL1Omx0rZaSWAAAB', 'System', '2025-06-07 14:07:13');
+INSERT INTO `system_log` VALUES (3030, 'system', 'disconnect', 'disconnect 客户端断开: y67SlL1Omx0rZaSWAAAB, 原因: client namespace disconnect', 'System', '2025-06-07 14:07:14');
+INSERT INTO `system_log` VALUES (3031, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-07 14:37:51');
+INSERT INTO `system_log` VALUES (3032, 'system', 'connect', 'connect 客户端连接: 3CCleJohBonZthT_AAAB', 'System', '2025-06-07 15:17:05');
+INSERT INTO `system_log` VALUES (3033, 'system', 'disconnect', 'disconnect 客户端断开: 3CCleJohBonZthT_AAAB, 原因: transport close', 'System', '2025-06-07 15:21:10');
+INSERT INTO `system_log` VALUES (3034, 'system', 'connect', 'connect 客户端连接: IHZUuSEo2Abc7cpHAAAD', 'System', '2025-06-07 15:21:12');
+INSERT INTO `system_log` VALUES (3035, 'system', 'disconnect', 'disconnect 客户端断开: IHZUuSEo2Abc7cpHAAAD, 原因: transport close', 'System', '2025-06-07 15:27:38');
+INSERT INTO `system_log` VALUES (3036, 'system', 'connect', 'connect 客户端连接: 4cAw4OHRtl67QOPJAAAF', 'System', '2025-06-07 15:27:39');
+INSERT INTO `system_log` VALUES (3037, 'system', 'disconnect', 'disconnect 客户端断开: 4cAw4OHRtl67QOPJAAAF, 原因: client namespace disconnect', 'System', '2025-06-07 15:29:16');
+INSERT INTO `system_log` VALUES (3038, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-07 15:29:18');
+INSERT INTO `system_log` VALUES (3039, 'system', 'connect', 'connect 客户端连接: TOzAhZb7ZYs25ZKDAAAH', 'System', '2025-06-07 15:29:20');
+INSERT INTO `system_log` VALUES (3040, 'system', 'disconnect', 'disconnect 客户端断开: TOzAhZb7ZYs25ZKDAAAH, 原因: transport close', 'System', '2025-06-07 15:29:23');
+INSERT INTO `system_log` VALUES (3041, 'system', 'connect', 'connect 客户端连接: 03HU2AwzOE4-k9zyAAAJ', 'System', '2025-06-07 15:29:23');
+INSERT INTO `system_log` VALUES (3042, 'system', 'disconnect', 'disconnect 客户端断开: 03HU2AwzOE4-k9zyAAAJ, 原因: client namespace disconnect', 'System', '2025-06-07 15:29:36');
+INSERT INTO `system_log` VALUES (3043, 'database', '删除', '删除班级: 高二(1)班 (ID: 3)', 'system', '2025-06-07 15:34:02');
 
 -- ----------------------------
 -- Table structure for user

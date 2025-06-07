@@ -191,12 +191,28 @@ async function deleteClass(id) {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. 先查询班级名称 (keep this)
+    // 1. 检查班级下是否有学生
+    const checkStudentsQuery = 'SELECT COUNT(*) as studentCount FROM student WHERE class_id = ?';
+    const [studentRows] = await connection.query(checkStudentsQuery, [id]);
+    const studentCount = studentRows[0].studentCount;
+
+    if (studentCount > 0) {
+      // 如果有学生，则抛出错误，阻止删除
+      throw new Error(`无法删除：该班级下仍有 ${studentCount} 名学生`);
+    }
+
+    // 2. 先查询班级名称 (for logging)
     const selectQuery = 'SELECT class_name FROM class WHERE id = ?';
     const [rows] = await connection.query(selectQuery, [id]);
     const class_name = rows.length > 0 ? rows[0].class_name : null;
 
-    // 2. 执行删除操作
+    // 如果班级不存在
+    if (!class_name) {
+        await connection.rollback(); // 回滚事务
+        return { success: false, class_name: null };
+    }
+
+    // 3. 执行删除操作
     const deleteQuery = 'DELETE FROM class WHERE id = ?';
     const [result] = await connection.query(deleteQuery, [id]);
     const success = result.affectedRows > 0;
@@ -214,19 +230,19 @@ async function deleteClass(id) {
         operator: 'system' // Or get operator from context
       });
       console.log(`[classService] 删除班级日志已记录.`);
-    } else if (success) {
-      console.log(`[classService] 班级 (ID: ${id}) 已删除，但未找到名称用于日志记录。`);
-    } else {
-      console.log(`[classService] 尝试删除班级失败或未找到记录, ID: ${id}`);
     }
 
     return { success, class_name };
 
   } catch (error) {
     if (connection) await connection.rollback();
-    // Keep existing foreign key check
+    // 检查是否是我们主动抛出的错误
+    if (error.message.includes('无法删除：该班级下仍有')) {
+        throw error; // 直接重新抛出业务逻辑错误
+    }
+    // 检查数据库级别的外键约束错误 (以防万一)
     if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
-        throw new Error('无法删除：该班级下仍有学生');
+        throw new Error('无法删除：该班级下仍有学生 (数据库约束)');
     }
     console.error(`[classService] 删除班级数据库操作失败 (ID: ${id}):`, error);
     throw error;

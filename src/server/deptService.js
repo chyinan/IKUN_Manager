@@ -155,13 +155,29 @@ async function deleteDept(id) {
     connection = await db.getConnection();
     await connection.beginTransaction();
 
-    // 1. 先查询部门名称和主管 (for logging and return value)
+    // 1. [新增] 检查该部门下是否仍有员工
+    const checkEmployeesQuery = 'SELECT COUNT(*) as employeeCount FROM employee WHERE dept_id = ?';
+    const [employeeRows] = await connection.query(checkEmployeesQuery, [id]);
+    const employeeCount = employeeRows[0].employeeCount;
+
+    if (employeeCount > 0) {
+      // 如果有员工，则直接抛出错误，阻止删除
+      throw new Error(`无法删除：该部门下仍有 ${employeeCount} 名员工`);
+    }
+
+    // 2. 先查询部门名称和主管 (for logging and return value)
     const selectQuery = 'SELECT dept_name, manager FROM department WHERE id = ?';
     const [rows] = await connection.query(selectQuery, [id]);
     const dept_name = rows.length > 0 ? rows[0].dept_name : null;
-    const manager = rows.length > 0 ? rows[0].manager : '未知主管'; // Get manager
+    const manager = rows.length > 0 ? rows[0].manager : '未知主管';
 
-    // 2. 执行删除操作
+    // 如果部门不存在
+    if (!dept_name) {
+        await connection.rollback(); // 回滚事务
+        return { success: false, dept_name: null }; // 或者可以抛出错误
+    }
+
+    // 3. 执行删除操作
     const deleteQuery = 'DELETE FROM department WHERE id = ?';
     const [result] = await connection.query(deleteQuery, [id]);
     const success = result.affectedRows > 0;
@@ -189,9 +205,6 @@ async function deleteDept(id) {
 
   } catch (error) {
     if (connection) await connection.rollback();
-    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
-        throw new Error('无法删除：该部门下仍有员工');
-    }
     console.error(`[deptService] 删除部门数据库操作失败 (ID: ${id}):`, error);
     throw error;
   } finally {

@@ -1,37 +1,41 @@
 <template>
   <div class="app-container carousel-management">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>轮播图管理</span>
-          <el-button type="primary" :icon="Plus" @click="handleOpenAddDialog">添加轮播图</el-button>
-        </div>
-      </template>
+    <!-- 头部操作区 -->
+    <div class="operation-header">
+      <div class="interval-setting-section">
+        <span class="interval-label">全局轮播图切换时间 (毫秒)：</span>
+        <el-input-number 
+          v-model="carouselInterval" 
+          :min="1000" 
+          :step="500" 
+          controls-position="right" 
+          style="width: 180px; margin-left: 10px;"
+        />
+        <el-button 
+          type="success" 
+          @click="handleSaveInterval" 
+          :loading="intervalLoading"
+          size="default"
+          style="margin-left: 10px;"
+        >
+          保存切换时间
+        </el-button>
+      </div>
+      <el-button type="primary" :icon="Plus" @click="handleOpenAddDialog">添加轮播图</el-button>
+    </div>
 
-      <el-form
-        class="interval-form-card"
-        label-position="left"
-        label-width="auto"
-        :model="{ carouselInterval }"
-        @submit.prevent="handleSaveInterval"
-      >
-        <el-row :gutter="20" align="middle">
-          <el-col :span="12">
-            <el-form-item label="全局轮播图切换时间 (毫秒)">
-              <el-input-number v-model="carouselInterval" :min="1000" :step="500" controls-position="right" style="width: 200px;" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-button type="success" @click="handleSaveInterval" :loading="intervalLoading">
-              保存切换时间
-            </el-button>
-          </el-col>
-        </el-row>
-      </el-form>
-
-      <el-table :data="carouselImages" v-loading="loading" style="width: 100%">
-        <el-table-column label="预览" width="120">
-          <template #default="{ row }">
+    <!-- 轮播图数据表格 -->
+    <el-table 
+      :data="carouselImages" 
+      v-loading="loading" 
+      stripe
+      border
+      highlight-current-row
+      class="carousel-table"
+    >
+      <el-table-column label="预览" width="120">
+        <template #default="{ row }">
+          <div class="preview-image-wrapper">
             <el-image 
               style="width: 100px; height: 60px"
               :src="getImageFullUrl(row.image_url)" 
@@ -39,37 +43,41 @@
               fit="contain"
               lazy
             />
-          </template>
-        </el-table-column>
-        <el-table-column prop="title" label="标题" width="200" />
-        <el-table-column label="跳转链接" width="250">
-          <template #default="{ row }">
-            <el-link :href="row.link_url" target="_blank" v-if="row.link_url">{{ row.link_url }}</el-link>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="display_order" label="顺序" width="80" sortable />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-switch 
-              v-model="row.is_active"
-              :active-value="true" 
-              :inactive-value="false"
-              @change="(value: boolean) => handleStatusChange(row, value)"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="180">
-            <template #default="{row}">{{ formatDateTime(row.updated_at) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" fixed="right" width="200">
-          <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="handleOpenEditDialog(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="handleDeleteImage(row.id)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="title" label="标题" min-width="150">
+        <template #default="{ row }">
+          <span>{{ row.title || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="跳转链接" min-width="200">
+        <template #default="{ row }">
+          <el-link :href="row.link_url" target="_blank" v-if="row.link_url">{{ row.link_url }}</el-link>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="display_order" label="顺序" width="80" sortable />
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-switch 
+            v-model="row.is_active"
+            :active-value="true" 
+            :inactive-value="false"
+            @change="(value: boolean) => handleStatusChange(row, value)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column prop="updated_at" label="更新时间" width="180">
+          <template #default="{row}">{{ formatDateTime(row.updated_at) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" fixed="right" width="200">
+        <template #default="{ row }">
+          <el-button type="primary" link :icon="Edit" @click="handleOpenEditDialog(row)">编辑</el-button>
+          <el-button type="danger" link :icon="Delete" @click="handleDeleteImage(row.id)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <!-- 添加/编辑轮播图弹窗 -->
     <el-dialog 
@@ -382,16 +390,48 @@ const handleSaveInterval = async () => {
 </script>
 
 <style scoped>
-.card-header {
+.app-container {
+  padding: 20px;
+  background-color: var(--el-bg-color-page);
+  min-height: calc(100vh - 84px);
+  transition: background-color 0.3s;
+}
+
+.operation-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 15px 20px;
+  background-color: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
 }
 
-.interval-form-card {
+.interval-setting-section {
+  display: flex;
+  align-items: center;
+}
+
+.interval-label {
+  margin-right: 10px;
+  color: var(--el-text-color-primary);
+}
+
+.carousel-table {
+  width: 100%;
   margin-bottom: 20px;
-  padding: 15px;
-  border: 1px solid #ebeef5;
-  border-radius: 4px;
+}
+
+.preview-image-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
 }
 </style>

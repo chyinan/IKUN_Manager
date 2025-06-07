@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-card>
+    <el-card class="table-card">
       <template #header>
         <div class="card-header">
           <span>考试管理</span>
@@ -31,18 +31,6 @@
         >
           <el-option v-for="item in examTypeOptions" :key="item" :label="item" :value="item" />
         </el-select>
-        <el-select
-          v-model="filterStatus"
-          placeholder="按状态筛选"
-          class="filter-item"
-          style="width: 130px;"
-          clearable
-          @change="handleFilter"
-        >
-          <el-option label="未发布" :value="0" />
-          <el-option label="已发布" :value="1" />
-          <el-option label="已结束" :value="2" />
-        </el-select>
         <el-button class="filter-item" type="primary" icon="Search" @click="handleFilter">筛选</el-button>
       </div>
 
@@ -50,36 +38,19 @@
       <el-table :data="paginatedExams" v-loading="loading" style="width: 100%">
         <el-table-column prop="examName" label="考试名称" min-width="180" />
         <el-table-column prop="examType" label="考试类型" width="120" />
-        <el-table-column prop="examDate" label="考试日期" width="120" />
-        <el-table-column prop="startTime" label="开始时间" width="120" />
+        <el-table-column prop="examDate" label="开始时间" width="160" />
         <el-table-column prop="duration" label="时长(分钟)" width="110" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">
-              {{ getStatusText(row.status) }}
+              {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="220">
+        <el-table-column label="操作" fixed="right" width="150">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleOpenDialog(row)">编辑</el-button>
             <el-button type="danger" link @click="handleDelete(row.id)">删除</el-button>
-            <el-button
-              v-if="row.status === 0"
-              type="success"
-              link
-              @click="handlePublish(row.id, true)"
-            >
-              发布
-            </el-button>
-            <el-button
-              v-if="row.status === 1"
-              type="warning"
-              link
-              @click="handlePublish(row.id, false)"
-            >
-              取消发布
-            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -87,11 +58,13 @@
       <!-- 分页 -->
       <el-pagination
         background
-        layout="prev, pager, next, total"
+        layout="total, sizes, prev, pager, next, jumper"
         :total="totalExams"
         :page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
         :current-page="currentPage"
         @current-change="handlePageChange"
+        @size-change="handleSizeChange"
         class="pagination-container"
       />
     </el-card>
@@ -163,7 +136,7 @@ import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import {
-  getExamList, addExam, updateExam, deleteExam, publishExam, unpublishExam,
+  getExamList, addExam, updateExam, deleteExam,
   getExamTypeOptions, getExamSubjects
 } from '@/api/exam';
 import { getClassList } from '@/api/class';
@@ -177,7 +150,6 @@ const allExams = ref<ExamType[]>([]);
 const filteredExams = ref<ExamType[]>([]);
 const searchKeyword = ref('');
 const filterExamType = ref('');
-const filterStatus = ref<number | ''>('');
 const currentPage = ref(1);
 const pageSize = ref(10);
 const dialogVisible = ref(false);
@@ -202,10 +174,9 @@ const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
   examName: item.exam_name,
   examType: item.exam_type,
   examDate: item.exam_date,
-  startTime: item.start_time,
   duration: item.duration,
   status: item.status,
-  description: item.description,
+  description: item.remark,
   createTime: item.create_time,
   subjects: item.subjects ? item.subjects.split(',') : [],
   subjectIds: item.subject_ids ? item.subject_ids.split(',').map(Number) : [],
@@ -274,19 +245,17 @@ onMounted(() => {
 // --- Filtering and Pagination ---
 const handleFilter = () => {
   currentPage.value = 1;
-  let filtered = allExams.value;
+  let tempExams = allExams.value;
 
   if (searchKeyword.value) {
-    filtered = filtered.filter(exam => exam.examName.includes(searchKeyword.value));
+    tempExams = tempExams.filter(exam => exam.examName.includes(searchKeyword.value));
   }
+
   if (filterExamType.value) {
-    filtered = filtered.filter(exam => exam.examType === filterExamType.value);
+    tempExams = tempExams.filter(exam => exam.examType === filterExamType.value);
   }
-  if (filterStatus.value !== '') {
-    filtered = filtered.filter(exam => exam.status === filterStatus.value);
-  }
-  
-  filteredExams.value = filtered;
+
+  filteredExams.value = tempExams;
 };
 
 const handleSearch = () => {
@@ -295,6 +264,11 @@ const handleSearch = () => {
 
 const handlePageChange = (page: number) => {
   currentPage.value = page;
+};
+
+const handleSizeChange = (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1; // Reset to first page
 };
 
 // --- Dialog and Form Handling ---
@@ -322,20 +296,21 @@ const resetForm = () => {
   examFormRef.value?.resetFields();
 };
 
-const handleOpenDialog = (row?: ExamType) => {
-  if (row) {
+const handleOpenDialog = async (exam: ExamType | null = null) => {
+  if (exam) {
     dialogTitle.value = '编辑考试';
     examForm.value = {
-      id: row.id,
-      exam_name: row.examName,
-      exam_type: row.examType,
-      exam_date: row.examDate ? dayjs(row.examDate).toDate() : null,
-      start_time: row.startTime ? dayjs(`${row.examDate} ${row.startTime}`).toDate() : null,
-      duration: row.duration,
-      description: row.description || '',
-      classIds: row.classIds,
-      subjectIds: row.subjectIds,
+      id: exam.id,
+      exam_name: exam.examName,
+      exam_type: exam.examType,
+      exam_date: exam.examDate ? dayjs(exam.examDate).toDate() : null,
+      start_time: exam.startTime ? dayjs(`${exam.examDate} ${exam.startTime}`).toDate() : null,
+      duration: exam.duration,
+      description: exam.description || '',
+      classIds: exam.classIds,
+      subjectIds: exam.subjectIds,
     };
+    console.log('test');
   } else {
     dialogTitle.value = '新建考试';
     resetForm();
@@ -382,50 +357,33 @@ const handleDelete = (id: number) => {
   }).then(async () => {
     try {
       await deleteExam(id);
-      ElMessage.success('删除成功');
+      ElMessage.success('考试删除成功');
       fetchExams();
     } catch (error: any) {
-      ElMessage.error(error.message || '删除失败');
+      ElMessage.error(error.message || '删除考试失败');
     }
   });
 };
 
-const handlePublish = async (id: number, publish: boolean) => {
-  try {
-    if (publish) {
-      await publishExam(id);
-      ElMessage.success('发布成功');
-    } else {
-      await unpublishExam(id);
-      ElMessage.success('取消发布成功');
-    }
-    fetchExams();
-  } catch (error: any) {
-    ElMessage.error(error.message || '操作失败');
-  }
-};
-
 // --- UI Helpers ---
-const getStatusText = (status: number): string => {
+const getStatusTagType = (status: string) => {
   switch (status) {
-    case 0: return '未发布';
-    case 1: return '已发布';
-    case 2: return '已结束';
-    default: return '未知';
-  }
-};
-
-const getStatusTagType = (status: number) => {
-  switch (status) {
-    case 0: return 'info';
-    case 1: return 'success';
-    case 2: return 'danger';
-    default: return 'warning';
+    case '进行中':
+      return 'success';
+    case '未开始':
+      return 'warning';
+    case '已结束':
+      return 'info';
+    default:
+      return 'primary';
   }
 };
 </script>
 
 <style scoped>
+.table-card {
+  border-radius: 8px; /* 添加圆角 */
+}
 .app-container {
   padding: 20px;
 }
@@ -435,16 +393,14 @@ const getStatusTagType = (status: number) => {
   align-items: center;
 }
 .filter-container {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  padding-bottom: 20px;
 }
 .filter-item {
   margin-right: 10px;
 }
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  margin-top: 20px;
 }
 </style> 

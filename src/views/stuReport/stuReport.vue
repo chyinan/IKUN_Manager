@@ -3,51 +3,51 @@
     <!-- 顶部操作区 -->
     <div class="operation-area">
       <el-select v-model="selectedClass" placeholder="请选择班级" style="width: 200px;" clearable>
-        <el-option
+          <el-option
           v-for="item in classList"
           :key="item.id"
           :label="item.className"
           :value="item.id">
         </el-option>
-      </el-select>
+        </el-select>
       <el-select v-model="selectedExam" placeholder="请选择考试" style="width: 280px;" value-key="id" clearable>
-        <el-option
+          <el-option 
           v-for="item in examList"
           :key="item.id"
           :label="item.examName"
           :value="item">
         </el-option>
-      </el-select>
+        </el-select>
     </div>
 
     <!-- 条件渲染容器 -->
     <div v-if="hasSelection && mainClassStats" v-loading="loading" class="report-content">
-      <!-- 数据概览卡片 -->
-      <div class="overview-cards">
-        <el-card 
-          v-for="(item, index) in summaryData" 
-          :key="index"
+    <!-- 数据概览卡片 -->
+    <div class="overview-cards">
+      <el-card 
+        v-for="(item, index) in summaryData" 
+        :key="index"
           class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <el-icon :size="32" :color="item.color">
-                <component :is="item.icon" />
-              </el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-title">{{ item.title }}</div>
-              <div class="stat-value">{{ item.value }}</div>
-            </div>
+        <div class="stat-content">
+          <div class="stat-icon">
+            <el-icon :size="32" :color="item.color">
+              <component :is="item.icon" />
+            </el-icon>
           </div>
-        </el-card>
-      </div>
+          <div class="stat-info">
+            <div class="stat-title">{{ item.title }}</div>
+            <div class="stat-value">{{ item.value }}</div>
+          </div>
+        </div>
+      </el-card>
+    </div>
 
       <!-- 图表和排名 -->
       <div class="charts-grid">
           <el-card class="chart-card">
             <template #header>班级成绩分布 (总分)</template>
             <v-chart class="chart" :option="distributionPieOption" :theme="chartTheme" autoresize />
-          </el-card>
+      </el-card>
           <el-card class="chart-card">
             <template #header>各科平均分对比</template>
             <v-chart class="chart" :option="avgScoreBarOption" :theme="chartTheme" autoresize />
@@ -64,12 +64,12 @@
               <el-table-column prop="totalScore" label="总分">
                  <template #default="scope">
                   {{ scope.row.totalScore.toFixed(2) }}
-                </template>
+        </template>
               </el-table-column>
             </el-table>
-          </el-card>
-      </div>
+      </el-card>
     </div>
+          </div>
     <!-- 初始提示 -->
     <el-empty v-else description="请选择班级和考试以查看报表" />
   </div>
@@ -318,7 +318,7 @@ function updateDistributionPieChart(stats: ClassStats | null) {
   distributionPieOption.value = {
     tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c}人 ({d}%)' },
     legend: { orient: 'vertical', left: 'left' },
-    series: [{
+  series: [{
       name: '成绩分布',
       type: 'pie',
       radius: '50%',
@@ -347,8 +347,8 @@ function updateAvgScoreBarChart(stats: ClassStats | null) {
 function updateSubjectRadarChart(stats: ClassStats | null) {
     if (!stats || Object.keys(stats.averageScores).length === 0) {
         subjectRadarOption.value = {};
-        return;
-    }
+    return;
+  }
     const indicatorData = Object.keys(stats.averageScores).map(subject => ({ name: subject, max: 100 }));
     const seriesData = Object.values(stats.averageScores);
 
@@ -424,20 +424,20 @@ watch([selectedClass, selectedExam], () => {
 }
 
 .stat-card {
-  .stat-content {
-    display: flex;
-    align-items: center;
+.stat-content {
+  display: flex;
+  align-items: center;
     gap: 15px;
-  }
-  .stat-info {
-    .stat-title {
-      font-size: 14px;
+}
+.stat-info {
+.stat-title {
+  font-size: 14px;
       color: #606266;
       margin-bottom: 5px;
-    }
-    .stat-value {
-      font-size: 24px;
-      font-weight: bold;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
     }
   }
 }
@@ -452,7 +452,7 @@ watch([selectedClass, selectedExam], () => {
 .chart-card {
   display: flex;
   flex-direction: column;
-  .chart {
+.chart {
     height: 300px;
     flex-grow: 1;
   }

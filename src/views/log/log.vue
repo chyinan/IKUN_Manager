@@ -25,13 +25,8 @@
         :data-operation="log.operation">
         <span class="log-time">[{{ formatTime(log.createTime) }}]</span>
         <span class="log-content">
-          <template v-if="log.operator && log.operation">
-            <span class="log-operator">{{ log.operator }}</span>
-            <span class="log-message">{{ log.content }}</span>
-          </template>
-          <template v-else>
-            {{ log.content }}
-          </template>
+          <span v-if="log.operator" :class="getOperatorClass(log.operator)">{{ log.operator }}</span>
+          <span v-html="highlightSimple(log.content)"></span>
         </span>
       </div>
     </div>
@@ -74,12 +69,35 @@ const formatTime = (timeStr: string | undefined | null) => {
       console.warn('formatTime received invalid date string:', timeStr);
       return timeStr;
     }
-    return date.toLocaleString();
+    // Using a more standard and reliable format
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
   } catch (e) {
     console.error('Error formatting time:', e, 'Input:', timeStr);
     return timeStr;
   }
 }
+
+// *** NEW: Simplified Highlighting Functions ***
+const getOperatorClass = (operator?: string) => {
+  if (!operator) return '';
+  if (operator.toLowerCase() === 'admin') return 'hl-admin';
+  if (operator.toLowerCase() === 'system-cron') return 'hl-system';
+  return 'hl-operator';
+};
+
+const highlightSimple = (content?: string) => {
+  if (!content) return '';
+  return content
+    .replace(/\b(成功)\b/gi, `<span class="hl-success">$1</span>`)
+    .replace(/\b(失败|错误)\b/gi, `<span class="hl-error">$1</span>`)
+    .replace(/\b(删除|清空)\b/gi, `<span class="hl-delete">$1</span>`);
+};
 
 // 添加日志
 const addLog = (log: LogEntry) => {
@@ -336,8 +354,8 @@ html:not(.dark) .log-line.log-error .log-content {
 }
 
 .log-time {
-  color: #888;
-  margin-right: 10px;
+  color: #909399;
+  margin-right: 15px;
 }
 html:not(.dark) .log-time {
   color: #999;
@@ -357,6 +375,26 @@ html:not(.dark) .log-time {
 }
 .log-line.log-error .log-content {
   color: #ffa8a8; /* Lighter red */
+}
+
+.log-content {
+  color: #303133;
+  word-break: break-all;
+  white-space: pre-wrap;
+
+  :deep(span) {
+    margin-right: 4px;
+  }
+
+  /* Classes for operator */
+  .hl-admin { color: #7E57C2; font-weight: 500; }
+  .hl-system { color: #5D4037; font-style: italic; }
+  .hl-operator { color: #3949AB; font-weight: 500; }
+
+  /* Classes for simple highlighting from v-html */
+  :deep(.hl-success) { color: #67c23a; font-weight: bold; }
+  :deep(.hl-error) { color: #f56c6c; font-weight: bold; }
+  :deep(.hl-delete) { color: #E53935; font-weight: 500; }
 }
 
 .log-stats {

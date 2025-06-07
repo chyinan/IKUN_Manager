@@ -364,6 +364,16 @@ html.dark .exam-container .page-header .el-icon {
   transition: background-color 0.3s, border-color 0.3s;
 }
 
+.interval-form-flex {
+  display: flex;
+  align-items: center;
+}
+
+.interval-form-flex .interval-form-item {
+  margin-bottom: 0;
+  margin-right: 15px;
+}
+
 html.dark .interval-form-card {
   background-color: #263445; /* A suitable dark background */
   border: 1px solid #374151; /* A matching dark border */
@@ -471,4 +481,18 @@ html.dark .reply-form .el-textarea__inner:focus {
 /* New rule for the wrapper div */
 .dark .editor-container {
     border-color: #4b5563 !important;
+}
+
+.dark .el-drawer__body {
+  background-color: var(--el-bg-color-page);
+}
+
+.dark .el-pagination.is-background .btn-next.is-disabled,
+.dark .el-pagination.is-background .btn-next:disabled,
+.dark .el-pagination.is-background .btn-prev.is-disabled,
+.dark .el-pagination.is-background .btn-prev:disabled,
+.dark .el-pagination.is-background .el-pager li.is-disabled,
+.dark .el-pagination.is-background .el-pager li:disabled {
+  background-color: #374151;
+  color: #6b7280; /* 添加一个颜色，让数字更清晰 */
 } 

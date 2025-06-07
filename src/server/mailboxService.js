@@ -1,13 +1,6 @@
 const db = require('./db');
 const logService = require('./logService');
 
-/**
- * [Student] Creates a new message thread.
- * @param {number} studentUserId - The ID of the student user starting the thread.
- * @param {string} title - The title of the thread.
- * @param {string} content - The initial message content.
- * @returns {Promise<object>} The newly created thread object.
- */
 async function createThread(studentUserId, title, content) {
   const connection = await db.getConnection();
   try {
@@ -17,7 +10,6 @@ async function createThread(studentUserId, title, content) {
 
     await connection.beginTransaction();
 
-    // 1. Create the thread
     const threadSql = 'INSERT INTO message_threads (student_user_id, title, status) VALUES (?, ?, ?)';
     const [threadResult] = await connection.query(threadSql, [studentUserId, title, 'open']);
     const threadId = threadResult.insertId;
@@ -26,14 +18,9 @@ async function createThread(studentUserId, title, content) {
       throw new Error('创建对话主题失败');
     }
 
-    // 2. Insert the first message
     const messageSql = 'INSERT INTO messages (thread_id, sender_user_id, content) VALUES (?, ?, ?)';
     await connection.query(messageSql, [threadId, studentUserId, content]);
     
-    // 3. Update thread's last reply time
-    // The `update_time` is automatically set to the same as `create_time` on INSERT.
-    // A separate UPDATE is not needed for thread creation. `update_time` will be touched on reply.
-
     await connection.commit();
 
     logService.addLogEntry({
@@ -54,14 +41,8 @@ async function createThread(studentUserId, title, content) {
   }
 }
 
-/**
- * Posts a reply to a thread.
- * @param {number} threadId - The ID of the thread to reply to.
- * @param {number} senderUserId - The ID of the user sending the reply.
- * @param {string} content - The reply content.
- * @returns {Promise<object>} The newly created message object.
- */
 async function replyToThread(threadId, senderUserId, content) {
+    console.log('--- [IKUN DEBUG] Running latest mailboxService.js code from 2025-06-07 ---');
     const connection = await db.getConnection();
     try {
         if (!threadId || !senderUserId || !content) {
@@ -70,7 +51,6 @@ async function replyToThread(threadId, senderUserId, content) {
 
         await connection.beginTransaction();
 
-        // 1. Get sender role and thread info
         const [[sender], [thread]] = await Promise.all([
             connection.query('SELECT role FROM user WHERE id = ?', [senderUserId]),
             connection.query('SELECT student_user_id, status FROM message_threads WHERE id = ?', [threadId])
@@ -79,23 +59,20 @@ async function replyToThread(threadId, senderUserId, content) {
         if (!sender) throw new Error('发送用户不存在');
         if (!thread) throw new Error('对话主题不存在');
 
-        // 2. Insert the new message
         const messageSql = 'INSERT INTO messages (thread_id, sender_user_id, content) VALUES (?, ?, ?)';
         const [messageResult] = await connection.query(messageSql, [threadId, senderUserId, content]);
-        const messageId = messageResult.insertId;
+        const newMessageId = messageResult.insertId;
 
-        // 3. Determine and update the new status
-        let newStatus = thread.status;
-        if (sender.role === 'admin') {
-            newStatus = 'replied'; // Admin reply sets status to 'replied'
-        } else if (sender.role === 'student') {
-            // If student replies, we can consider it 'open' again or a specific 'student_replied' status
-            // For now, let's just make it 'open' so admins know there is a new message.
-            newStatus = 'open';
-        }
-        
-        const updateThreadSql = 'UPDATE message_threads SET status = ? WHERE id = ?';
-        await connection.query(updateThreadSql, [newStatus, threadId]);
+        // No more variables, determine status directly in SQL to be safe.
+        const updateThreadSql = `
+            UPDATE message_threads 
+            SET status = CASE 
+                WHEN (SELECT role FROM user WHERE id = ?) = 'admin' THEN 'replied'
+                ELSE 'open' 
+            END 
+            WHERE id = ?
+        `;
+        await connection.query(updateThreadSql, [senderUserId, threadId]);
 
         await connection.commit();
 
@@ -106,7 +83,7 @@ async function replyToThread(threadId, senderUserId, content) {
             operator: `User:${senderUserId}`
         });
 
-        return { id: messageId, thread_id: threadId, sender_user_id: senderUserId, content };
+        return { id: newMessageId, thread_id: threadId, sender_user_id: senderUserId, content };
 
     } catch (error) {
         if (connection) await connection.rollback();
@@ -117,13 +94,6 @@ async function replyToThread(threadId, senderUserId, content) {
     }
 }
 
-/**
- * [Admin] Updates the status of a message thread.
- * @param {number} threadId - The ID of the thread to update.
- * @param {string} newStatus - The new status to set.
- * @param {string} operatorUsername - The username of the admin performing the action.
- * @returns {Promise<boolean>} A promise that resolves to true if successful.
- */
 async function updateThreadStatus(threadId, newStatus, operatorUsername) {
     try {
         const allowedStatus = ['open', 'in_progress', 'replied', 'resolved', 'rejected'];
@@ -153,11 +123,6 @@ async function updateThreadStatus(threadId, newStatus, operatorUsername) {
     }
 }
 
-/**
- * [Student] Gets all threads for a specific student.
- * @param {number} studentUserId - The student's user ID.
- * @returns {Promise<Array>} A list of threads.
- */
 async function getThreadsForStudent(studentUserId) {
     try {
         const sql = `
@@ -183,11 +148,6 @@ async function getThreadsForStudent(studentUserId) {
     }
 }
 
-/**
- * [Admin] Gets all threads.
- * @param {object} params - pagination etc.
- * @returns {Promise<Array>} A list of all threads.
- */
 async function getThreadsForAdmin(params = {}) {
     try {
         const sql = `
@@ -204,7 +164,6 @@ async function getThreadsForAdmin(params = {}) {
             JOIN user u ON t.student_user_id = u.id
             ORDER BY t.update_time DESC, t.create_time DESC
         `;
-        // TODO: Add pagination based on params
         const threads = await db.query(sql);
         return Array.isArray(threads) ? threads : [];
     } catch (error) {
@@ -213,18 +172,11 @@ async function getThreadsForAdmin(params = {}) {
     }
 }
 
-/**
- * Gets all messages in a specific thread and marks them as read.
- * @param {number} threadId - The ID of the thread.
- * @param {number} requesterUserId - The user ID of the person requesting the thread, to determine which messages to mark as read.
- * @returns {Promise<Array>} A list of messages.
- */
 async function getMessagesInThread(threadId, requesterUserId) {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
-        // 1. Get all messages for the thread, joining with user to get sender info
         const getMessagesSql = `
             SELECT 
                 m.id,
@@ -242,7 +194,6 @@ async function getMessagesInThread(threadId, requesterUserId) {
         `;
         const [messages] = await connection.query(getMessagesSql, [threadId]);
 
-        // 2. Mark messages sent by OTHERS as read for the current requester
         const markAsReadSql = `
             UPDATE messages 
             SET is_read = 1 
@@ -252,7 +203,6 @@ async function getMessagesInThread(threadId, requesterUserId) {
 
         await connection.commit();
         
-        // Format avatar URL
         messages.forEach(msg => {
             if (msg.sender_avatar) {
                 msg.sender_avatar = `/uploads/${msg.sender_avatar}`;
@@ -277,4 +227,4 @@ module.exports = {
   getThreadsForAdmin,
   getMessagesInThread,
   updateThreadStatus,
-}; 
+};

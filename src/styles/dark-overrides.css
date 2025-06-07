@@ -483,9 +483,11 @@ html.dark .reply-form .el-textarea__inner:focus {
     border-color: #4b5563 !important;
 }
 
+
 .dark .el-drawer__body {
   background-color: var(--el-bg-color-page);
 }
+
 
 .dark .el-pagination.is-background .btn-next.is-disabled,
 .dark .el-pagination.is-background .btn-next:disabled,

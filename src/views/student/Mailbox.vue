@@ -1,17 +1,17 @@
 <template>
   <div class="mailbox-container">
-    <el-card shadow="never">
+    <el-card shadow="never" class="glass-card">
       <div v-if="!selectedThreadId" class="thread-list-view">
         <div class="list-header">
           <h2>我的信箱</h2>
           <el-button type="primary" :icon="Edit" @click="openNewThreadDialog">发起新对话</el-button>
         </div>
-        <el-table :data="threads" v-loading="loading" empty-text="您还没有任何对话记录">
+        <el-table :data="threads" v-loading="loading" class="modern-table" empty-text="您还没有任何对话记录">
           <el-table-column prop="title" label="主题" />
           <el-table-column prop="status" label="状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="row.status === 'closed' ? 'info' : (row.last_replier_role === 'admin' ? 'success' : 'warning')">
-                {{ row.last_replier_role === 'admin' ? '已回复' : '待回复' }}
+              <el-tag :type="getThreadStatus(row.status).type" class="status-tag">
+                {{ getThreadStatus(row.status).text }}
               </el-tag>
             </template>
           </el-table-column>
@@ -96,6 +96,23 @@ const newThreadForm = reactive({
 
 const replyContent = ref('');
 const replying = ref(false);
+
+const getThreadStatus = (status: 'open' | 'replied' | 'in_progress' | 'resolved' | 'rejected') => {
+  switch (status) {
+    case 'open':
+      return { text: '等待处理', type: 'primary' };
+    case 'replied':
+      return { text: '待回复', type: 'warning' };
+    case 'in_progress':
+      return { text: '处理中', type: 'info' };
+    case 'resolved':
+      return { text: '已解决', type: 'success' };
+    case 'rejected':
+      return { text: '已拒绝', type: 'danger' };
+    default:
+      return { text: '未知', type: 'info' };
+  }
+};
 
 const formatTime = (time: string) => dayjs(time).format('YYYY-MM-DD HH:mm:ss');
 
@@ -204,26 +221,64 @@ onMounted(fetchThreads);
 
 <style scoped lang="scss">
 .mailbox-container {
-  padding: 20px;
+  /* padding: 20px; */ /* Removed for full-width card */
 }
+
+.glass-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+
+  :deep(.el-card__body) {
+    padding-top: 10px;
+  }
+}
+
 .list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding: 0 10px;
+  h2 {
+    color: #fff; // Changed to white for better contrast on glass
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    margin: 0;
+  }
 }
+
+:deep(.el-button--primary) {
+  --el-button-bg-color: rgb(125 189 255 / 70%);
+  --el-button-border-color: rgb(125 189 255 / 40%);
+  --el-button-hover-bg-color: rgb(125 189 255 / 90%);
+  --el-button-hover-border-color: rgb(125 189 255 / 70%);
+  --el-button-active-bg-color: rgb(125 189 255 / 60%);
+  --el-button-active-border-color: rgb(125 189 255 / 30%);
+}
+
 .thread-detail-view {
   .el-page-header {
     margin-bottom: 20px;
+    :deep(.el-page-header__title) {
+      color: #005582;
+    }
+    :deep(.el-page-header__content) {
+      color: #8c7171;
+      font-weight: 500;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
   }
   .messages-area {
     height: 400px;
     overflow-y: auto;
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
     padding: 10px;
     margin-bottom: 20px;
-    background-color: #f5f7fa;
+    background-color: rgba(0, 0, 0, 0.1);
 
     .message {
       display: flex;
@@ -233,14 +288,16 @@ onMounted(fetchThreads);
         margin-left: 10px;
         .message-sender {
           font-size: 12px;
-          color: #909399;
+          color: #e5e7eb;
           margin-bottom: 5px;
           .message-time {
             margin-left: 8px;
+            color: #bdc3c7;
           }
         }
         .message-bubble {
-          background-color: #ffffff;
+          background-color: rgba(255, 255, 255, 0.8);
+          color: #2c3e50;
           padding: 10px 15px;
           border-radius: 15px;
           display: inline-block;
@@ -257,11 +314,87 @@ onMounted(fetchThreads);
           margin-right: 10px;
           text-align: right;
            .message-bubble {
-             background-color: #a0cfff;
+             background-color: #8be4d8;
+             color: #1a5c53;
              text-align: left;
            }
         }
       }
+    }
+  }
+
+  .reply-area {
+    :deep(.el-textarea__inner) {
+      background-color: rgba(0,0,0,0.1);
+      border-color: rgba(255,255,255,0.2);
+      color: #fff;
+      &:focus {
+        border-color: #bedeff;
+        box-shadow: 0 0 0 1px #bedeff inset;
+      }
+    }
+  }
+}
+
+:deep(.modern-table) {
+  background-color: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+
+  // --- 您提供的核心修复 ---
+  --el-table-border-color: rgba(255, 255, 255, 0.2);
+
+  .el-table__header-wrapper th,
+  .el-table__header-wrapper tr {
+    background-color: rgb(91 161 233 / 8%) !important;
+    color: #fff;
+    font-weight: 600;
+    // border-color is now handled by the CSS variable above
+  }
+
+  .el-table__row {
+    color: #ffffff;
+    background-color: rgb(156 229 255 / 38%) !important;
+    
+    &:hover > td {
+      background-color: rgba(156, 229, 255, 0.5) !important;
+    }
+  }
+
+  td.el-table__cell,
+  th.el-table__cell.is-leaf {
+    border-color: transparent !important; // Let the variable control this
+  }
+
+  // Remove the default top and bottom border lines of the table
+  &::before,
+  &::after {
+    display: none;
+  }
+  
+  .el-table__inner-wrapper {
+     border-radius: 12px;
+  }
+  
+  .el-table__empty-text {
+    color: #c0c4cc;
+  }
+
+  .status-tag {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #e0e7ff;
+    font-weight: 500;
+  }
+
+  .el-button--primary.is-link {
+    color: #81d4fa; // Light blue for links
+    font-weight: 500;
+    &:hover, &:focus {
+      color: #b3e5fc;
     }
   }
 }

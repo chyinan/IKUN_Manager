@@ -127,16 +127,28 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .student-dashboard-container {
-  padding: 20px;
+  // padding: 20px; /* Let the card be the main element */
 }
 
 .carousel-card {
   margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+
+  :deep(.el-card__header) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  }
 }
 
 .card-header span {
-  font-weight: bold;
-  font-size: 18px;
+  font-weight: 600;
+  font-size: 1.5rem; /* Increased size for better visual hierarchy */
+  color: #fff; /* White color for better contrast on glass background */
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2); /* Subtle shadow for depth */
 }
 
 .carousel-image {

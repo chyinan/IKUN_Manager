@@ -1,6 +1,6 @@
 <template>
-  <div class="my-detailed-scores-container app-container">
-    <el-card shadow="never">
+  <div class="my-detailed-scores-container">
+    <el-card shadow="never" class="main-report-card">
       <template #header>
         <div class="card-header">
           <span>我的成绩报告</span>
@@ -16,6 +16,7 @@
             clearable
             style="width: 220px;"
             :loading="loadingExams"
+            popper-class="glass-select-popper"
           >
             <el-option
               v-for="examType in uniqueExamTypes"
@@ -36,6 +37,7 @@
             style="width: 300px;"
             :loading="loadingExams"
             :disabled="!selectedExamType || filteredExamsByName.length === 0"
+            popper-class="glass-select-popper"
           >
             <el-option
               v-for="exam in filteredExamsByName"
@@ -50,62 +52,69 @@
         </el-form-item>
       </el-form>
 
-      <el-divider v-if="selectedExamId && scoreReport" />
+      <el-divider v-if="selectedExamId && scoreReport" style="border-color: rgba(255,255,255,0.2);" />
 
       <div v-if="loadingReport" v-loading="loadingReport" style="min-height: 200px;"></div>
 
       <div v-if="!loadingReport && selectedExamId && scoreReport" class="score-report-content">
-        <h3>成绩报告详情</h3>
-        <el-descriptions :column="2" border class="report-section">
-          <el-descriptions-item label="学生姓名">{{ scoreReport.student_info.name }}</el-descriptions-item>
-          <el-descriptions-item label="学号">{{ scoreReport.student_info.student_id_str }}</el-descriptions-item>
-          <el-descriptions-item label="考试名称">{{ scoreReport.exam_info.name }}</el-descriptions-item>
-          <el-descriptions-item label="考试日期">{{ scoreReport.exam_info.date }}</el-descriptions-item>
-          <el-descriptions-item label="班级" v-if="scoreReport.class_info.name">{{ scoreReport.class_info.name }}</el-descriptions-item>
-        </el-descriptions>
+        
+        <div class="report-section glass-card">
+          <el-descriptions :column="2" border title="考试基础信息">
+            <el-descriptions-item label-class-name="modern-label" label="学生姓名">{{ scoreReport.student_info.name }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="学号">{{ scoreReport.student_info.student_id_str }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="考试名称">{{ scoreReport.exam_info.name }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="考试日期">{{ scoreReport.exam_info.date }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="班级" v-if="scoreReport.class_info.name">{{ scoreReport.class_info.name }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
 
-        <h4 class="report-subtitle">各科成绩详情</h4>
-        <el-table :data="scoreReport.subject_details" border stripe class="report-section">
-          <el-table-column prop="subject" label="科目名称" align="center" />
-          <el-table-column prop="student_score" label="我的得分" align="center">
-            <template #default="{ row }">{{ row.student_score ?? '-' }}</template>
-          </el-table-column>
-          <el-table-column prop="class_average_score" label="班级平均分" align="center">
-            <template #default="{ row }">{{ row.class_average_score ?? '-' }}</template>
-          </el-table-column>
-          <el-table-column prop="class_rank" label="班级排名" align="center">
-            <template #default="{ row }">{{ row.class_rank ?? '-' }}</template>
-          </el-table-column>
-        </el-table>
+        <div class="report-section glass-card">
+          <h4 class="report-subtitle">各科成绩详情</h4>
+          <el-table :data="scoreReport.subject_details" border stripe class="modern-table">
+            <el-table-column prop="subject" label="科目名称" align="center" />
+            <el-table-column prop="student_score" label="我的得分" align="center">
+              <template #default="{ row }">{{ row.student_score ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="class_average_score" label="班级平均分" align="center">
+              <template #default="{ row }">{{ row.class_average_score ?? '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="class_rank" label="班级排名" align="center">
+              <template #default="{ row }">{{ row.class_rank ?? '-' }}</template>
+            </el-table-column>
+          </el-table>
+        </div>
 
-        <h4 class="report-subtitle">总分统计</h4>
-        <el-descriptions :column="2" border class="report-section">
-          <el-descriptions-item label="我的总分">{{ scoreReport.total_score_details.student_total_score ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="班级总分平均">{{ scoreReport.total_score_details.class_average_total_score ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="总分班级排名">{{ scoreReport.total_score_details.class_total_score_rank ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="总分年级排名">{{ scoreReport.total_score_details.grade_total_score_rank ?? '-' }}</el-descriptions-item>
-        </el-descriptions>
+        <div class="report-section glass-card">
+          <el-descriptions :column="2" border title="总分统计">
+            <el-descriptions-item label-class-name="modern-label" label="我的总分">{{ scoreReport.total_score_details.student_total_score ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="班级总分平均">{{ scoreReport.total_score_details.class_average_total_score ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="总分班级排名">{{ scoreReport.total_score_details.class_total_score_rank ?? '-' }}</el-descriptions-item>
+            <el-descriptions-item label-class-name="modern-label" label="总分年级排名">{{ scoreReport.total_score_details.grade_total_score_rank ?? '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
         
         <!-- Chart Section -->
-        <h4 class="report-subtitle">成绩可视化</h4>
-        <el-row :gutter="20" class="report-section">
-          <el-col :sm="24" :md="12">
-            <el-card shadow="hover">
-              <template #header>科目成绩雷达图</template>
-              <div ref="radarChartRef" style="height: 400px;"></div>
-            </el-card>
-          </el-col>
-          <el-col :sm="24" :md="12">
-             <el-card shadow="hover">
-              <template #header>总分对比</template>
-              <div ref="barChartRef" style="height: 400px;"></div>
-            </el-card>
-          </el-col>
-        </el-row>
+        <div class="report-section">
+          <h4 class="report-subtitle">成绩可视化</h4>
+          <el-row :gutter="20">
+            <el-col :sm="24" :md="12">
+              <el-card shadow="hover" class="glass-card chart-card">
+                <template #header>科目成绩雷达图</template>
+                <div ref="radarChartRef" style="height: 400px;"></div>
+              </el-card>
+            </el-col>
+            <el-col :sm="24" :md="12">
+              <el-card shadow="hover" class="glass-card chart-card">
+                <template #header>总分对比</template>
+                <div ref="barChartRef" style="height: 400px;"></div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
 
       </div>
-      <el-empty v-else-if="!loadingReport && selectedExamId && !scoreReport" description="暂无该场考试的成绩报告数据"></el-empty>
-      <el-empty v-else-if="!loadingReport && !selectedExamId" description="请先选择一场考试查看成绩报告"></el-empty>
+      <el-empty v-else-if="!loadingReport && selectedExamId && !scoreReport" description="暂无该场考试的成绩报告数据" :style="{ 'margin-top': '50px' }"></el-empty>
+      <el-empty v-else-if="!loadingReport && !selectedExamId" description="请先选择一场考试查看成绩报告" :style="{ 'margin-top': '50px' }"></el-empty>
 
     </el-card>
   </div>
@@ -185,97 +194,55 @@ const filteredExamsByName = computed(() => {
 });
 
 const fetchScoreReport = async () => {
-  // Get student PK directly from the store here
   const currentStudentPk = userStore.userInfo?.studentInfo?.student_pk;
-
-  // Print current values for debugging
-  console.log(`[MyDetailedScores.vue fetchScoreReport] Attempting to fetch. Student PK from store: ${currentStudentPk}, Selected Exam ID: ${selectedExamId.value}`);
-
-  // Reset loading state for report specifically if not already reset
+  
   loadingReport.value = false;
-  // Clear previous report data before attempting a new fetch or validation failure
   scoreReport.value = null;
   destroyCharts();
 
-  // Validate studentId and examId before proceeding
   if (currentStudentPk === undefined || currentStudentPk === null) {
-    console.warn('[MyDetailedScores.vue fetchScoreReport] Aborted: Student PK from store is undefined or null.');
     return;
   }
   if (!selectedExamId.value) {
-    console.warn('[MyDetailedScores.vue fetchScoreReport] Aborted: selectedExamId is not set.');
     return;
   }
 
   loadingReport.value = true;
-  // Use the locally fetched student PK for the API call
-  console.log(`[MyDetailedScores.vue fetchScoreReport] Using Student PK: ${currentStudentPk}, Exam ID: ${selectedExamId.value} for API call`);
 
   try {
-    // const studentIdToFetch = userStore.userInfo.studentInfo?.id; // This line used .id, should be .student_pk and is now currentStudentPk
-    // console.log('[MyDetailedScores.vue DEBUG] Using studentId to fetch report:', studentIdToFetch); // This line is redundant
-    // Use currentStudentPk directly in the API call
     const res = await getStudentScoreReport(currentStudentPk, selectedExamId.value);
     if (res.code === 200 && res.data) {
       scoreReport.value = res.data;
-      console.log('[MyDetailedScores.vue DEBUG] scoreReport.value assigned. Checking refs immediately:', {
-          radar: radarChartRef.value, // Log ref value BEFORE nextTick
-          bar: barChartRef.value
-      });
-
       if (scoreReport.value && scoreReport.value.subject_details && scoreReport.value.total_score_details) {
-        // 使用 nextTick 来确保 DOM 已经更新
         nextTick(() => {
-          console.log('[MyDetailedScores.vue DEBUG] Inside nextTick. Checking refs again:', {
-              radar: radarChartRef.value, // Log ref value INSIDE nextTick
-              bar: barChartRef.value
-          });
-
-          if (radarChartRef.value && barChartRef.value) { // 再次确认 ref 是否有效
-            console.log('[MyDetailedScores.vue DEBUG] Refs are available. Calling initRadarChart and initBarChart.');
+          if (radarChartRef.value && barChartRef.value) {
             initRadarChart();
             initBarChart();
-          } else {
-            console.error('[MyDetailedScores.vue DEBUG] Critical: Refs are STILL NOT available even inside nextTick.', {
-                radar: radarChartRef.value,
-                bar: barChartRef.value
-            });
-            // 进一步的调试可能需要检查 v-if 条件和组件的渲染流程
-            if(radarChartRef.value === null && document.querySelector('.my-detailed-scores-container div[ref="radarChartRef"]')) {
-                console.warn('[MyDetailedScores.vue DEBUG] radarChartRef is null, but a DOM element with that ref name might exist (check querySelector). This indicates a Vue reactivity issue with the ref itself.')
-            }
-             if (!scoreReport.value) {
-                console.warn('[MyDetailedScores.vue DEBUG] scoreReport.value is null/undefined inside nextTick, v-if might have hidden the chart section again.');
-            }
           }
         });
-      } else {
-        console.warn('[MyDetailedScores.vue DEBUG] scoreReport.value is missing subject_details or total_score_details after assignment.');
       }
     } else {
-      // Handle cases where API returns success code but no data
-      scoreReport.value = null; // Ensure report is cleared
-      ElMessage.warning(res.message || '获取成绩报告失败，无数据返回');
+      ElMessage.error(res.message || '获取成绩报告失败');
+      scoreReport.value = null;
     }
   } catch (error: any) {
-    console.error('[MyDetailedScores.vue] fetchScoreReport error:', error);
-    ElMessage.error(error.message || '获取成绩报告时发生网络错误');
+    ElMessage.error('获取成绩报告时发生网络错误');
+    console.error('[MyDetailedScores] Error fetching score report:', error);
+    scoreReport.value = null;
   } finally {
     loadingReport.value = false;
   }
 };
 
-const handleExamTypeChange = (type: string | null) => {
-  selectedExamType.value = type;
+
+const handleExamTypeChange = () => {
   selectedExamId.value = null;
   scoreReport.value = null;
   destroyCharts();
 };
 
-const handleExamNameChange = (examIdValue: number | string | null) => {
-  const id = typeof examIdValue === 'string' && examIdValue === '' ? null : Number(examIdValue);
-  selectedExamId.value = id;
-  if (id) {
+const handleExamNameChange = (examId: number | null) => {
+  if (examId) {
     fetchScoreReport();
   } else {
     scoreReport.value = null;
@@ -283,130 +250,164 @@ const handleExamNameChange = (examIdValue: number | string | null) => {
   }
 };
 
+
 const initRadarChart = () => {
-  console.log('[DEBUG] initRadarChart called');
-  if (radarChartInstance) {
-    radarChartInstance.dispose(); // Dispose previous instance
-  }
-  if (!radarChartRef.value) {
-    console.error('[DEBUG] radarChartRef is not available.');
-    return;
-  }
-  if (!scoreReport.value || !scoreReport.value.subject_details || scoreReport.value.subject_details.length === 0) {
-    console.warn('[DEBUG] No subject details available for radar chart.');
-    // Optionally clear the chart div or display a message
-    radarChartRef.value.innerHTML = '<p style="text-align:center; color:#999;">无科目数据显示</p>';
-    return;
-  }
-
-  try {
-    radarChartInstance = echarts.init(radarChartRef.value);
-    console.log('[DEBUG] Radar chart instance created.');
-
-    // --- Data Preparation Logic START ---
-    const indicators = scoreReport.value.subject_details.map(subject => ({
-      name: subject.subject_name,
-      max: 100 // Assuming max score is 100 as full_score is not available
+  if (radarChartRef.value && scoreReport.value?.subject_details) {
+    const indicators = scoreReport.value.subject_details.map(item => ({
+      name: item.subject,
+      max: item.full_score || 100
     }));
-    console.log('[DEBUG] Radar indicators:', JSON.parse(JSON.stringify(indicators)));
+    const studentScores = scoreReport.value.subject_details.map(item => item.student_score);
+    const classAvgScores = scoreReport.value.subject_details.map(item => item.class_average_score);
 
-    const studentScores = scoreReport.value.subject_details.map(subject => subject.student_score ?? 0);
-    console.log('[DEBUG] Radar student scores:', JSON.parse(JSON.stringify(studentScores)));
-
-    const classAverageScores = scoreReport.value.subject_details.map(subject => subject.class_average_score ?? 0);
-     console.log('[DEBUG] Radar class average scores:', JSON.parse(JSON.stringify(classAverageScores)));
-    // --- Data Preparation Logic END ---
-
-    const option = {
+    if (radarChartInstance) {
+      radarChartInstance.dispose();
+    }
+    radarChartInstance = echarts.init(radarChartRef.value);
+    radarChartInstance.setOption({
       title: {
-        text: '科目成绩雷达图',
-        left: 'center'
+        show: false
       },
       tooltip: {
-        trigger: 'item' // Show tooltip when hovering over data points
+        trigger: 'item',
+        confine: true,
       },
       legend: {
         data: ['我的得分', '班级平均分'],
-        bottom: 10 // Position legend at the bottom
+        right: 10,
+        textStyle: {
+          color: '#fff'
+        }
       },
       radar: {
         indicator: indicators,
-        shape: 'circle', // Or 'polygon'
-        splitNumber: 5, // Number of split segments
+        shape: 'circle',
         axisName: {
-            color: '#333',
-            fontSize: 12
+          color: '#fff',
+          fontSize: 12,
         },
         splitArea: {
-            areaStyle: {
-                color: ['rgba(250,250,250,0.1)', 'rgba(200,200,200,0.1)'], // Alternating background colors for segments
-            }
+          areaStyle: {
+            color: [
+              'rgba(137, 247, 254, 0.2)',
+              'rgba(102, 166, 255, 0.2)',
+            ],
+          },
         },
-        axisLine: { // Axis line style
-            lineStyle: {
-                color: 'rgba(150,150,150,0.5)'
-            }
+        axisLine: {
+          lineStyle: {
+            color: 'rgba(255, 255, 255, 0.4)',
+          },
         },
-        splitLine: { // Split line style
-            lineStyle: {
-                color: 'rgba(150,150,150,0.5)'
-            }
-        }
+        splitLine: {
+          lineStyle: {
+            color: 'rgba(255, 255, 255, 0.4)',
+          },
+        },
       },
       series: [
         {
-          name: '成绩对比', // This name is often for overall series, individual names are in legend.data
+          name: '成绩对比',
           type: 'radar',
           data: [
             {
               value: studentScores,
               name: '我的得分',
-              itemStyle: { color: '#5470C6' }, // Color for student scores
-              lineStyle: { width: 2 },
-              areaStyle: { color: 'rgba(84, 112, 198, 0.2)'} // Fill area for student scores
+              areaStyle: {
+                color: 'rgba(0, 221, 255, 0.4)'
+              },
+              itemStyle: {
+                 color: '#00DDFF',
+              },
+              lineStyle: {
+                color: '#00DDFF'
+              }
             },
             {
-              value: classAverageScores,
+              value: classAvgScores,
               name: '班级平均分',
-              itemStyle: { color: '#91CC75' }, // Color for class average
-              lineStyle: { width: 2 },
-              areaStyle: { color: 'rgba(145, 204, 117, 0.2)'} // Fill area for class average
+              areaStyle: {
+                color: 'rgba(100, 255, 200, 0.4)',
+              },
+              itemStyle: {
+                 color: '#64FFC8',
+              },
+              lineStyle: {
+                color: '#64FFC8'
+              }
             }
           ]
         }
       ]
-    };
-    console.log('[DEBUG] Radar chart option:', JSON.parse(JSON.stringify(option)));
-
-    radarChartInstance.setOption(option);
-    console.log('[DEBUG] Radar chart option set.');
-
-  } catch (error: any) {
-    console.error('[DEBUG] Error initializing radar chart:', error);
-    if (radarChartRef.value) {
-        radarChartRef.value.innerHTML = `<p style="text-align:center; color:red;">雷达图加载失败: ${error.message}</p>`;
-    }
+    });
   }
 };
 
+
 const initBarChart = () => {
   if (barChartRef.value && scoreReport.value?.total_score_details) {
-    const details = scoreReport.value.total_score_details;
+    const { student_total_score, class_average_total_score } = scoreReport.value.total_score_details;
+    if (barChartInstance) {
+      barChartInstance.dispose();
+    }
     barChartInstance = echarts.init(barChartRef.value);
     barChartInstance.setOption({
-      title: { text: '总分对比 (与班级平均)', left: 'center'},
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { data: ['我的总分', '班级平均总分'], bottom: 5, type: 'scroll' },
-      grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
-      xAxis: { type: 'category', data: ['总分'], axisTick: { alignWithLabel: true } },
-      yAxis: { type: 'value', name: '分数', scale: true },
+      title: {
+        show: false,
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'shadow'
+        }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: [
+        {
+          type: 'category',
+          data: ['我的总分', '班级总分平均'],
+          axisTick: {
+            alignWithLabel: true
+          },
+          axisLabel: {
+             color: '#fff'
+          }
+        }
+      ],
+      yAxis: [
+        {
+          type: 'value',
+          axisLabel: {
+            color: '#fff'
+          },
+          splitLine: {
+             lineStyle:{
+                type:'dashed',
+                color: 'rgba(255,255,255,0.2)'
+             }
+          }
+        }
+      ],
       series: [
-        { name: '我的总分', type: 'bar', data: [details.student_total_score ?? 0], barWidth: '30%', itemStyle: { color: '#5470C6' } },
-        { name: '班级平均总分', type: 'bar', data: [details.class_average_total_score ?? 0], barWidth: '30%', itemStyle: { color: '#91CC75'} }
+        {
+          name: '分数',
+          type: 'bar',
+          barWidth: '40%',
+          data: [student_total_score, class_average_total_score],
+          itemStyle: {
+            color: (params: any) => params.name === '我的总分' ? '#00DDFF' : '#64FFC8',
+            borderRadius: [4, 4, 0, 0]
+          }
+        }
       ]
     });
   }
-}
+};
 
 const destroyCharts = () => {
   if (radarChartInstance) {
@@ -417,36 +418,227 @@ const destroyCharts = () => {
     barChartInstance.dispose();
     barChartInstance = null;
   }
-}
+};
 
 onMounted(() => {
   fetchExamsTaken();
 });
 
+watch([() => radarChartRef.value, () => barChartRef.value], () => {
+  if (scoreReport.value && radarChartRef.value && barChartRef.value) {
+    initRadarChart();
+    initBarChart();
+  }
+});
 </script>
 
 <style scoped lang="scss">
+// A generic glass card style that can be reused
+.glass-card {
+  background-color: rgba(0, 0, 0, 0.25); // MODIFIED: Darkened background
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  color: #fff;
+}
+
 .my-detailed-scores-container {
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  padding: 0; // The parent layout handles padding
+}
+
+.main-report-card {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 20px;
+
+  :deep(.el-card__header) {
+    border-bottom: none;
+    padding-left: 0;
+    padding-right: 0;
   }
-  .report-section {
-    margin-top: 20px;
-    margin-bottom: 30px;
-  }
-  .report-subtitle {
-    font-size: 1.1em;
-    font-weight: 600;
-    margin-top: 25px;
-    margin-bottom: 15px;
-    color: #303133;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #e0e0e0;
-  }
-  .el-col {
-    margin-bottom: 20px;
+
+  :deep(.el-card__body) {
+    padding: 0; 
   }
 }
-</style> 
+
+.card-header {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+  margin-bottom: 10px; /* Add some space below the header */
+}
+
+.report-section {
+  margin-bottom: 24px;
+}
+
+.report-section.glass-card {
+  padding: 24px;
+}
+
+:deep(.el-descriptions) {
+  .el-descriptions__title {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  .el-descriptions__body {
+    background-color: transparent;
+  }
+  .el-descriptions__label.modern-label {
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    color: #f0f8ff;
+    font-weight: 600;
+  }
+  .el-descriptions__content {
+    background-color: rgba(0, 0, 0, 0.25) !important;
+    color: #fff;
+    font-weight: 500;
+  }
+  .el-descriptions__cell {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+}
+
+:deep(.modern-table) {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  overflow:hidden;
+
+  .el-table__header-wrapper th,
+  .el-table__header-wrapper tr {
+    background-color: rgba(0, 0, 0, 0.4) !important;
+    color: #fff;
+    font-weight: 600;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .el-table__row {
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.15) !important;
+    
+    &:hover > td {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+  }
+
+  .el-table__row--striped > td.el-table__cell {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+  }
+
+  td.el-table__cell,
+  th.el-table__cell.is-leaf {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+  }
+
+  // Hide default table borders
+  &::before,
+  &::after {
+    display: none;
+  }
+
+  .el-table__inner-wrapper {
+    border-radius: 8px; 
+    overflow: hidden;
+  }
+}
+
+.chart-card {
+  :deep(.el-card__header) {
+    color: #fff;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center; // MODIFIED: Centered the title
+  }
+}
+
+.report-subtitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+:deep(.el-form-item__label) {
+  color: #f0f8ff;
+  font-weight: 500;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+:deep(.el-empty__description p) {
+  color: #fff !important; // Use !important to ensure override
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+// --- Custom Select Box Styling ---
+:deep(.el-select .el-input__wrapper) {
+  background: rgba(0, 0, 0, 0.25) !important;
+  box-shadow: none !important;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  &.is-focused {
+    border-color: var(--el-color-primary) !important;
+  }
+}
+:deep(.el-select .el-input__inner) {
+  color: #fff !important;
+}
+:deep(.el-input.is-disabled .el-input__wrapper) {
+  background-color: rgba(0,0,0,0.15) !important;
+  backdrop-filter: none;
+  cursor: not-allowed;
+}
+:deep(.el-input.is-disabled .el-input__inner) {
+  color: rgba(255,255,255,0.5) !important;
+}
+:deep(.el-select .el-input .el-select__caret) {
+  color: rgba(255, 255, 255, 0.8);
+}
+</style>
+
+<style lang="scss">
+// Global styles for the select popper, because it's teleported to the body
+.glass-select-popper {
+  &.el-popper {
+    background-color: rgba(30, 41, 59, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 8px;
+
+    .el-select-dropdown__list {
+      padding: 6px;
+    }
+    .el-select-dropdown__item {
+      color: #e5e7eb; // a softer white
+      border-radius: 4px;
+      background-color: transparent !important; // Fix for default white background
+      &.hover, &:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+      }
+      &.selected {
+        color: #7dd3fc; // light blue for selection
+        background-color: rgba(14, 165, 233, 0.15) !important;
+        font-weight: 600;
+      }
+    }
+    .el-popper__arrow::before {
+       background: rgba(30, 41, 59, 0.85) !important;
+       border-color: rgba(255, 255, 255, 0.3) !important;
+       right: 1px;
+    }
+  }
+}
+</style>

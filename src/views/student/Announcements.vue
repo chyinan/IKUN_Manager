@@ -1,6 +1,6 @@
 <template>
   <div class="announcements-container">
-    <el-card shadow="never">
+    <el-card shadow="never" class="page-main-card">
       <template #header>
         <div class="card-header">
           <span>学校通知</span>
@@ -71,42 +71,92 @@ onMounted(() => {
   padding: 0;
 }
 
-.card-header span {
-  font-weight: bold;
-  font-size: 18px;
+.page-main-card {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  
+  :deep(.el-card__header) {
+    border-bottom: none;
+    .card-header span {
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: #fff;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  :deep(.el-card__body) {
+    padding: 20px 0 20px 20px;
+  }
 }
 
+
 .announcement-card {
-  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: #fff;
+
+  :deep(.el-card__header) {
+    border-bottom-color: rgba(255, 255, 255, 0.2);
+  }
+
   .announcement-title {
     font-weight: bold;
-    font-size: 16px;
+    font-size: 1.1rem;
+    color: #fff;
     display: flex;
     align-items: center;
   }
   .pin-tag {
     margin-right: 8px;
-    height: 20px;
-    line-height: 20px;
   }
   .announcement-content {
     padding: 16px 0;
-    line-height: 1.6;
-    color: #606266;
+    line-height: 1.7;
+    color: #e5e7eb; // Softer white
+    
+    // Style for content that comes from v-html
+    :deep(p) {
+      margin: 0 0 1em;
+    }
+    :deep(strong) {
+      font-weight: 600;
+    }
   }
   .announcement-footer {
     text-align: right;
+    padding-right: 20px; // Nudge the author info slightly to the left
+
     font-size: 12px;
-    color: #909399;
+    color: rgba(255, 255, 255, 0.7);
     margin-top: 10px;
-    border-top: 1px solid #e4e7ed;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
     padding-top: 10px;
   }
 }
 
 // Custom timeline styles
 :deep(.el-timeline-item__timestamp) {
-  font-size: 14px;
-  color: #303133;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+:deep(.el-timeline-item__tail) {
+  border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+:deep(.el-timeline-item__node) {
+  background-color: var(--el-color-primary-light-3);
+  box-shadow: 0 0 8px var(--el-color-primary-light-5);
+}
+
+:deep(.el-empty__description p) {
+  color: #fff;
 }
 </style> 

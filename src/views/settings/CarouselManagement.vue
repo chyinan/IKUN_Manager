@@ -8,11 +8,11 @@
         </div>
       </template>
 
-      <el-form 
-        label-position="left" 
-        label-width="auto" 
-        :model="{ carouselInterval }" 
-        style="margin-bottom: 20px; padding: 15px; border: 1px solid #ebeef5; border-radius: 4px;"
+      <el-form
+        class="interval-form-card"
+        label-position="left"
+        label-width="auto"
+        :model="{ carouselInterval }"
         @submit.prevent="handleSaveInterval"
       >
         <el-row :gutter="20" align="middle">
@@ -386,5 +386,12 @@ const handleSaveInterval = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.interval-form-card {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
 }
 </style>

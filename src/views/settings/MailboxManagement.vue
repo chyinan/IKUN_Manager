@@ -64,7 +64,7 @@
         <!-- Chat History -->
         <div class="chat-history" ref="chatHistoryRef">
             <div v-for="message in messageList" :key="message.id" class="message-item" :class="{'is-self': message.sender_role === 'admin'}">
-                <el-avatar :size="40" :src="message.sender_avatar" class="avatar">
+                <el-avatar :size="40" :src="message.sender_avatar || defaultAvatar" class="avatar">
                     <el-icon><UserFilled /></el-icon>
                 </el-avatar>
                 <div class="message-content">
@@ -81,21 +81,24 @@
         </div>
         
         <!-- Reply Form -->
-        <el-form @submit.prevent="handleReplySubmit" class="reply-form">
-            <el-input
-              v-model="replyContent"
-              type="textarea"
-              :rows="4"
-              placeholder="在此输入回复内容..."
-              :disabled="replying"
-            />
-            <div class="dialog-footer" style="text-align: right; margin-top: 15px;">
-                <el-button @click="dialogVisible = false">取消</el-button>
-                <el-button type="primary" @click="handleReplySubmit" :loading="replying">
-                    发送回复
-                </el-button>
-            </div>
-        </el-form>
+        <div class="reply-form-container">
+          <el-form @submit.prevent="handleReplySubmit" class="reply-form">
+              <el-input
+                v-model="replyContent"
+                type="textarea"
+                :rows="4"
+                placeholder="在此输入回复内容..."
+                :disabled="replying"
+                class="reply-textarea"
+              />
+              <div class="dialog-footer">
+                  <el-button @click="dialogVisible = false">取消</el-button>
+                  <el-button type="primary" @click="handleReplySubmit" :loading="replying">
+                      发送回复
+                  </el-button>
+              </div>
+          </el-form>
+        </div>
       </div>
     </el-dialog>
   </div>
@@ -107,6 +110,8 @@ import { getAdminThreads, getMessagesInThread, replyToThread, updateThreadStatus
 import type { MailboxThread, Message, ThreadStatus } from '@/api/mailbox';
 import { ElMessage, ElNotification } from 'element-plus';
 import { ChatDotRound, UserFilled } from '@element-plus/icons-vue';
+import { formatDateTime } from '@/utils/date';
+import defaultAvatar from '@/assets/default-avatar.png';
 
 const loading = ref(true);
 const threadList = ref<MailboxThread[]>([]);
@@ -232,11 +237,6 @@ const formatStatus = (status: MailboxThread['status']) => {
   }
 };
 
-const formatDateTime = (timestamp: string) => {
-  const date = new Date(timestamp);
-  return date.toLocaleString();
-};
-
 onMounted(() => {
   fetchThreads();
 });
@@ -248,87 +248,94 @@ onMounted(() => {
 }
 
 .status-changer {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #ebeef5;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #f4f4f5; /* Light mode background */
 }
 
 .chat-history {
-    height: 400px;
-    overflow-y: auto;
-    padding: 10px;
-    border: 1px solid #ebeef5;
-    margin-bottom: 20px;
-    border-radius: 4px;
-    background-color: #f9f9f9;
+  height: 400px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  background-color: #fafafa;
 }
 
 .message-item {
-    display: flex;
-    margin-bottom: 15px;
+  display: flex;
+  margin-bottom: 15px;
 }
 
-.message-item .avatar {
-    margin-right: 10px;
+.message-item.is-self {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  margin: 0 10px;
 }
 
 .message-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.message-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.sender-info {
-    display: flex;
-    align-items: center;
-}
-
-.role-tag {
-    font-weight: bold;
-    margin-right: 8px;
-}
-
-.sender {
-    margin-right: 8px;
-}
-
-.time {
-    font-size: 12px;
-    color: #999;
-}
-
-.bubble {
-    background-color: #ffffff;
-    padding: 10px 15px;
-    border-radius: 15px;
-    max-width: 100%;
-    word-wrap: break-word;
-    border: 1px solid #e5e5e5;
-}
-
-/* Style for self (admin) messages */
-.message-item.is-self {
-    flex-direction: row-reverse;
-}
-
-.message-item.is-self .avatar {
-    margin-left: 10px;
-    margin-right: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .message-item.is-self .message-content {
-    align-items: flex-end;
+  align-items: flex-end;
+}
+
+.message-header {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+
+.sender-info {
+  font-size: 12px;
+  color: #888;
+}
+
+.role-tag {
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.sender {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.time {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.bubble {
+  padding: 10px 15px;
+  border-radius: 15px;
+  max-width: 400px;
+  word-wrap: break-word;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  color: #333;
 }
 
 .message-item.is-self .bubble {
-    background-color: #dcf8c6;
-    border-color: #c5e7b3;
+  background-color: #dcf8c6;
+}
+
+.reply-form-container {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.dialog-footer {
+  text-align: right;
+  margin-top: 15px;
 }
 </style> 

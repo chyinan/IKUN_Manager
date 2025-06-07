@@ -13,8 +13,17 @@ export function formatDateTime(
   if (!dateTime) {
     return '-'; // Or an empty string: '', depending on preference for empty dates
   }
-  const date = dayjs(dateTime);
+
+  // Compatibility fix: Replace space with 'T' if it's a 'YYYY-MM-DD HH:mm:ss' like string
+  let parsableDateTime = dateTime;
+  if (typeof dateTime === 'string' && dateTime.includes(' ') && !dateTime.includes('T')) {
+    parsableDateTime = dateTime.replace(' ', 'T');
+  }
+
+  const date = dayjs(parsableDateTime);
+
   if (!date.isValid()) {
+    console.warn(`[formatDateTime] dayjs considered the input invalid:`, { original: dateTime, processed: parsableDateTime });
     return '-'; // Or handle invalid date string appropriately
   }
   return date.format(formatString);

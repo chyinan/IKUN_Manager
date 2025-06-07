@@ -112,7 +112,8 @@ import {
 } from '@element-plus/icons-vue'
 import Navbar from '@/components/Navbar.vue'
 import AppMain from '@/components/AppMain.vue'
-import defaultLogo from '@/assets/logo.png' 
+import defaultLogo from '@/assets/logo.png'
+import darkLogo from '@/assets/logo2.png'
 import favicon from '/favicon.png' // Import from public
 
 // 路由
@@ -299,7 +300,14 @@ const menuList = computed(() => {
 })
 
 // Logo path based on sidebar state
-const logoSrc = computed(() => (sidebarCollapse.value ? favicon : defaultLogo))
+const logoSrc = computed(() => {
+  if (sidebarCollapse.value) {
+    // For collapsed sidebar, favicon is used in both modes for now
+    return favicon;
+  }
+  // For expanded sidebar, choose logo based on dark mode
+  return isDark.value ? darkLogo : defaultLogo;
+});
 
 // Helper for template optional chaining
 const getTitle = (item: any) => item?.meta?.title ?? '';

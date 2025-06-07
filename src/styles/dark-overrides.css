@@ -352,4 +352,80 @@ html.dark .exam-container .page-header .el-icon {
   color: #A0A0A0; /* Lighter color for the icon */
 }
 
-/* === End Input number controls === */ 
+/* === End Input number controls === */
+
+/* === Dark Mode Form Overrides for specific cards === */
+.interval-form-card {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  background-color: #ffffff;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+html.dark .interval-form-card {
+  background-color: #263445; /* A suitable dark background */
+  border: 1px solid #374151; /* A matching dark border */
+}
+
+/* === General Dialog Dark Mode Overrides === */
+html.dark .el-dialog {
+  --el-dialog-bg-color: #1f2937;
+}
+
+/* === Mailbox Dialog Dark Mode Overrides === */
+
+/* Dialog body background - REMOVED, handled by general override now */
+
+/* Status changer container */
+html.dark .status-changer {
+  background-color: transparent; /* Make it blend with the dialog body */
+  border: 1px solid #374151; /* Keep a subtle border */
+  margin-bottom: 15px;
+}
+
+/* Chat history container */
+html.dark .chat-history {
+  background-color: #263445; /* Slightly lighter than the body for contrast */
+  border-color: #374151;
+}
+
+/* Default message bubble */
+html.dark .message-item .bubble {
+  background-color: #374151; /* Darker gray for student/other */
+  color: #f3f4f6;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Admin/self message bubble */
+html.dark .message-item.is-self .bubble {
+  background-color: #065f46; /* A slightly richer green for admin/self */
+  color: #f0fdf4;
+}
+
+/* Sender/Time text color */
+html.dark .sender-info,
+html.dark .time {
+  color: #a1a1aa; /* Brighter text */
+}
+
+/* Reply form area */
+html.dark .reply-form-container {
+  border-top-color: #4b5563;
+}
+
+/* Textarea in reply form */
+html.dark .reply-form .el-textarea__inner {
+  background-color: #263445; /* Match chat history background */
+  color: #f3f4f6;
+  border-color: #374151;
+}
+
+html.dark .reply-form .el-textarea__inner:hover {
+  border-color: #4f5b6a;
+}
+
+html.dark .reply-form .el-textarea__inner:focus {
+  border-color: var(--el-color-primary);
+} 

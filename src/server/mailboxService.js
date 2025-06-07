@@ -197,8 +197,8 @@ async function getThreadsForAdmin(params = {}) {
                 t.status,
                 u.display_name as student_name,
                 u.username as student_username,
-                DATE_FORMAT(t.create_time, '%Y-%m-%d %H:%i') as created_at,
-                DATE_FORMAT(t.update_time, '%Y-%m-%d %H:%i') as last_reply_at,
+                t.create_time as created_at,
+                t.update_time as last_reply_at,
                 (SELECT COUNT(*) FROM messages m WHERE m.thread_id = t.id AND m.is_read = 0 AND m.sender_user_id = t.student_user_id) as unread_count
             FROM message_threads t
             JOIN user u ON t.student_user_id = u.id
@@ -231,7 +231,7 @@ async function getMessagesInThread(threadId, requesterUserId) {
                 m.thread_id,
                 m.sender_user_id,
                 m.content,
-                DATE_FORMAT(m.create_time, '%Y-%m-%d %H:%i:%s') as created_at,
+                m.create_time,
                 u.role as sender_role,
                 u.display_name as sender_name,
                 u.avatar as sender_avatar

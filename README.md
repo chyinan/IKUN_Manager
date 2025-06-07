@@ -1,6 +1,10 @@
 # IKUN Manager
 <div align=center><img src="docs/logo.png"/></div>
 
+<div align=center>
+  <a href="./README.md">中文</a> / <a href="./README.en.md">English</a>
+</div>
+
 ## 项目简介
 一个基于 Vue3 + Element Plus + TypeScript 开发的 **可运行于 Web 或打包为桌面应用** 的学员/员工信息管理系统。主要功能包括部门、员工、班级、学生、考试、成绩管理、日志监控、系统设置以及数据可视化等。
 

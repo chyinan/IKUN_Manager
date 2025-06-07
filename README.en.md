@@ -6,7 +6,7 @@
 </div>
 
 ## Introduction
-A student/employee information management system developed based on Vue3 + Element Plus + TypeScript, which can be **run on the Web or packaged as a desktop application**. Main features include department, employee, class, student, exam, and grade management, as well as log monitoring, system settings, and data visualization.
+A student/employee information management system developed based on Vue3 + Element Plus + TypeScript, which can be **run on the Web or packaged as a desktop application**. It not only includes complete CRUD functionalities for core modules like **users, departments, employees, classes, students, exams, and grades**, but also implements a series of advanced features. For example: **multi-dimensional grade statistics and ranking analysis, a notification system with rich text support, a mailbox system for communication between students and administrators, flexible system configurations (e.g., regex validation, log retention policies), and the ability to be packaged as a cross-platform desktop application**. It aims to provide a comprehensive and user-friendly integrated management solution.
 
 ## Tech Stack
 - **Frontend**: Vue 3, TypeScript, Vite, Element Plus, Pinia, Vue Router, Axios, ECharts, Socket.IO Client, Sass, Day.js, WangEditor

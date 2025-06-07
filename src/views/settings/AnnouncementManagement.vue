@@ -51,9 +51,8 @@
         </el-form-item>
         <el-form-item label="内容" prop="content">
           <!-- Rich Text Editor -->
-           <div style="border: 1px solid #ccc">
+           <div class="editor-container">
              <Toolbar
-                style="border-bottom: 1px solid #ccc"
                 :editor="editorRef"
                 :defaultConfig="toolbarConfig"
                 mode="default"
@@ -283,5 +282,20 @@ onMounted(() => {
       font-size: 18px;
     }
   }
+}
+
+/* Define light-mode border for editor container, using Element Plus variables for consistency */
+.editor-container {
+  border: 1px solid var(--el-border-color);
+  z-index: 100;
+}
+
+/* 
+  The default wangeditor style has a border-bottom on the toolbar.
+  We'll override it here to ensure it uses the Element variable for light mode.
+  The dark mode override is in dark-overrides.css
+*/
+.w-e-toolbar {
+  border-bottom: 1px solid var(--el-border-color) !important;
 }
 </style>

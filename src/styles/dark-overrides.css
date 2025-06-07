@@ -428,4 +428,47 @@ html.dark .reply-form .el-textarea__inner:hover {
 
 html.dark .reply-form .el-textarea__inner:focus {
   border-color: var(--el-color-primary);
+}
+
+.dark .el-dialog .el-dialog__body {
+  background-color: #1f2937 !important;
+}
+
+/* WangEditor Dark Mode Overrides */
+.dark .w-e-toolbar {
+    background-color: #374151 !important; /* A slightly lighter dark for toolbar */
+    border-color: #4b5563 !important;
+}
+
+.dark .w-e-toolbar .w-e-bar-item button {
+    color: #d1d5db !important;
+}
+.dark .w-e-toolbar .w-e-bar-item button:hover {
+    background-color: #4b5563 !important;
+}
+
+.dark .w-e-text-container {
+    background-color: #1f2937 !important;
+    border-color: #4b5563 !important;
+    color: #d1d5db !important; /* Text color for content area */
+}
+
+/* Set placeholder color */
+.dark .w-e-text-placeholder {
+    color: #9ca3af !important;
+}
+
+/* Set dropdown panel styles */
+.dark .w-e-panel-content {
+    background-color: #374151 !important;
+    border-color: #4b5563 !important;
+    color: #d1d5db !important;
+}
+.dark .w-e-panel-content .w-e-item:hover {
+    background-color: #4b5563 !important;
+}
+
+/* New rule for the wrapper div */
+.dark .editor-container {
+    border-color: #4b5563 !important;
 } 

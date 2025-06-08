@@ -54,6 +54,14 @@ A student/employee information management system developed based on Vue3 + Eleme
     - **Immersive custom title bar** (Windows/Linux)
     - Supports **hot reloading** in the development environment
 
+## Project Screenshots
+
+| Dashboard | Login Page Features |
+| :---: | :---: |
+| <img src="docs/dashboard.png" width="400"/> | <img src="docs/login-feature.png" width="400"/> |
+| **Student Portal - Announcements** |
+| <img src="docs/stu-announcements.png" width="810"/> |
+
 ## Development Setup
 
 ### Recommended IDE Setup

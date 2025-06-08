@@ -761,9 +761,6 @@ const formattedExamDate = computed(() => {
   transition: background-color 0.3s, border-color 0.3s;
 }
 
-.page-header {
-  /* Styles for page header */
-}
 .header-title {
   display: flex;
   align-items: center;
@@ -799,10 +796,6 @@ const formattedExamDate = computed(() => {
   margin-right: 5px;
 }
 
-.selection-form {
-  /* Remove background, rely on parent */
-}
-
 /* Card header inside score-form-card */
 .score-form-card .card-header {
   display: flex;
@@ -828,9 +821,6 @@ const formattedExamDate = computed(() => {
   color: var(--el-text-color-secondary);
 }
 
-.exam-info {
-  /* Styles for exam info */
-}
 .exam-date-tag {
   background-color: var(--el-bg-color-page);
   border-color: var(--el-border-color);
@@ -933,14 +923,6 @@ const formattedExamDate = computed(() => {
 .empty-placeholder {
   margin-top: 50px;
   /* rely on EP default dark mode */
-}
-
-/* Optional: Adjust specific element styles if needed in dark mode */
-.dark :deep(.el-select .el-input__wrapper) {
-  /* Example: Adjust select background if needed */
-}
-.dark :deep(.el-input-number .el-input__wrapper) {
-  /* Example: Adjust number input background if needed */
 }
 
 </style>

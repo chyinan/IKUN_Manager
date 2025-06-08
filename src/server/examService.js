@@ -67,13 +67,15 @@ async function getExamList(params = {}) {
         e.exam_type,
         DATE_FORMAT(e.exam_date, '%Y-%m-%d %H:%i:%s') as exam_date,
         e.duration,
-        e.subjects,
         e.status,
         e.remark,
         e.create_time,
+        GROUP_CONCAT(DISTINCT s.subject_name ORDER BY s.id) as subjects,
         GROUP_CONCAT(DISTINCT c.id ORDER BY c.id) as class_ids,
         GROUP_CONCAT(DISTINCT c.class_name ORDER BY c.id) as class_names
       FROM exam e
+      LEFT JOIN exam_subject es ON e.id = es.exam_id
+      LEFT JOIN subject s ON es.subject_id = s.id
       LEFT JOIN exam_class_link ecl ON e.id = ecl.exam_id
       LEFT JOIN class c ON ecl.class_id = c.id
     `;

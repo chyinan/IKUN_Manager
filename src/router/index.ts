@@ -24,6 +24,7 @@ import Login from '@/views/login/index.vue'
 import NotFound from '@/views/error/404.vue'
 import CarouselManagement from '@/views/settings/CarouselManagement.vue'
 import AnnouncementManagement from '@/views/settings/AnnouncementManagement.vue'
+import SubjectManagement from '@/views/subject/index.vue'
 
 // 路由配置
 const router = createRouter({
@@ -106,6 +107,12 @@ const router = createRouter({
               name: 'ValidationRules',
               component: ValidationRules,
               meta: { title: '验证规则', requiresAdmin: true }
+            },
+            {
+              path: 'subject',
+              name: 'SubjectManagement',
+              component: SubjectManagement,
+              meta: { title: '科目管理', requiresAdmin: true }
             },
             {
               path: 'carousel',

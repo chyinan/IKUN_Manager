@@ -137,10 +137,12 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import {
   getExamList, addExam, updateExam, deleteExam,
-  getExamTypeOptions, getExamSubjects
+  getExamTypeOptions
 } from '@/api/exam';
 import { getClassList } from '@/api/class';
-import type { Exam as ExamType, ExamFormData, ExamItemResponse, ClassItemResponse, Subject as SubjectType } from '@/types/common';
+import { getSubjectList } from '@/api/subject';
+import type { Exam as ExamType, ExamFormData, ExamItemResponse, ClassItemResponse } from '@/types/common';
+import type { SubjectInfo } from '@/types/subject';
 import dayjs from 'dayjs';
 
 // --- State ---
@@ -157,7 +159,7 @@ const dialogTitle = ref('');
 const examFormRef = ref<FormInstance>();
 const examForm = ref<Partial<ExamFormData>>({});
 const allClassList = ref<{ id: number; className: string }[]>([]);
-const allSubjects = ref<SubjectType[]>([]);
+const allSubjects = ref<SubjectInfo[]>([]);
 const examTypeOptions = ref<string[]>([]);
 
 // --- Computed Properties ---
@@ -211,7 +213,7 @@ const fetchDependencies = async () => {
   try {
     const [classRes, subjectRes, typeRes] = await Promise.all([
       getClassList({ page: 1, pageSize: 9999 }),
-      getExamSubjects(),
+      getSubjectList(),
       getExamTypeOptions()
     ]);
 

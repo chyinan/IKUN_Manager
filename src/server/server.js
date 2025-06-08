@@ -11,8 +11,7 @@ const examService = require('./examService');
 const deptService = require('./deptService');
 const classService = require('./classService');
 const studentService = require('./studentService');
-const scoreService = require('./scoreService');
-const subjectService = require('./subjectService'); // 导入 subjectService
+const subjectService = require('./subjectService');
 const logService = require('./logService');
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken
 const userService = require('./userService'); // Import userService
@@ -2527,15 +2526,15 @@ app.put(`${apiPrefix}/mailbox/threads/:threadId/status`, authenticateToken, isAd
 
 // --- End Mailbox Routes ---
 
-// --- Subject Routes (New) ---
-// GET /api/subject/list (for admin management)
-app.get(`${apiPrefix}/subject/list`, authenticateToken, isAdmin, async (req, res) => {
+app.get(`${apiPrefix}/subject/list`, authenticateToken, async (req, res) => {
   try {
+    // This route can be used by both admins for management and other authenticated users (e.g., in exam modal)
+    // We can skip the isAdmin check here if all authenticated users are allowed to see the list.
     console.log('获取科目列表');
     const subjects = await subjectService.getSubjectList();
     res.json({
       code: 200,
-      data: subjects,
+      data: subjects.list, // Directly return the array for dropdowns
       message: '获取科目列表成功'
     });
   } catch (error) {
@@ -2547,6 +2546,68 @@ app.get(`${apiPrefix}/subject/list`, authenticateToken, isAdmin, async (req, res
     });
   }
 });
+
+// POST /api/subject/add (for admin to add a new subject)
+app.post(`${apiPrefix}/subject`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const operator = req.user.username;
+    console.log(`[API] Received request to add subject by ${operator}:`, req.body);
+    const newSubject = await subjectService.addSubject(req.body, operator);
+    res.status(201).json({ code: 201, data: newSubject, message: '科目添加成功' });
+  } catch (error) {
+    console.error('[API] Error adding subject:', error);
+    if (error.message.includes('不能为空') || error.message.includes('已存在')) {
+      return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: '添加科目失败: ' + error.message });
+  }
+});
+
+// PUT /api/subject/:id (for admin to update a subject)
+app.put(`${apiPrefix}/subject/:id`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的科目ID' });
+    
+    const operator = req.user.username;
+    const updatedSubject = await subjectService.updateSubject(id, req.body, operator);
+    
+    if (!updatedSubject) {
+      return res.status(404).json({ code: 404, message: '更新失败，未找到科目' });
+    }
+    res.json({ code: 200, data: updatedSubject, message: '科目更新成功' });
+  } catch (error) {
+    console.error(`[API] Error updating subject ${req.params.id}:`, error);
+    if (error.message.includes('不能为空') || error.message.includes('已存在')) {
+      return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: '更新科目失败: ' + error.message });
+  }
+});
+
+// DELETE /api/subject/:id (for admin to delete a subject)
+app.delete(`${apiPrefix}/subject/:id`, authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ code: 400, message: '无效的科目ID' });
+
+    const operator = req.user.username;
+    const success = await subjectService.deleteSubject(id, operator);
+
+    if (!success) {
+      return res.status(404).json({ code: 404, message: '删除失败，未找到该科目' });
+    }
+    res.json({ code: 200, message: '科目删除成功' });
+  } catch (error) {
+    console.error(`[API] Error deleting subject ${req.params.id}:`, error);
+     if (error.message.includes('无法删除')) {
+      return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({ code: 500, message: '删除科目失败: ' + error.message });
+  }
+});
+
+// --- End Subject Routes ---
 
 // 调用 startServer 确保在所有路由定义之后
 startServer();

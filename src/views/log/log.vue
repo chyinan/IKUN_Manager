@@ -7,10 +7,10 @@
         <span>系统日志监控</span>
       </div>
       <div class="operation-buttons">
-        <el-button type="danger" @click="handleDeleteOldLogs">
-          <el-icon><Delete /></el-icon>删除日志
+        <el-button type="danger" @click="handleClearLogs">
+          <el-icon><Delete /></el-icon>清空日志
         </el-button>
-        <el-button type="success" @click="exportLogs">
+        <el-button type="success" @click="exportLogs" disabled>
           <el-icon><Download /></el-icon>导出日志
         </el-button>
       </div>
@@ -20,12 +20,12 @@
     <div class="log-terminal" ref="terminalRef">
       <div 
         v-for="(log, index) in logs" 
-        :key="index"
+        :key="log.id || index"
         :class="['log-line', `log-${log.type}`]"
         :data-operation="log.operation">
         <span class="log-time">[{{ formatTime(log.createTime) }}]</span>
         <span class="log-content">
-          <span v-if="log.operator" :class="getOperatorClass(log.operator)">{{ log.operator }}</span>
+          <span v-if="log.operator" :class="getOperatorClass(log.operator)">[{{ log.operator }}]</span>
           <span v-html="highlightSimple(log.content)"></span>
         </span>
       </div>
@@ -33,245 +33,154 @@
 
     <!-- 统计信息 -->
     <div class="log-stats">
-      <el-tag type="info">总日志数: {{ logs.length }}</el-tag>
-      <el-tag type="success">系统: {{ systemCount }}</el-tag>
-      <el-tag type="warning">数据库: {{ dbCount }}</el-tag>
+      <el-tag type="info" size="large">总日志数: {{ totalLogs }}</el-tag>
+      <el-tag type="success" size="large">系统: {{ systemCount }}</el-tag>
+      <el-tag type="warning" size="large">数据库: {{ dbCount }}</el-tag>
+      <el-tag type="danger" size="large">错误: {{ errorCount }}</el-tag>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, markRaw } from 'vue';
-import { ElMessage, ElCard, ElSelect, ElOption, ElEmpty, ElTable, ElTableColumn, ElIcon } from 'element-plus';
-import { getClassScoreStats } from '@/api/score'; // 修改：导入 getClassScoreStats
-import { getClassList } from '@/api/class';
-import { getExamList } from '@/api/exam';
-import type { ClassItem as Class } from '@/types/common';
-import type { Exam } from '@/types/common';
-import { use } from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, BarChart, RadarChart } from 'echarts/charts';
-import { TitleComponent, TooltipComponent, LegendComponent, GridComponent, RadarComponent } from 'echarts/components';
-import VChart from 'vue-echarts';
-import type { EChartsOption } from 'echarts';
-import { Compass, Tickets, Trophy } from '@element-plus/icons-vue';
-import { useAppStore } from '@/stores/app';
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
+import { getLogList, clearLogs } from '@/api/log';
+import type { LogEntry } from '@/types/log';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import io from 'socket.io-client';
+import { Monitor, Delete, Download } from '@element-plus/icons-vue';
+import dayjs from 'dayjs';
 
-use([
-  CanvasRenderer,
-  PieChart,
-  BarChart,
-  RadarChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-  RadarComponent
-]);
+const logs = ref<LogEntry[]>([]);
+const terminalRef = ref<HTMLElement | null>(null);
+const totalLogs = ref(0); // For total count from server
 
-const appStore = useAppStore();
-const isDarkMode = computed(() => appStore.isDarkMode);
-const chartTheme = computed(() => (isDarkMode.value ? 'dark' : undefined));
-
-const loading = ref(false);
-const hasSelection = ref(false);
-
-const classList = ref<Class[]>([]);
-const examList = ref<Exam[]>([]);
-const selectedClass = ref<number | ''>('');
-const selectedExam = ref<Exam | undefined>(undefined);
-
-// 修改：直接使用后端返回的统计数据结构
-const mainClassStats = ref<any>(null);
-
-const summaryData = ref([
-  { icon: markRaw(Trophy), title: '班级最高总分', value: 'N/A', color: '#67C23A' },
-  { icon: markRaw(Tickets), title: '班级平均总分', value: 'N/A', color: '#409EFF' },
-  { icon: markRaw(Compass), title: '优秀率', value: 'N/A', color: '#E6A23C' },
-]);
-
-const distributionPieOption = ref<EChartsOption>({});
-const avgScoreBarOption = ref<EChartsOption>({});
-const subjectRadarOption = ref<EChartsOption>({});
-
-async function fetchInitialData() {
+// --- Fetching Initial Logs ---
+const fetchLogs = async () => {
   try {
-    const [classRes, examRes] = await Promise.all([
-      getClassList({ pageSize: 1000 }),
-      getExamList({ pageSize: 1000 })
-    ]);
-
-    classList.value = classRes.data.map(c => ({
-      id: c.id,
-      className: c.class_name,
-      teacher: c.teacher,
-      studentCount: c.student_count,
-      description: c.description,
-      createTime: c.create_time,
-    }));
-
-    examList.value = examRes.data.list.map(e => ({
-      id: e.id,
-      examName: e.exam_name,
-      examType: e.exam_type,
-      examDate: e.exam_date,
-      startTime: e.start_time,
-      endTime: e.end_time,
-      duration: e.duration,
-      status: e.status,
-      description: e.description,
-      createTime: e.create_time,
-      subjects: e.subjects ? e.subjects.split(',').map(s => s.trim()).filter(s => s) : [],
-      subjectIds: e.subject_ids ? e.subject_ids.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id)) : [],
-      classNames: e.class_names ? e.class_names.split(',').map(cn => cn.trim()).filter(cn => cn) : [],
-      classIds: e.class_ids ? e.class_ids.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id)) : [],
-    }));
-
-  } catch (error) {
-    ElMessage.error('获取基础数据失败');
-    console.error(error);
-  }
-}
-
-// 新增：直接从后端统计数据更新概览卡片
-function updateSummaryData(stats: any) {
-  if (!stats) {
-    summaryData.value = [
-      { icon: markRaw(Trophy), title: '班级最高总分', value: 'N/A', color: '#67C23A' },
-      { icon: markRaw(Tickets), title: '班级平均总分', value: 'N/A', color: '#409EFF' },
-      { icon: markRaw(Compass), title: '优秀率', value: 'N/A', color: '#E6A23C' },
-    ];
-    return;
-  }
-
-  summaryData.value = [
-    { icon: markRaw(Trophy), title: '班级最高总分', value: stats.highest_total_score?.toFixed(2) ?? 'N/A', color: '#67C23A' },
-    { icon: markRaw(Tickets), title: '班级平均总分', value: stats.average_total_score?.toFixed(2) ?? 'N/A', color: '#409EFF' },
-    { icon: markRaw(Compass), title: '优秀率', value: stats.excellence_rate ? `${(stats.excellence_rate * 100).toFixed(2)}%` : 'N/A', color: '#E6A23C' },
-  ];
-}
-
-// 新增：直接从后端统计数据更新图表
-function updateCharts(stats: any) {
-  if (!stats || !stats.subject_stats) {
-    distributionPieOption.value = {};
-    avgScoreBarOption.value = {};
-    subjectRadarOption.value = {};
-    return;
-  }
-  
-  const subjectStatsArray = Object.values(stats.subject_stats);
-
-  // Distribution Pie Chart
-  distributionPieOption.value = {
-    tooltip: { trigger: 'item' },
-    legend: { top: '5%', left: 'center', textStyle: { color: isDarkMode.value ? '#ccc' : '#333' } },
-    series: [
-      {
-        name: '成绩分布',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: {
-          borderRadius: 10,
-          borderColor: isDarkMode.value ? '#2c3e50' : '#fff',
-          borderWidth: 2
-        },
-        label: { show: false, position: 'center' },
-        emphasis: { label: { show: true, fontSize: '20', fontWeight: 'bold' } },
-        labelLine: { show: false },
-        data: stats.score_distribution || []
-      }
-    ]
-  };
-
-  // Average Score Bar Chart
-  avgScoreBarOption.value = {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-    xAxis: [{ type: 'category', data: Object.keys(stats.average_scores), axisTick: { alignWithLabel: true }, axisLabel: { color: isDarkMode.value ? '#ccc' : '#333' } }],
-    yAxis: [{ type: 'value', axisLabel: { color: isDarkMode.value ? '#ccc' : '#333' } }],
-    series: [{
-      name: '平均分',
-      type: 'bar',
-      barWidth: '60%',
-      data: Object.values(stats.average_scores)
-    }]
-  };
-  
-  const radarIndicators = subjectStatsArray.map((s: any) => ({ name: s.subject, max: s.full_score || 100 }));
-  const radarClassData = subjectStatsArray.map((s: any) => s.average_score);
-
-  // Subject Radar Chart
-  subjectRadarOption.value = {
-    tooltip: { trigger: 'item' },
-    legend: { data: ['班级平均'], bottom: 5, textStyle: { color: isDarkMode.value ? '#ccc' : '#333' } },
-    radar: {
-      indicator: radarIndicators,
-      shape: 'circle',
-      splitNumber: 5,
-      axisName: {
-          formatter: '{value}',
-          color: isDarkMode.value ? '#ccc' : '#333'
-      },
-    },
-    series: [{
-      name: '学科能力',
-      type: 'radar',
-      data: [
-        { value: radarClassData, name: '班级平均' },
-      ]
-    }]
-  };
-}
-
-// 修改：核心函数，调用新的API
-async function fetchClassReport() {
-  if (!selectedClass.value || !selectedExam.value?.id) {
-    mainClassStats.value = null;
-    hasSelection.value = false;
-    updateSummaryData(null);
-    updateCharts(null);
-    return;
-  }
-  
-  loading.value = true;
-  hasSelection.value = true;
-  
-  try {
-    const params = { classId: selectedClass.value, examId: selectedExam.value.id };
-    const res = await getClassScoreStats(params);
-    
-    if (res.code === 200 && res.data && res.data.length > 0) {
-      // 假设API返回的是一个数组，我们取第一项作为我们班级的统计数据
-      // 后端应该确保在指定 classId 和 examId 时只返回一条记录
-      mainClassStats.value = res.data[0]; 
-      ElMessage.success('班级报表加载成功');
+    // Fetch a decent number of recent logs initially
+    const res = await getLogList({ page: 1, pageSize: 200 }); 
+    if (res.code === 200 && Array.isArray(res.data)) {
+      logs.value = res.data.reverse(); // Reverse to have oldest at top, newest at bottom
+      totalLogs.value = res.total || res.data.length;
     } else {
-      mainClassStats.value = null;
-      ElMessage.warning(res.message || '未找到该班级在本次考试的统计数据');
+      ElMessage.error('获取初始日志失败');
     }
+    // Scroll to bottom after initial load
+    scrollToBottom();
   } catch (error) {
-    mainClassStats.value = null;
-    ElMessage.error('加载班级报表失败');
     console.error(error);
-  } finally {
-    loading.value = false;
+    ElMessage.error('加载日志时发生错误');
   }
-}
+};
 
-// 监听 mainClassStats 的变化，自动更新UI
-watch(mainClassStats, (newStats) => {
-  updateSummaryData(newStats);
-  updateCharts(newStats);
-}, { deep: true });
-
-onMounted(() => {
-  fetchInitialData();
+// --- Real-time Logs via Socket.IO ---
+// Make sure the URL is correct for your environment
+const socket = io(import.meta.env.VITE_APP_BASE_URL || 'http://localhost:3000', {
+  transports: ['websocket', 'polling'],
 });
 
-// 监听下拉框变化，触发报表获取
-watch([selectedClass, selectedExam], fetchClassReport, { immediate: true });
+onMounted(() => {
+  fetchLogs();
+
+  socket.on('connect', () => {
+    console.log('Socket.IO connected for logs.');
+  });
+
+  socket.on('serverLog', (logEntry: LogEntry) => {
+    logs.value.push(logEntry);
+    totalLogs.value++;
+    // Ensure we don't keep too many logs in memory on the frontend
+    if (logs.value.length > 500) {
+      logs.value.shift();
+    }
+    scrollToBottom();
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Socket.IO disconnected.');
+  });
+  
+  socket.on('connect_error', (err) => {
+    console.error('Socket.IO connection error:', err);
+    ElMessage.error('无法连接到实时日志服务');
+  });
+});
+
+onUnmounted(() => {
+  socket.disconnect();
+});
+
+// --- Helper Functions for Template ---
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (terminalRef.value) {
+      terminalRef.value.scrollTop = terminalRef.value.scrollHeight;
+    }
+  });
+};
+
+const formatTime = (timeStr: string | undefined) => {
+  if (!timeStr) return '...';
+  return dayjs(timeStr).format('YYYY-MM-DD HH:mm:ss');
+};
+
+const getOperatorClass = (operator: string | undefined) => {
+  if (!operator) return '';
+  const op = operator.toLowerCase();
+  if (op.includes('admin')) return 'hl-admin';
+  if (op.includes('system')) return 'hl-system';
+  return 'hl-operator';
+};
+
+// Using v-html, so BE CAREFUL with user-generated content.
+// Since this is for logs, it's generally considered safe.
+const highlightSimple = (content: string) => {
+  if (!content) return '';
+  return content
+    .replace(/(success|成功|启用)/gi, '<span class="hl-success">$1</span>')
+    .replace(/(error|fail|失败|错误)/gi, '<span class="hl-error">$1</span>')
+    .replace(/(delete|删除|清空|禁用)/gi, '<span class="hl-delete">$1</span>');
+};
+
+// --- Statistics (from currently displayed logs) ---
+const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length);
+const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length);
+const errorCount = computed(() => logs.value.filter(log => log.type === 'error').length);
+
+// --- Button Actions ---
+const handleClearLogs = async () => {
+    ElMessageBox.confirm(
+    '这将清除数据库中的所有日志条目。此操作无法撤销，是否继续？',
+    '警告：清空所有日志',
+    {
+      confirmButtonText: '确认清空',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  )
+    .then(async () => {
+      try {
+        const res = await clearLogs();
+        if (res.code === 200) {
+          ElMessage.success('所有日志已成功清空！');
+          logs.value = []; // Clear frontend logs
+          totalLogs.value = 0;
+        } else {
+          ElMessage.error(res.message || '清空日志失败');
+        }
+      } catch (error: any) {
+        ElMessage.error(error.message || '清空日志时发生服务器错误');
+      }
+    })
+    .catch(() => {
+      ElMessage.info('操作已取消');
+    });
+};
+
+const exportLogs = () => {
+  ElMessage.warning('导出功能正在紧张开发中，敬请期待！');
+  // In the future, implementation would call api/log.ts exportLogs function
+};
 </script>
 
 <style lang="scss" scoped>
@@ -280,7 +189,7 @@ watch([selectedClass, selectedExam], fetchClassReport, { immediate: true });
   flex-direction: column;
   height: calc(100vh - 84px); /* Adjust based on layout */
   padding: 20px;
-  background-color: var(--el-bg-color-page); /* Default light background */
+  background-color: var(--el-bg-color-page);
   transition: background-color 0.3s;
 }
 
@@ -314,7 +223,7 @@ watch([selectedClass, selectedExam], fetchClassReport, { immediate: true });
 .log-terminal {
   flex-grow: 1;
   background-color: #1e1e1e; /* Dark background for terminal */
-  color: #d4d4d4; /* Light text */
+  color: #d4d4d4;
   font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
   font-size: 14px;
   padding: 15px;
@@ -322,31 +231,31 @@ watch([selectedClass, selectedExam], fetchClassReport, { immediate: true });
   overflow-y: auto;
   border: 1px solid var(--el-border-color-darker);
   margin-bottom: 15px;
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
 }
 
 /* Adjust terminal for light mode */
-html:not(.dark) .log-terminal { /* More specific selector for light mode */
-  background-color: #f5f5f5; /* Light background */
-  color: #333; /* Dark text */
+html:not(.dark) .log-terminal {
+  background-color: #f5f5f5;
+  color: #333;
   border: 1px solid var(--el-border-color-lighter);
-}
-
-/* Specific light mode log colors (if needed, EP defaults might be okay) */
-html:not(.dark) .log-line.log-system .log-content {
-  color: #409EFF; /* Blue for system logs */
-}
-html:not(.dark) .log-line.log-database .log-content {
-  color: #67C23A; /* Green for database */
-}
-html:not(.dark) .log-line.log-error .log-content {
-  color: #F56C6C; /* Red for error */
 }
 
 .log-line {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
-  margin-bottom: 5px;
+  margin-bottom: 2px;
+  transition: background-color 0.3s;
+  
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+html:not(.dark) .log-line:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .log-time {
@@ -354,48 +263,56 @@ html:not(.dark) .log-line.log-error .log-content {
   margin-right: 15px;
 }
 html:not(.dark) .log-time {
-  color: #999;
+  color: #888;
 }
 
-.log-operator {
-  font-weight: bold;
-  margin-right: 5px;
-}
-
-/* Specific dark mode log colors */
+/* Specific log type colors (works for both light/dark) */
 .log-line.log-system .log-content {
-  color: #66b1ff; /* Lighter blue */
+  color: #66b1ff;
 }
 .log-line.log-database .log-content {
-  color: #85dcb8; /* Lighter green */
+  color: #85dcb8;
 }
 .log-line.log-error .log-content {
-  color: #ffa8a8; /* Lighter red */
+  color: #ff8b8b;
+  font-weight: bold;
+}
+.log-line.log-warn .log-content {
+  color: #e6a23c;
+}
+.log-line.log-info .log-content {
+  color: #909399;
+}
+html:not(.dark) .log-line.log-info .log-content {
+    color: #909399;
 }
 
 .log-content {
-  color: #303133;
-  word-break: break-all;
-  white-space: pre-wrap;
-
   :deep(span) {
     margin-right: 4px;
   }
 
   /* Classes for operator */
-  .hl-admin { color: #7E57C2; font-weight: 500; }
-  .hl-system { color: #5D4037; font-style: italic; }
-  .hl-operator { color: #3949AB; font-weight: 500; }
+  .hl-admin { color: #d695ff; font-weight: bold; }
+  .hl-system { color: #a5b6c7; font-style: italic; }
+  .hl-operator { color: #73a7ff; }
 
-  /* Classes for simple highlighting from v-html */
-  :deep(.hl-success) { color: #67c23a; font-weight: bold; }
-  :deep(.hl-error) { color: #f56c6c; font-weight: bold; }
-  :deep(.hl-delete) { color: #E53935; font-weight: 500; }
+  /* Dark mode overrides for highlight */
+  :deep(.hl-success) { color: #85dcb8; font-weight: bold; }
+  :deep(.hl-error) { color: #ffa8a8; font-weight: bold; }
+  :deep(.hl-delete) { color: #ff8b8b; }
+
 }
 
-/* Dark mode text color override */
-.dark .log-content {
-  color: #fff;
+/* Light mode overrides */
+html:not(.dark) .log-content {
+    .hl-admin { color: #9370DB; } /* MediumPurple */
+    .hl-system { color: #666; }
+    .hl-operator { color: #1e88e5; }
+
+    :deep(.hl-success) { color: #67c23a; }
+    :deep(.hl-error) { color: #f56c6c; }
+    :deep(.hl-delete) { color: #E53935; }
 }
 
 .log-stats {
@@ -408,7 +325,4 @@ html:not(.dark) .log-time {
   gap: 15px;
   transition: background-color 0.3s, border-color 0.3s;
 }
-
-/* Remove specific dark-component-bg rules */
-
 </style>

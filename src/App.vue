@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <StagewiseToolbar v-if="isDev" :config="stagewiseConfig" />
+  <!-- <StagewiseToolbar v-if="isDev" :config="stagewiseConfig" /> -->
   <el-config-provider :locale="locale">
     <router-view v-slot="{ Component }">
       <transition name="page-slide-fade" mode="out-in">

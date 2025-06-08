@@ -1,11 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue' // Import computed
 import { useAppStore } from '@/stores/app'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 import { logger } from '@/utils/logger'; // Correct import name: logger (lowercase)
 import type { BackendLogEntry, IElectronAPI } from '@/preload.d'; // Import IElectronAPI too
 
+// --- Stagewise Toolbar Integration ---
+import { StagewiseToolbar } from '@stagewise/toolbar-vue';
+
+const isDev = computed(() => import.meta.env.DEV);
+const stagewiseConfig = {
+  plugins: []
+};
+// --- End Stagewise Toolbar Integration ---
+
 const appStore = useAppStore()
+// ... existing script ...
 const locale = ref(zhCn)
 const logs = ref<string[]>([]) // Array to store log messages for display
 const showTerminal = ref(false) // Control terminal visibility
@@ -43,6 +53,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <StagewiseToolbar v-if="isDev" :config="stagewiseConfig" />
   <el-config-provider :locale="locale">
     <router-view v-slot="{ Component }">
       <transition name="page-slide-fade" mode="out-in">

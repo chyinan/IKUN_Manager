@@ -7,7 +7,7 @@
         </div>
       </template>
       <div v-loading="loading">
-        <el-table :data="upcomingExams" class="modern-table" style="width: 100%" empty-text="暂无待考安排">
+        <el-table v-if="upcomingExams.length > 0" :data="upcomingExams" class="modern-table" style="width: 100%">
           <el-table-column prop="exam_name" label="考试名称" min-width="250" />
           <el-table-column prop="exam_type" label="考试类型" width="120" />
           <el-table-column prop="exam_date" label="考试时间" width="180" />
@@ -24,7 +24,7 @@
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-if="!loading && upcomingExams.length === 0" description="太棒了！当前没有待考的考试。"></el-empty>
+        <el-empty v-if="!loading && upcomingExams.length === 0" description="太棒了！当前没有待考的考试。" class="empty-state"></el-empty>
       </div>
     </el-card>
   </div>
@@ -161,9 +161,26 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.empty-state {
+  padding-top: 60px;
+}
+
 :deep(.el-empty__description p) {
   color: #fff;
   opacity: 0.8;
+}
+
+:deep(.el-empty) {
+    --el-empty-fill-color-0: #51beff;
+    --el-empty-fill-color-1: #6fc8fb;
+    --el-empty-fill-color-2: #2494d0;
+    --el-empty-fill-color-3: #2ca5e0;
+    --el-empty-fill-color-4: #5abef8;
+    --el-empty-fill-color-5: #43a6e2cc;
+    --el-empty-fill-color-6: #2698db;
+    --el-empty-fill-color-7: #309ddc;
+    --el-empty-fill-color-8: #0c8ed4;
+    --el-empty-fill-color-9: rgb(255 255 255 / 9%);
 }
 </style>
  

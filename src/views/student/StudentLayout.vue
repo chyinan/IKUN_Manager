@@ -6,15 +6,12 @@
       </div>
       <div class="user-actions">
         <span>欢迎您，{{ userStore.userInfo?.display_name || userStore.username }}</span>
-        <el-dropdown @command="handleCommand">
-          <span class="el-dropdown-link">
-            <el-avatar :src="userStore.avatar" :icon="UserFilled" size="small" style="margin-right: 8px;"></el-avatar>
-            个人中心<el-icon class="el-icon--right"><arrow-down /></el-icon>
-          </span>
+        <el-dropdown @command="handleCommand" trigger="click" popper-class="user-profile-dropdown">
+          <el-avatar :src="userStore.avatar" :icon="UserFilled" class="user-avatar" />
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人设置</el-dropdown-item>
-              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+              <el-dropdown-item command="profile" :icon="Setting">个人设置</el-dropdown-item>
+              <el-dropdown-item command="logout" :icon="SwitchButton" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -69,7 +66,9 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, House, Memo, Clock, Bell, Setting, Document, UserFilled, Message } from '@element-plus/icons-vue'
+import { 
+  ArrowDown, House, Memo, Clock, Bell, Setting, Document, UserFilled, Message, SwitchButton 
+} from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -158,6 +157,8 @@ $gradient-end: #66a6ff; // Light blue
     font-size: 21px;
     font-weight: 600;
     color: $primary-text;
+    position: relative;
+    top: 2px; // Slightly nudge down for better visual alignment
   }
 
   .user-actions {
@@ -165,6 +166,18 @@ $gradient-end: #66a6ff; // Light blue
     align-items: center;
     gap: 15px;
     font-weight: 500;
+    position: relative;
+    top: 2px; // Slightly nudge down for better visual alignment
+    
+    .user-avatar {
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      &:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+    }
+
     .el-dropdown-link {
       cursor: pointer;
       color: $primary-text;
@@ -296,6 +309,52 @@ $gradient-end: #66a6ff; // Light blue
 }
 .glass-message-box .el-message-box__btns .el-button--default:hover {
   background-color: rgba(255, 255, 255, 0.1) !important;
+}
+</style>
+
+<style lang="scss">
+// Use a global style tag for the popper class as it's teleported to the body
+.user-profile-dropdown {
+  &.el-popper {
+    margin-top: 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 12px !important;
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37) !important;
+    padding: 6px !important;
+
+    .el-dropdown-menu {
+      background: transparent !important;
+      border: none !important;
+
+      .el-dropdown-menu__item {
+        border-radius: 8px;
+        font-weight: 500;
+        color: #023047; // Match header text color
+
+        &:hover {
+          background-color: rgba(0, 119, 182, 0.2);
+          color: #0077b6;
+        }
+
+        .el-icon {
+          margin-right: 8px;
+        }
+      }
+
+      .el-dropdown-menu__item--divided {
+        margin-top: 4px;
+        border-top-color: rgba(2, 48, 71, 0.2);
+      }
+    }
+
+    .el-popper__arrow::before {
+      background: transparent !important;
+      border: none !important;
+    }
+  }
 }
 </style>
 

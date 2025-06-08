@@ -508,9 +508,9 @@ watch([() => radarChartRef.value, () => barChartRef.value], () => {
 
 :deep(.modern-table) {
   background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  overflow:hidden;
+  overflow: hidden;
+  --el-table-border-color: rgb(46 139 235 / 10%) !important;
 
   .el-table__header-wrapper th,
   .el-table__header-wrapper tr {
@@ -579,32 +579,46 @@ watch([() => radarChartRef.value, () => barChartRef.value], () => {
   text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+:deep(.el-empty) {
+    --el-empty-fill-color-0: #51beff;
+    --el-empty-fill-color-1: #6fc8fb;
+    --el-empty-fill-color-2: #2494d0;
+    --el-empty-fill-color-3: #2ca5e0;
+    --el-empty-fill-color-4: #5abef8;
+    --el-empty-fill-color-5: #43a6e2cc;
+    --el-empty-fill-color-6: #2698db;
+    --el-empty-fill-color-7: #309ddc;
+    --el-empty-fill-color-8: #0c8ed4;
+    --el-empty-fill-color-9: rgb(255 255 255 / 9%);
+}
+
 // --- Custom Select Box Styling ---
-:deep(.el-select .el-input__wrapper) {
-  background: rgba(0, 0, 0, 0.25) !important;
+.main-report-card :deep(.el-select .el-input__wrapper) {
+  background: rgba(135, 206, 250, 0.25) !important;
   box-shadow: none !important;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border: 1px solid rgba(173, 216, 230, 0.7) !important;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-
-  &.is-focused {
-    border-color: var(--el-color-primary) !important;
-  }
 }
-:deep(.el-select .el-input__inner) {
+.main-report-card :deep(.el-select .el-input__wrapper.is-focused) {
+  border-color: #90d8ff !important;
+}
+.main-report-card :deep(.el-select .el-input__inner) {
   color: #fff !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
-:deep(.el-input.is-disabled .el-input__wrapper) {
-  background-color: rgba(0,0,0,0.15) !important;
+.main-report-card :deep(.el-input.is-disabled .el-input__wrapper) {
+  background-color: rgba(173, 216, 230, 0.15) !important;
+  border: 1px solid rgba(173, 216, 230, 0.4) !important;
   backdrop-filter: none;
   cursor: not-allowed;
 }
-:deep(.el-input.is-disabled .el-input__inner) {
-  color: rgba(255,255,255,0.5) !important;
+.main-report-card :deep(.el-input.is-disabled .el-input__inner) {
+  color: rgba(255, 255, 255, 0.6) !important;
 }
-:deep(.el-select .el-input .el-select__caret) {
-  color: rgba(255, 255, 255, 0.8);
+.main-report-card :deep(.el-select .el-input .el-select__caret) {
+  color: rgba(255, 255, 255, 0.8) !important;
 }
 </style>
 

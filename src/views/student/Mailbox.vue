@@ -1,6 +1,6 @@
 <template>
   <div class="mailbox-container">
-    <el-card shadow="never" class="glass-card">
+    <el-card shadow="never" class="table-card">
       <div v-if="!selectedThreadId" class="thread-list-view">
         <div class="list-header">
           <h2>我的信箱</h2>
@@ -224,16 +224,14 @@ onMounted(fetchThreads);
   /* padding: 20px; */ /* Removed for full-width card */
 }
 
-.glass-card {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+.table-card {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 10px; // A little padding for breathing room
 
   :deep(.el-card__body) {
-    padding-top: 10px;
+    padding: 0; 
   }
 }
 
@@ -286,18 +284,22 @@ onMounted(fetchThreads);
 
       .message-content {
         margin-left: 10px;
+        max-width: 70%;
         .message-sender {
-          font-size: 12px;
-          color: #e5e7eb;
+          font-size: 0.8rem;
+          color: #555;
           margin-bottom: 5px;
+
           .message-time {
+            color: #f0f8ff; // AliceBlue, a very light blue, almost white
+            font-size: 0.75rem;
             margin-left: 8px;
-            color: #bdc3c7;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
           }
         }
+
         .message-bubble {
-          background-color: rgba(255, 255, 255, 0.8);
-          color: #2c3e50;
+          background-color: #e5e5ea;
           padding: 10px 15px;
           border-radius: 15px;
           display: inline-block;
@@ -313,10 +315,14 @@ onMounted(fetchThreads);
           margin-left: 0;
           margin-right: 10px;
           text-align: right;
+
+          .message-sender {
+             color: #fff; // Change sender name color for my messages
+          }
+
            .message-bubble {
-             background-color: #8be4d8;
-             color: #1a5c53;
-             text-align: left;
+             background-color: #007aff;
+             color: white;
            }
         }
       }
@@ -331,6 +337,10 @@ onMounted(fetchThreads);
       &:focus {
         border-color: #bedeff;
         box-shadow: 0 0 0 1px #bedeff inset;
+      }
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 500;
       }
     }
   }

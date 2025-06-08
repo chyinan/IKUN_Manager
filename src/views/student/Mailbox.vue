@@ -220,9 +220,6 @@ onMounted(fetchThreads);
 </script>
 
 <style scoped lang="scss">
-.mailbox-container {
-  /* padding: 20px; */ /* Removed for full-width card */
-}
 
 .table-card {
   background-color: transparent !important;

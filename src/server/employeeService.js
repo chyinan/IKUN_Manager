@@ -375,19 +375,21 @@ async function batchDeleteEmployee(ids) {
  * @returns {Promise<Object>} 统计数据
  */
 async function getEmployeeStats() {
+  let connection;
   try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
     // 获取员工总数
-    const totalQuery = 'SELECT COUNT(*) as total FROM employee';
-    const totalResult = await db.query(totalQuery);
-    const total = totalResult[0].total;
+    const [totalRows] = await connection.query('SELECT COUNT(*) as total FROM employee');
+    const total = totalRows.length > 0 ? totalRows[0].total : 0;
 
     // 获取在职员工数量
-    const activeQuery = "SELECT COUNT(*) as count FROM employee WHERE status = '在职'";
-    const activeResult = await db.query(activeQuery);
-    const activeCount = activeResult[0].count;
+    const [activeRows] = await connection.query("SELECT COUNT(*) as count FROM employee WHERE status = '在职'");
+    const activeCount = activeRows.length > 0 ? activeRows[0].count : 0;
 
     // 获取部门分布
-    const deptQuery = `
+    const [deptDistribution] = await connection.query(`
       SELECT 
         d.dept_name as name, 
         COUNT(e.id) as value 
@@ -397,41 +399,59 @@ async function getEmployeeStats() {
         employee e ON d.id = e.dept_id 
       GROUP BY 
         d.id
-    `;
-    const deptDistribution = await db.query(deptQuery);
+    `);
 
-    // 获取薪资分布
-    const salaryRanges = [
-      { range: '5k以下', min: 0, max: 5000 },
-      { range: '5k-10k', min: 5000, max: 10000 },
-      { range: '10k-15k', min: 10000, max: 15000 },
-      { range: '15k-20k', min: 15000, max: 20000 },
-      { range: '20k以上', min: 20000, max: Number.MAX_SAFE_INTEGER }
-    ];
+    // 获取部门平均薪资分布 (替换旧的薪资范围统计)
+    const [salaryDistribution] = await connection.query(`
+      SELECT
+        d.dept_name as name,
+        COALESCE(AVG(e.salary), 0) as value
+      FROM
+        department d
+      LEFT JOIN
+        employee e ON d.id = e.dept_id
+      GROUP BY
+        d.id, d.dept_name
+      ORDER BY
+        value DESC
+    `);
 
-    const salaryDistribution = [];
-    for (const range of salaryRanges) {
-      const query = `
-        SELECT COUNT(*) as count 
-        FROM employee 
-        WHERE salary >= ? AND salary < ?
-      `;
-      const result = await db.query(query, [range.min, range.max]);
-      salaryDistribution.push({
-        range: range.range,
-        count: result[0].count
-      });
-    }
+    // 获取性别分布
+    const [genderDistribution] = await connection.query(`
+      SELECT 
+        gender as name, 
+        COUNT(*) as value 
+      FROM 
+        employee 
+      GROUP BY 
+        gender
+    `);
+    
+    // 获取总平均薪资
+    const [avgSalaryRows] = await connection.query('SELECT AVG(salary) as averageSalary FROM employee WHERE salary IS NOT NULL');
+    const averageSalary = avgSalaryRows.length > 0 ? (avgSalaryRows[0].averageSalary || 0) : 0;
+
+    // 获取部门数量
+    const [deptCountRows] = await connection.query('SELECT COUNT(*) as deptCount FROM department');
+    const deptCount = deptCountRows.length > 0 ? deptCountRows[0].deptCount : 0;
+
+    await connection.commit();
 
     return {
       total,
       activeCount,
       deptDistribution,
-      salaryDistribution
+      salaryDistribution,
+      genderDistribution,
+      averageSalary,
+      deptCount,
     };
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('获取员工统计数据失败:', error);
     throw error;
+  } finally {
+    if (connection) connection.release();
   }
 }
 

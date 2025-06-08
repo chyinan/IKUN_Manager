@@ -45,14 +45,9 @@
               <el-option
                 v-for="item in filteredStudents"
                 :key="item.id"
-                :label="item.name"
+                :label="`${item.name} 学号: ${item.student_id}`"
                 :value="item.id"
-              >
-                <div class="student-option">
-                  <span>{{ item.name }}</span>
-                  <span class="student-id">学号: {{ item.student_id }}</span>
-                </div>
-              </el-option>
+              />
             </el-select>
           </el-form-item>
 

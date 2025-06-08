@@ -41,241 +41,237 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Monitor, Delete, Download } from '@element-plus/icons-vue'
-import { io, Socket } from 'socket.io-client'
-import type { LogEntry, LogType, LogResponse } from '@/types/log'
-import { getLogList, clearLogs as apiClearLogs } from '@/api/log'
+import { ref, onMounted, computed, watch, markRaw } from 'vue';
+import { ElMessage, ElCard, ElSelect, ElOption, ElEmpty, ElTable, ElTableColumn, ElIcon } from 'element-plus';
+import { getClassScoreStats } from '@/api/score'; // 修改：导入 getClassScoreStats
+import { getClassList } from '@/api/class';
+import { getExamList } from '@/api/exam';
+import type { ClassItem as Class } from '@/types/common';
+import type { Exam } from '@/types/common';
+import { use } from 'echarts/core';
+import { CanvasRenderer } from 'echarts/renderers';
+import { PieChart, BarChart, RadarChart } from 'echarts/charts';
+import { TitleComponent, TooltipComponent, LegendComponent, GridComponent, RadarComponent } from 'echarts/components';
+import VChart from 'vue-echarts';
+import type { EChartsOption } from 'echarts';
+import { Compass, Tickets, Trophy } from '@element-plus/icons-vue';
+import { useAppStore } from '@/stores/app';
 
-// 日志列表
-const logs = ref<LogEntry[]>([])
-const terminalRef = ref<HTMLElement>()
-let socket: Socket
+use([
+  CanvasRenderer,
+  PieChart,
+  BarChart,
+  RadarChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+  RadarComponent
+]);
 
-// 统计数据
-const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length)
-const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length)
+const appStore = useAppStore();
+const isDarkMode = computed(() => appStore.isDarkMode);
+const chartTheme = computed(() => (isDarkMode.value ? 'dark' : undefined));
 
-// 格式化时间显示
-const formatTime = (timeStr: string | undefined | null) => {
-  if (!timeStr) {
-    return '---- -- -- --:--:--';
-  }
-  
+const loading = ref(false);
+const hasSelection = ref(false);
+
+const classList = ref<Class[]>([]);
+const examList = ref<Exam[]>([]);
+const selectedClass = ref<number | ''>('');
+const selectedExam = ref<Exam | undefined>(undefined);
+
+// 修改：直接使用后端返回的统计数据结构
+const mainClassStats = ref<any>(null);
+
+const summaryData = ref([
+  { icon: markRaw(Trophy), title: '班级最高总分', value: 'N/A', color: '#67C23A' },
+  { icon: markRaw(Tickets), title: '班级平均总分', value: 'N/A', color: '#409EFF' },
+  { icon: markRaw(Compass), title: '优秀率', value: 'N/A', color: '#E6A23C' },
+]);
+
+const distributionPieOption = ref<EChartsOption>({});
+const avgScoreBarOption = ref<EChartsOption>({});
+const subjectRadarOption = ref<EChartsOption>({});
+
+async function fetchInitialData() {
   try {
-    const date = new Date(timeStr);
-    if (isNaN(date.getTime())) {
-      console.warn('formatTime received invalid date string:', timeStr);
-      return timeStr;
-    }
-    // Using a more standard and reliable format
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-  } catch (e) {
-    console.error('Error formatting time:', e, 'Input:', timeStr);
-    return timeStr;
-  }
-}
+    const [classRes, examRes] = await Promise.all([
+      getClassList({ pageSize: 1000 }),
+      getExamList({ pageSize: 1000 })
+    ]);
 
-// *** NEW: Simplified Highlighting Functions ***
-const getOperatorClass = (operator?: string) => {
-  if (!operator) return '';
-  if (operator.toLowerCase() === 'admin') return 'hl-admin';
-  if (operator.toLowerCase() === 'system-cron') return 'hl-system';
-  return 'hl-operator';
-};
+    classList.value = classRes.data.map(c => ({
+      id: c.id,
+      className: c.class_name,
+      teacher: c.teacher,
+      studentCount: c.student_count,
+      description: c.description,
+      createTime: c.create_time,
+    }));
 
-const highlightSimple = (content?: string) => {
-  if (!content) return '';
-  return content
-    .replace(/\b(成功)\b/gi, `<span class="hl-success">$1</span>`)
-    .replace(/\b(失败|错误)\b/gi, `<span class="hl-error">$1</span>`)
-    .replace(/\b(删除|清空)\b/gi, `<span class="hl-delete">$1</span>`);
-};
+    examList.value = examRes.data.list.map(e => ({
+      id: e.id,
+      examName: e.exam_name,
+      examType: e.exam_type,
+      examDate: e.exam_date,
+      startTime: e.start_time,
+      endTime: e.end_time,
+      duration: e.duration,
+      status: e.status,
+      description: e.description,
+      createTime: e.create_time,
+      subjects: e.subjects ? e.subjects.split(',').map(s => s.trim()).filter(s => s) : [],
+      subjectIds: e.subject_ids ? e.subject_ids.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id)) : [],
+      classNames: e.class_names ? e.class_names.split(',').map(cn => cn.trim()).filter(cn => cn) : [],
+      classIds: e.class_ids ? e.class_ids.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id)) : [],
+    }));
 
-// 添加日志
-const addLog = (log: LogEntry) => {
-  // Ensure log has createTime
-  if (!log.createTime) {
-    log.createTime = new Date().toLocaleString();
-  }
-  
-  logs.value.push(log);
-  if (logs.value.length > 1000) {
-    logs.value = logs.value.slice(-1000);
-  }
-  scrollToBottom();
-}
-
-// 滚动到底部
-const scrollToBottom = () => {
-  if (terminalRef.value) {
-    setTimeout(() => {
-      terminalRef.value!.scrollTop = terminalRef.value!.scrollHeight
-    }, 0)
-  }
-}
-
-// 加载历史日志
-const loadHistoryLogs = async () => {
-  try {
-    console.log('调用 API 获取历史日志');
-    const response = await getLogList({ pageSize: 100, page: 1 });
-
-    if (response && response.code === 200 && Array.isArray(response.data)) {
-      const logEntries: LogEntry[] = response.data; 
-
-      const historyLogs = logEntries
-        .sort((a, b) => {
-          const timeA = a.createTime || '0';
-          const timeB = b.createTime || '0';
-          return new Date(timeA).getTime() - new Date(timeB).getTime(); 
-        });
-
-      logs.value = historyLogs;
-      console.log(`成功加载 ${historyLogs.length} 条历史日志`);
-      nextTick(() => {
-         scrollToBottom();
-      });
-    } else {
-      console.error('加载历史日志失败: API 返回无效数据结构或错误代码', response);
-      ElMessage.warning(response?.message || '加载历史日志失败，请检查后端服务或API响应');
-    }
   } catch (error) {
-    console.error('加载历史日志失败 (catch):', error);
-    ElMessage.error('加载历史日志时发生网络或处理错误');
+    ElMessage.error('获取基础数据失败');
+    console.error(error);
   }
 }
 
-// 删除旧日志
-const handleDeleteOldLogs = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '确定要删除数据库中的【所有】系统日志吗？此操作不可恢复！',
-      '警告',
+// 新增：直接从后端统计数据更新概览卡片
+function updateSummaryData(stats: any) {
+  if (!stats) {
+    summaryData.value = [
+      { icon: markRaw(Trophy), title: '班级最高总分', value: 'N/A', color: '#67C23A' },
+      { icon: markRaw(Tickets), title: '班级平均总分', value: 'N/A', color: '#409EFF' },
+      { icon: markRaw(Compass), title: '优秀率', value: 'N/A', color: '#E6A23C' },
+    ];
+    return;
+  }
+
+  summaryData.value = [
+    { icon: markRaw(Trophy), title: '班级最高总分', value: stats.highest_total_score?.toFixed(2) ?? 'N/A', color: '#67C23A' },
+    { icon: markRaw(Tickets), title: '班级平均总分', value: stats.average_total_score?.toFixed(2) ?? 'N/A', color: '#409EFF' },
+    { icon: markRaw(Compass), title: '优秀率', value: stats.excellence_rate ? `${(stats.excellence_rate * 100).toFixed(2)}%` : 'N/A', color: '#E6A23C' },
+  ];
+}
+
+// 新增：直接从后端统计数据更新图表
+function updateCharts(stats: any) {
+  if (!stats || !stats.subject_stats) {
+    distributionPieOption.value = {};
+    avgScoreBarOption.value = {};
+    subjectRadarOption.value = {};
+    return;
+  }
+  
+  const subjectStatsArray = Object.values(stats.subject_stats);
+
+  // Distribution Pie Chart
+  distributionPieOption.value = {
+    tooltip: { trigger: 'item' },
+    legend: { top: '5%', left: 'center', textStyle: { color: isDarkMode.value ? '#ccc' : '#333' } },
+    series: [
       {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-        buttonSize: 'default'
+        name: '成绩分布',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: isDarkMode.value ? '#2c3e50' : '#fff',
+          borderWidth: 2
+        },
+        label: { show: false, position: 'center' },
+        emphasis: { label: { show: true, fontSize: '20', fontWeight: 'bold' } },
+        labelLine: { show: false },
+        data: stats.score_distribution || []
       }
-    );
+    ]
+  };
 
-    // User confirmed
-    try {
-      const response = await apiClearLogs();
-      if (response.code === 200) {
-        logs.value = [];
-        ElMessage.success('所有日志已成功删除');
-      } else {
-        ElMessage.error(response.message || '删除日志失败');
-      }
-    } catch (apiError: any) {
-      console.error('删除日志 API 调用失败:', apiError);
-      ElMessage.error(apiError.message || '删除日志时发生错误');
-    }
+  // Average Score Bar Chart
+  avgScoreBarOption.value = {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: [{ type: 'category', data: Object.keys(stats.average_scores), axisTick: { alignWithLabel: true }, axisLabel: { color: isDarkMode.value ? '#ccc' : '#333' } }],
+    yAxis: [{ type: 'value', axisLabel: { color: isDarkMode.value ? '#ccc' : '#333' } }],
+    series: [{
+      name: '平均分',
+      type: 'bar',
+      barWidth: '60%',
+      data: Object.values(stats.average_scores)
+    }]
+  };
+  
+  const radarIndicators = subjectStatsArray.map((s: any) => ({ name: s.subject, max: s.full_score || 100 }));
+  const radarClassData = subjectStatsArray.map((s: any) => s.average_score);
 
-  } catch (cancel) {
-    // User clicked cancel or closed the dialog
-    ElMessage.info('已取消删除操作');
+  // Subject Radar Chart
+  subjectRadarOption.value = {
+    tooltip: { trigger: 'item' },
+    legend: { data: ['班级平均'], bottom: 5, textStyle: { color: isDarkMode.value ? '#ccc' : '#333' } },
+    radar: {
+      indicator: radarIndicators,
+      shape: 'circle',
+      splitNumber: 5,
+      axisName: {
+          formatter: '{value}',
+          color: isDarkMode.value ? '#ccc' : '#333'
+      },
+    },
+    series: [{
+      name: '学科能力',
+      type: 'radar',
+      data: [
+        { value: radarClassData, name: '班级平均' },
+      ]
+    }]
+  };
+}
+
+// 修改：核心函数，调用新的API
+async function fetchClassReport() {
+  if (!selectedClass.value || !selectedExam.value?.id) {
+    mainClassStats.value = null;
+    hasSelection.value = false;
+    updateSummaryData(null);
+    updateCharts(null);
+    return;
   }
-}
-
-// 导出日志
-const exportLogs = () => {
-  const logText = logs.value
-    .map(log => `[${formatTime(log.createTime)}][${log.type}] ${log.operator ? `${log.operator} ${log.operation} ` : ''}${log.content}`)
-    .join('\n')
   
-  const blob = new Blob([logText], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `system-logs-${new Date().toISOString().slice(0, 10)}.txt`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  loading.value = true;
+  hasSelection.value = true;
   
-  ElMessage.success('日志导出成功')
-}
-
-// 初始化 WebSocket
-const initWebSocket = () => {
   try {
-    socket = io('http://localhost:3000', {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000
-    })
-
-    socket.on('connect', () => {
-      addLog({
-        type: 'system',
-        operation: 'WEBSOCKET',
-        content: 'WebSocket连接成功',
-        operator: 'system',
-        createTime: new Date().toLocaleString()
-      })
-    })
-
-    socket.on('serverLog', (logData: LogEntry) => {
-      // 确保接收到的日志有创建时间
-      if (!logData.createTime) {
-        logData.createTime = new Date().toLocaleString()
-      }
-      addLog(logData)
-    })
-
-    socket.on('connect_error', (error) => {
-      console.error('WebSocket连接失败:', error)
-      addLog({
-        type: 'error', // Use 'error' type for consistency
-        operation: 'WEBSOCKET_ERROR', // More specific operation
-        content: `WebSocket连接失败: ${error.message}. 无法接收实时日志。`, // More informative message
-        operator: 'system',
-        createTime: new Date().toLocaleString()
-      })
-      // Do NOT generate mock logs on connection error
-      // if (logs.value.length <= 1) {
-      //   generateMockLogs();
-      // }
-       ElMessage.error('WebSocket 连接失败，无法接收实时日志'); // Show error to user
-    })
+    const params = { classId: selectedClass.value, examId: selectedExam.value.id };
+    const res = await getClassScoreStats(params);
+    
+    if (res.code === 200 && res.data && res.data.length > 0) {
+      // 假设API返回的是一个数组，我们取第一项作为我们班级的统计数据
+      // 后端应该确保在指定 classId 和 examId 时只返回一条记录
+      mainClassStats.value = res.data[0]; 
+      ElMessage.success('班级报表加载成功');
+    } else {
+      mainClassStats.value = null;
+      ElMessage.warning(res.message || '未找到该班级在本次考试的统计数据');
+    }
   } catch (error) {
-    console.error('WebSocket初始化失败:', error);
-    ElMessage.error('WebSocket 初始化失败'); // Show error to user
-    // Do NOT generate mock logs here
-    // if (logs.value.length === 0) {
-    //   generateMockLogs();
-    // }
+    mainClassStats.value = null;
+    ElMessage.error('加载班级报表失败');
+    console.error(error);
+  } finally {
+    loading.value = false;
   }
 }
 
-// 组件挂载与卸载
-onMounted(async () => {
-  await loadHistoryLogs(); // Load real history first
+// 监听 mainClassStats 的变化，自动更新UI
+watch(mainClassStats, (newStats) => {
+  updateSummaryData(newStats);
+  updateCharts(newStats);
+}, { deep: true });
 
-  // Remove the check that generates mock logs if history is empty
-  // if (logs.value.length === 0) {
-  //   generateMockLogs();
-  // }
+onMounted(() => {
+  fetchInitialData();
+});
 
-  initWebSocket(); // Then connect WebSocket
-})
-
-onUnmounted(() => {
-  if (socket) {
-    socket.disconnect()
-  }
-})
+// 监听下拉框变化，触发报表获取
+watch([selectedClass, selectedExam], fetchClassReport, { immediate: true });
 </script>
 
 <style lang="scss" scoped>
@@ -395,6 +391,11 @@ html:not(.dark) .log-time {
   :deep(.hl-success) { color: #67c23a; font-weight: bold; }
   :deep(.hl-error) { color: #f56c6c; font-weight: bold; }
   :deep(.hl-delete) { color: #E53935; font-weight: 500; }
+}
+
+/* Dark mode text color override */
+.dark .log-content {
+  color: #fff;
 }
 
 .log-stats {

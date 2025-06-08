@@ -56,7 +56,7 @@
 
 ## 项目截图
 
-| 仪表盘 | 登录页特性 |
+| 仪表盘 | 登录页 |
 | :---: | :---: |
 | <img src="docs/dashboard.png" width="400"/> | <img src="docs/login-feature.png" width="400"/> |
 | **学生门户 - 通知公告** |

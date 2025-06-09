@@ -144,7 +144,7 @@ import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus
 import { exportToExcel } from '@/utils/export'
 import { getClassList } from '@/api/class'
 import type { StudentItem, StudentItemResponse, StudentSubmitData, ClassItemResponse, ApiResponse } from '@/types/common'
-import type { Pagination } from '@/types/response'
+import type { Pagination } from '@/types/common'
 import dayjs from 'dayjs'
 
 // 新增：班级选项列表

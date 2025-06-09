@@ -18,8 +18,16 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="last_reply_at" label="最后更新" width="180" align="center" />
-        <el-table-column prop="created_at" label="发起时间" width="180" align="center" />
+        <el-table-column prop="last_reply_at" label="最后更新" width="180" align="center">
+          <template #default="{ row }">
+            <span>{{ formatDateTime(row.last_reply_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="发起时间" width="180" align="center">
+          <template #default="{ row }">
+            <span>{{ formatDateTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
 
         <el-table-column label="操作" width="120" fixed="right" align="center">
           <template #default="{ row }">

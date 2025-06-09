@@ -11,6 +11,7 @@ const examService = require('./examService');
 const deptService = require('./deptService');
 const classService = require('./classService');
 const studentService = require('./studentService');
+const scoreService = require('./scoreService');
 const subjectService = require('./subjectService');
 const logService = require('./logService');
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken

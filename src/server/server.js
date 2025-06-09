@@ -1872,12 +1872,44 @@ app.post(`${apiPrefix}/score/save`, authenticateToken, async (req, res) => {
   }
 });
 
-// 新增：更新考试信息 (需要认证)
+// **新增/修改：添加考试 (需要认证)**
+app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
+  try {
+    const examData = req.body;
+    const operator = req.user.username;
+    console.log('[Server] 收到添加考试请求:', examData, '操作人:', operator);
+
+    // --- 简化验证，将复杂逻辑移至 Service ---
+    if (!examData.exam_name || !examData.exam_type || !examData.start_time || !examData.duration) {
+      return res.status(400).json({ code: 400, message: '考试名称、类型、开始时间 和 时长 不能为空' });
+    }
+    
+    // --- 直接将请求体传递给 Service ---
+    const newExam = await examService.addExam(examData, operator); 
+
+    res.status(201).json({ code: 201, message: '考试添加成功', data: newExam });
+
+  } catch (error) {
+    console.error('[Server] 添加考试失败:', error);
+    // --- 统一错误处理 ---
+    if (error.message && (error.message.includes('不能为空') || error.message.includes('格式无效') || error.message.includes('必须是有效的数组'))) {
+        return res.status(400).json({ code: 400, message: error.message });
+    }
+    res.status(500).json({
+      code: 500,
+      message: '添加考试时发生服务器内部错误: ' + error.message,
+      data: null
+    });
+  }
+});
+
+
+// **新增/修改：更新考试信息 (需要认证)**
 app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
   try {
     const examId = parseInt(req.params.id, 10);
     const examData = req.body;
-    const operator = req.user.username; // Get operator
+    const operator = req.user.username;
 
     console.log(`[Server] 收到更新考试请求: ID=${examId}, 操作人: ${operator}, 数据:`, examData);
 
@@ -1885,11 +1917,7 @@ app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
       return res.status(400).json({ code: 400, message: '无效的考试ID' });
     }
     
-    // delete examData.id; // examService.updateExam handles this
-    // if (Array.isArray(examData.subjects)) { // examService.updateExam handles this
-    //    examData.subjects = examData.subjects.join(',');
-    // }
-    
+    // --- 直接将请求体传递给 Service ---
     const updatedExam = await examService.updateExam(examId, examData, operator);
 
     if (updatedExam) {
@@ -1900,17 +1928,18 @@ app.put(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error(`[Server] 更新考试失败 (ID: ${req.params.id}):`, error);
-     if (error.message && (error.message.includes('格式无效') || error.message.includes('不能为空'))) {
-       res.status(400).json({ code: 400, message: error.message });
-     } else {
+    // --- 统一错误处理 ---
+    if (error.message && (error.message.includes('格式无效') || error.message.includes('不能为空') || error.message.includes('必须是有效的数组'))) {
+       return res.status(400).json({ code: 400, message: error.message });
+    }
     res.status(500).json({ 
       code: 500,
-         message: '更新考试信息时发生服务器内部错误: ' + error.message,
-        data: null
-      });
-    }
+      message: '更新考试信息时发生服务器内部错误: ' + error.message,
+      data: null
+    });
   }
 });
+
 
 // ... (Rest of the routes for employee, exam, dept, class, student, score, log, user) ...
 // IMPORTANT: Ensure authenticateToken and potentially isAdmin are applied to relevant routes
@@ -1999,63 +2028,6 @@ async function startServer() {
 }
 
 // startServer(); // <--- 注释掉或删除此处的调用
-
-// **新增：添加考试 (需要认证)**
-app.post(`${apiPrefix}/exam/add`, authenticateToken, async (req, res) => {
-  try {
-    const examDataFromRequest = req.body;
-    const operator = req.user.username;
-    console.log('[Server] 收到添加考试请求:', examDataFromRequest, '操作人:', operator);
-
-    // --- Basic Validation (using frontend field names) ---
-    if (!examDataFromRequest.exam_name || !examDataFromRequest.exam_type || !examDataFromRequest.start_time || !examDataFromRequest.end_time) {
-      return res.status(400).json({ code: 400, message: '考试名称、类型、开始时间和结束时间不能为空' });
-    }
-    
-    // --- Data Transformation for Service Layer ---
-    let duration = null;
-    try {
-        const start = dayjs(examDataFromRequest.start_time);
-        const end = dayjs(examDataFromRequest.end_time);
-        if (start.isValid() && end.isValid() && end.isAfter(start)) {
-            duration = end.diff(start, 'minute'); // Calculate duration in minutes
-    } else {
-            return res.status(400).json({ code: 400, message: '结束时间必须晚于开始时间或日期格式无效' });
-        }
-    } catch (e) {
-        return res.status(400).json({ code: 400, message: '处理日期时出错，请检查格式' });
-    }
-
-    const examDataForService = {
-        exam_name: examDataFromRequest.exam_name,
-        exam_type: examDataFromRequest.exam_type,
-        exam_date: examDataFromRequest.start_time, // Map start_time to exam_date
-        duration: duration,                         // Use calculated duration
-        subjects: examDataFromRequest.subjects || '', // Pass subjects if available, default to empty string
-        status: examDataFromRequest.status !== undefined ? examDataFromRequest.status : 0, // Pass status or default
-        remark: examDataFromRequest.description || null // Map description to remark
-    };
-    console.log('[Server] 准备传递给 examService.addExam 的数据:', examDataForService);
-
-    // --- Call Service with transformed data ---
-    const newExam = await examService.addExam(examDataForService, operator); 
-
-    res.status(201).json({ code: 201, message: '考试添加成功', data: newExam });
-
-  } catch (error) {
-    console.error('[Server] 添加考试失败:', error);
-    // Keep existing error handling for validation/DB errors from service
-    if (error.message && (error.message.includes('不能为空') || error.message.includes('格式无效'))) {
-        res.status(400).json({ code: 400, message: error.message });
-    } else {
-    res.status(500).json({
-      code: 500,
-        message: '添加考试时发生服务器内部错误: ' + error.message,
-      data: null
-    });
-  }
-  }
-});
 
 // **新增：删除考试 (需要认证)**
 app.delete(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
@@ -2612,3 +2584,35 @@ app.delete(`${apiPrefix}/subject/:id`, authenticateToken, isAdmin, async (req, r
 
 // 调用 startServer 确保在所有路由定义之后
 startServer();
+
+// 新增：根据ID获取单个考试详情
+app.get(`${apiPrefix}/exam/:id`, authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ code: 400, message: '无效的考试ID' });
+    }
+    console.log(`[Server] 获取考试详情, ID: ${id}`);
+    const examDetail = await examService.getExamDetail(id);
+    if (examDetail) {
+      res.json({
+        code: 200,
+        message: '获取考试详情成功',
+        data: examDetail
+      });
+    } else {
+      res.status(404).json({
+        code: 404,
+        message: '未找到指定的考试',
+        data: null
+      });
+    }
+  } catch (error) {
+    console.error(`获取考试详情失败 (ID: ${req.params.id}):`, error);
+    res.status(500).json({
+      code: 500,
+      message: '获取考试详情时发生内部错误: ' + error.message,
+      data: null
+    });
+  }
+});

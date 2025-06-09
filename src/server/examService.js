@@ -1,4 +1,4 @@
-// src/server/examService.js (Final Corrected Version)
+// src/server/examService.js
 
 const db = require('./db');
 const logService = require('./logService');
@@ -163,10 +163,10 @@ async function getExamDetail(id) {
         e.exam_name, 
         e.exam_type, 
         DATE_FORMAT(e.exam_date, '%Y-%m-%d %H:%i:%s') as start_time,
-        DATE_FORMAT(DATE_ADD(e.exam_date, INTERVAL e.duration MINUTE), '%Y-%m-%d %H:%i:%s') as end_time,
         e.duration,
+        e.status,
         e.remark as description,
-        GROUP_CONCAT(DISTINCT es.subject_id) as subjects,
+        GROUP_CONCAT(DISTINCT es.subject_id) as subjectIds,
         GROUP_CONCAT(DISTINCT ecl.class_id) as classIds
       FROM exam e
       LEFT JOIN exam_subject es ON e.id = es.exam_id
@@ -177,8 +177,10 @@ async function getExamDetail(id) {
     const [exam] = await db.query(examQuery, [id]);
     if (!exam) return null;
     
-    exam.subjects = exam.subjects ? exam.subjects.split(',').map(Number) : [];
+    // 将从数据库获取的字符串转换为数字数组
+    exam.subjectIds = exam.subjectIds ? exam.subjectIds.split(',').map(Number) : [];
     exam.classIds = exam.classIds ? exam.classIds.split(',').map(Number) : [];
+    
     return exam;
   } catch (error) {
     console.error(`获取考试详情失败 (ID: ${id}):`, error);
@@ -188,7 +190,7 @@ async function getExamDetail(id) {
 
 /**
  * 新增考试
- * @param {Object} examData 考试数据
+ * @param {Object} examData 考试数据, 包含 subjectIds 和 classIds
  * @param {string} operator 操作人
  * @returns {Promise<Object>} 新增的考试对象
  */
@@ -197,12 +199,22 @@ async function addExam(examData, operator) {
   await connection.beginTransaction();
 
   try {
-    const { subjects, classIds, start_time, duration, description, ...examInfo } = examData;
+    const { exam_name, exam_type, start_time, duration, description, subjectIds, classIds, status } = examData;
+
+    // 数据验证
+    if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
+      throw new Error('考试科目 subjectIds 必须是有效的数组且不能为空');
+    }
+    if (!Array.isArray(classIds) || classIds.length === 0) {
+      throw new Error('考试班级 classIds 必须是有效的数组且不能为空');
+    }
 
     const examRecord = {
-      ...examInfo,
+      exam_name,
+      exam_type,
       exam_date: dayjs(start_time).format('YYYY-MM-DD HH:mm:ss'),
-      duration: duration,
+      duration,
+      status: status !== undefined ? status : 0, // 默认状态为 0 (例如: 未发布)
       remark: description
     };
     
@@ -210,15 +222,13 @@ async function addExam(examData, operator) {
     const [result] = await connection.query(insertExamQuery, examRecord);
     const newExamId = result.insertId;
 
-    if (subjects && subjects.length > 0) {
-      const subjectLinks = subjects.map(subjectId => [newExamId, subjectId]);
-      await connection.query('INSERT INTO exam_subject (exam_id, subject_id) VALUES ?', [subjectLinks]);
-    }
+    // 插入 exam_subject 关联表
+    const subjectLinks = subjectIds.map(subjectId => [newExamId, subjectId]);
+    await connection.query('INSERT INTO exam_subject (exam_id, subject_id) VALUES ?', [subjectLinks]);
 
-    if (classIds && classIds.length > 0) {
-      const classLinks = classIds.map(classId => [newExamId, classId]);
-      await connection.query('INSERT INTO exam_class_link (exam_id, class_id) VALUES ?', [classLinks]);
-    }
+    // 插入 exam_class_link 关联表
+    const classLinks = classIds.map(classId => [newExamId, classId]);
+    await connection.query('INSERT INTO exam_class_link (exam_id, class_id) VALUES ?', [classLinks]);
 
     await connection.commit();
     
@@ -242,7 +252,7 @@ async function addExam(examData, operator) {
 /**
  * 更新考试信息
  * @param {number} id 考试ID
- * @param {Object} examData 考试更新数据
+ * @param {Object} examData 考试更新数据, 包含 subjectIds 和 classIds
  * @param {string} operator 操作人
  * @returns {Promise<Object>} 更新后的考试信息
  */
@@ -251,19 +261,19 @@ async function updateExam(id, examData, operator) {
   await connection.beginTransaction();
 
   try {
-    const { subjects, classIds, start_time, duration, description, ...examInfo } = examData;
+    const { exam_name, exam_type, start_time, duration, description, subjectIds, classIds, status } = examData;
     
     const fieldsToUpdate = [];
     const values = [];
 
     // Manually map fields to avoid SQL injection and incorrect column names
-    if (examInfo.exam_name !== undefined) {
+    if (exam_name !== undefined) {
       fieldsToUpdate.push('exam_name = ?');
-      values.push(examInfo.exam_name);
+      values.push(exam_name);
     }
-    if (examInfo.exam_type !== undefined) {
+    if (exam_type !== undefined) {
       fieldsToUpdate.push('exam_type = ?');
-      values.push(examInfo.exam_type);
+      values.push(exam_type);
     }
     if (start_time) {
       fieldsToUpdate.push('exam_date = ?');
@@ -273,27 +283,35 @@ async function updateExam(id, examData, operator) {
       fieldsToUpdate.push('duration = ?');
       values.push(duration);
     }
+    if (status !== undefined) {
+        fieldsToUpdate.push('status = ?');
+        values.push(status);
+    }
     if (description !== undefined) {
       fieldsToUpdate.push('remark = ?');
       values.push(description);
     }
     
+    // 更新 exam 主表
     if (fieldsToUpdate.length > 0) {
         const updateExamQuery = `UPDATE exam SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
         values.push(id);
         await connection.query(updateExamQuery, values);
     }
     
-    // Update link tables
-    if (subjects) {
+    // 更新 exam_subject 关联表 (先删后增)
+    if (subjectIds) {
+      if (!Array.isArray(subjectIds)) throw new Error('考试科目 subjectIds 必须是有效的数组');
       await connection.query('DELETE FROM exam_subject WHERE exam_id = ?', [id]);
-      if (subjects.length > 0) {
-        const subjectLinks = subjects.map(subjectId => [id, subjectId]);
+      if (subjectIds.length > 0) {
+        const subjectLinks = subjectIds.map(subjectId => [id, subjectId]);
         await connection.query('INSERT INTO exam_subject (exam_id, subject_id) VALUES ?', [subjectLinks]);
       }
     }
 
+    // 更新 exam_class_link 关联表 (先删后增)
     if (classIds) {
+      if (!Array.isArray(classIds)) throw new Error('考试班级 classIds 必须是有效的数组');
       await connection.query('DELETE FROM exam_class_link WHERE exam_id = ?', [id]);
       if (classIds.length > 0) {
         const classLinks = classIds.map(classId => [id, classId]);

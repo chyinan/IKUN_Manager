@@ -175,7 +175,7 @@ const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
   id: item.id,
   examName: item.exam_name,
   examType: item.exam_type,
-  examDate: item.exam_date,
+  examDate: item.exam_date, // This field should contain the full start datetime string
   duration: item.duration,
   status: item.status,
   description: item.remark,
@@ -301,18 +301,19 @@ const resetForm = () => {
 const handleOpenDialog = async (exam: ExamType | null = null) => {
   if (exam) {
     dialogTitle.value = '编辑考试';
+    const examDateTime = exam.examDate ? dayjs(exam.examDate).toDate() : null;
+    
     examForm.value = {
       id: exam.id,
       exam_name: exam.examName,
       exam_type: exam.examType,
-      exam_date: exam.examDate ? dayjs(exam.examDate).toDate() : null,
-      start_time: exam.startTime ? dayjs(`${exam.examDate} ${exam.startTime}`).toDate() : null,
+      exam_date: examDateTime,
+      start_time: examDateTime,
       duration: exam.duration,
       description: exam.description || '',
       classIds: exam.classIds,
       subjectIds: exam.subjectIds,
     };
-    console.log('test');
   } else {
     dialogTitle.value = '新建考试';
     resetForm();
@@ -326,17 +327,19 @@ const handleSubmit = async () => {
     if (valid) {
       submitLoading.value = true;
       try {
-        const formData: Partial<ExamFormData> = {
+        // Construct the payload with all necessary fields, including IDs
+        const payload: Partial<ExamFormData> = {
           ...examForm.value,
-          exam_date: examForm.value.exam_date,
-          start_time: examForm.value.start_time,
+          // Ensure subjectIds and classIds are included in the submission
+          subjectIds: examForm.value.subjectIds || [],
+          classIds: examForm.value.classIds || []
         };
         
         if (examForm.value.id) {
-          await updateExam(examForm.value.id, formData);
+          await updateExam(examForm.value.id, payload);
           ElMessage.success('更新成功');
         } else {
-          await addExam(formData);
+          await addExam(payload);
           ElMessage.success('添加成功');
         }
         dialogVisible.value = false;
@@ -405,4 +408,4 @@ const getStatusTagType = (status: string) => {
   justify-content: flex-end;
   margin-top: 20px;
 }
-</style> 
+</style>

@@ -304,7 +304,7 @@ async function fetchInitialData() {
     ]);
 
     // Defensive check for class list data structure
-    const classListData = Array.isArray(classRes.data) ? classRes.data : classRes.data?.list || [];
+    const classListData = Array.isArray(classRes.data) ? classRes.data : (classRes.data && (classRes.data as any).list ? (classRes.data as any).list : []);
     classList.value = classListData.map((c: any) => ({
       id: c.id,
       className: c.class_name,

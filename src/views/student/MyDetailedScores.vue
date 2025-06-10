@@ -254,8 +254,8 @@ const handleExamNameChange = (examId: number | null) => {
 const initRadarChart = () => {
   if (radarChartRef.value && scoreReport.value?.subject_details) {
     const indicators = scoreReport.value.subject_details.map(item => ({
-      name: item.subject,
-      max: item.full_score || 100
+      name: item.subject_name,
+      max: 100
     }));
     const studentScores = scoreReport.value.subject_details.map(item => item.student_score);
     const classAvgScores = scoreReport.value.subject_details.map(item => item.class_average_score);

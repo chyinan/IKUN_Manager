@@ -176,9 +176,10 @@ const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
   examName: item.exam_name,
   examType: item.exam_type,
   examDate: item.exam_date, // This field should contain the full start datetime string
+  startTime: item.start_time,
   duration: item.duration,
   status: item.status,
-  description: item.remark,
+  description: item.description,
   createTime: item.create_time,
   subjects: item.subjects ? item.subjects.split(',') : [],
   subjectIds: item.subject_ids ? item.subject_ids.split(',').map(Number) : [],

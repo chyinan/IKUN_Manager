@@ -151,14 +151,14 @@ const handleSubmit = () => {
   formRef.value?.validate(async (valid) => {
     if (valid) {
       const payload = {
-        name: formData.value.subject_name,
+        name: formData.value.subject_name!,
         subject_code: formData.value.subject_code,
       };
 
       try {
         if (currentSubjectId !== null) {
           // 更新
-          await updateSubject(currentSubjectId, payload);
+          await updateSubject(currentSubjectId, payload as { name: string; subject_code?: string });
           ElMessage.success('更新成功');
         } else {
           // 新增

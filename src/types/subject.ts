@@ -5,8 +5,9 @@
  */
 export interface SubjectInfo {
   id: number;
-  name: string;
-  description?: string;
+  subject_name: string;
+  subject_code?: string;
   create_time?: string;
   update_time?: string;
 }
+

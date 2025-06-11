@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.StudentMapper">
+
+    <resultMap id="StudentResultMap" type="com.ikunmanager.model.Student">
+        <id property="id" column="id"/>
+        <result property="studentId" column="student_id"/>
+        <result property="name" column="name"/>
+        <result property="gender" column="gender"/>
+        <result property="classId" column="class_id"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="userId" column="user_id"/>
+        <result property="joinDate" column="join_date"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="StudentResultMap">
+        SELECT * FROM student
+    </select>
+
+    <select id="findById" resultMap="StudentResultMap">
+        SELECT * FROM student WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.ikunmanager.model.Student" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student (student_id, name, gender, class_id, phone, email, user_id, join_date, create_time, update_time)
+        VALUES (#{studentId}, #{name}, #{gender}, #{classId}, #{phone}, #{email}, #{userId}, #{joinDate}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.model.Student">
+        UPDATE student SET
+        student_id = #{studentId},
+        name = #{name},
+        gender = #{gender},
+        class_id = #{classId},
+        phone = #{phone},
+        email = #{email},
+        user_id = #{userId},
+        join_date = #{joinDate},
+        update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM student WHERE id = #{id}
+    </delete>
+
+</mapper>

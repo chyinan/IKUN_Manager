@@ -1,17 +1,16 @@
 package com.ikunmanager.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ikunmanager.config.MyBatisConfig;
 import com.ikunmanager.mapper.StudentMapper;
 import com.ikunmanager.model.Student;
-import com.ikunmanager.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,8 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasSize;
 
-@WebMvcTest(controllers = StudentController.class,
-        excludeAutoConfiguration = {MyBatisConfig.class})
+import com.ikunmanager.IkunManagerApplication; // 新增导入
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc; // 新增导入
+@SpringBootTest(classes = IkunManagerApplication.class)
+@AutoConfigureMockMvc // 新增
 @WithMockUser
 public class StudentControllerTest {
 
@@ -36,12 +37,6 @@ public class StudentControllerTest {
 
     @MockBean
     private StudentMapper studentMapper;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
-
-    @MockBean
-    private UserDetailsService userDetailsService;
 
     @Autowired
     private ObjectMapper objectMapper;

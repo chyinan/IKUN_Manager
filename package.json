@@ -1,6 +1,7 @@
 {
   "name": "ikun-manager-server",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --host",
     "build": "run-p type-check build-only",

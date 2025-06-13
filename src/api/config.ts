@@ -6,7 +6,7 @@ import request from '@/utils/request'
 import type { ApiResponse } from '@/types/common'
 
 // API服务器地址
-export const apiUrl = 'http://localhost:3000/api';
+export const apiUrl = 'http://localhost:8081/api';
 
 // 超时设置（毫秒）
 export const timeout = 5000;

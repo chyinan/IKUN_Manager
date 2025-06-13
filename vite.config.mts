@@ -21,24 +21,24 @@ export default defineConfig(({ mode }) => {
         'element-plus/lib/locale/lang/zh-cn': resolve(__dirname, 'node_modules/element-plus/lib/locale/lang/zh-cn.js')
       }
     },
-    base: './',
+    base: '/',
     optimizeDeps: {
       include: [
         'vue-router'
       ]
     },
     server: {
-      port: 5175,
+      port: 5173,
       host: '0.0.0.0',
       open: true,
       cors: true,
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:8081',
           changeOrigin: true,
         },
         '/uploads': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:8081',
           changeOrigin: true,
         }
       }

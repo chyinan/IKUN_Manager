@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.DepartmentMapper">
+
+    <resultMap id="DepartmentResultMap" type="com.ikunmanager.model.Department">
+        <id property="id" column="id"/>
+        <result property="deptName" column="dept_name"/>
+        <result property="manager" column="manager"/>
+        <result property="description" column="description"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="memberCount" column="member_count"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="DepartmentResultMap">
+        SELECT
+            d.id,
+            d.dept_name,
+            d.manager,
+            d.description,
+            d.create_time,
+            d.update_time,
+            COUNT(e.id) AS member_count
+        FROM
+            department d
+        LEFT JOIN
+            employee e ON d.id = e.dept_id
+        <where>
+            <if test="name != null and name != ''">
+                AND d.dept_name LIKE CONCAT('%', #{name}, '%')
+            </if>
+        </where>
+        GROUP BY
+            d.id, d.dept_name, d.manager, d.description, d.create_time, d.update_time
+        ORDER BY
+            d.id DESC
+    </select>
+
+    <select id="findById" resultMap="DepartmentResultMap">
+        SELECT
+            d.id,
+            d.dept_name,
+            d.manager,
+            d.description,
+            d.create_time,
+            d.update_time,
+            (SELECT COUNT(*) FROM employee WHERE dept_id = d.id) AS member_count
+        FROM
+            department d
+        WHERE
+            d.id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO department (dept_name, manager, description, create_time, update_time)
+        VALUES (#{deptName}, #{manager}, #{description}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="update">
+        UPDATE department
+        SET
+            dept_name = #{deptName},
+            manager = #{manager},
+            description = #{description},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM department WHERE id = #{id}
+    </delete>
+
+    <select id="findByDeptName" resultMap="DepartmentResultMap">
+        SELECT id, dept_name, manager, description, create_time, update_time FROM department WHERE dept_name = #{deptName}
+    </select>
+
+    <delete id="batchDelete">
+        DELETE FROM department WHERE id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <insert id="batchInsert" useGeneratedKeys="false">
+        INSERT INTO department (dept_name, manager, description, create_time, update_time)
+        VALUES
+        <foreach item="department" collection="departments" separator=",">
+            (#{department.deptName}, #{department.manager}, #{department.description}, #{department.createTime}, #{department.updateTime})
+        </foreach>
+    </insert>
+</mapper>

@@ -12,7 +12,7 @@ import { useRouter } from 'vue-router'
 // 创建axios实例
 const service: AxiosInstance = axios.create({
   // 默认使用模拟数据，如果需要连接真实后端，请取消下面一行的注释并注释掉baseURL: ''
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'http://localhost:8081/api',
   //baseURL: '',
   timeout: 5000
 })
@@ -59,22 +59,49 @@ service.interceptors.response.use(
 
     const res = response.data // res should be our { code, message, data } structure
     
-    // Check if it's a blob response (e.g., file download) FIRST
-    if (response.request?.responseType === 'blob') {
-      // For blob responses, return the raw AxiosResponse data directly
-      // because the caller (e.g., export function) needs the Blob object.
-      console.log('[Response Interceptor] Blob response detected. Returning response.data.');
-      return response.data; // Return the Blob directly
+    // 特殊处理登录接口 /auth/login 和 /user/info，因为它们直接返回数据，而不是统一响应格式
+    const requestUrl = response.config.url || '';
+    if (requestUrl.includes('/auth/login')) {
+      if (res && res.accessToken && res.tokenType) {
+        console.log('[Response Interceptor] Login successful, returning raw token data:', res);
+        return res; // Directly return the response data for the login API
+      } else {
+        console.error('[Response Interceptor] Login response format invalid:', res);
+        ElMessage({ message: '登录响应格式无效', type: 'error', duration: 5 * 1000 });
+        return Promise.reject(new Error('登录响应格式无效'));
+      }
+    }
+    // Special handling for /user/info
+    if (requestUrl.includes('/user/info')) {
+      if (res && res.id && res.username) {
+         console.log('[Response Interceptor] User info response detected, wrapping it in standard format.');
+         // Manually wrap the response in the expected format for the store
+         return {
+           code: 200,
+           message: '成功',
+           data: res
+         };
+      }
     }
 
-    // For regular JSON responses, check the business code inside res
-    // Check if 'res' itself is valid and has a 'code' property
-    if (res && typeof res === 'object' && res.hasOwnProperty('code')) {
-        if (res.code === 200 || res.code === 201) {
-          // Success case: Return the business data directly
-          console.log(`[Response Interceptor] Success code ${res.code}. Returning res (response.data):`, res);
-          return res; // <-- CORRECTED: Return the business response data
-        } else {
+    // Check if it's a blob response (e.g., file download) FIRST
+    if (res instanceof Blob) {
+      console.log('[Response Interceptor] Blob response detected, returning it directly.');
+      return res;
+    }
+
+    // NEW: Generic wrapper for non-standard successful responses from Java backend
+    if (response.status === 200 && res.code === undefined) {
+      console.log('[Response Interceptor] Non-standard success response detected, wrapping it.', res);
+      return {
+        code: 200,
+        message: '成功',
+        data: res 
+      };
+    }
+
+    // Standard API response validation
+    if (res.code !== 200) {
           // Business error case (e.g., code 400, 401, 403, 500 from backend API logic)
           console.warn(`[Response Interceptor] Business error code ${res.code}. Rejecting promise.`);
           let errorMessage = res.message || '未知后端业务错误';
@@ -99,12 +126,6 @@ service.interceptors.response.use(
           ElMessage({ message: errorMessage, type: 'error', duration: 5 * 1000 });
           // Reject with an error object containing the code for potential handling
           return Promise.reject(Object.assign(new Error(errorMessage), { code: res.code }));
-        }
-    } else {
-        // Handle cases where response.data is not in the expected { code, message, ... } format
-        console.error('[Response Interceptor] Invalid response data structure:', res);
-        ElMessage({ message: '收到了无效的服务器响应格式', type: 'error', duration: 5 * 1000 });
-        return Promise.reject(new Error('无效的服务器响应格式'));
     }
   },
   (error) => {

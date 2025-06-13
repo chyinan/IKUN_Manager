@@ -27,7 +27,7 @@ export interface PasswordForm {
  */
 export const login = (data: LoginForm): Promise<ApiResponse<LoginData>> => {
   console.log('调用login API, 数据:', data);
-  return request.post<ApiResponse<LoginData>>('/user/login', data)
+  return request.post<ApiResponse<LoginData>>('/auth/login', data)
     .catch(error => {
         console.error('[API user.ts] Login failed:', error);
         throw error;

@@ -37,3 +37,7 @@ coverage
 *.sln
 *.sw?
 .VSCodeCounter/*
+java-backend/target/*
+playwright-report/*
+test-results/*
+

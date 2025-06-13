@@ -66,44 +66,31 @@ export const useUserStore = defineStore('user', () => {
   // Login Action (修正)
   const loginAction = async (credentials: { username: string; password: string }) => {
     try {
-      const res: ApiResponse<LoginData> = await login(credentials);
+      const res: any = await login(credentials); // Change type to any to handle direct token response
       console.log('[userStore loginAction] Received API response:', JSON.stringify(res)); // Log the full response
 
-      // Log the values being checked in the condition
-      console.log(`[userStore loginAction] Checking condition: res.code === 200 (${res.code === 200})`);
-      console.log(`[userStore loginAction] Checking condition: res.data?.token exists (${!!res.data?.token})`);
-      console.log(`[userStore loginAction] Checking condition: res.data?.id exists (${!!res.data?.id})`);
-      console.log(`[userStore loginAction] Checking condition: res.data?.username exists (${!!res.data?.username})`);
-      console.log('[userStore loginAction] res.data.token value:', res.data?.token);
-      console.log('[userStore loginAction] res.data (user info context):', JSON.stringify(res.data));
-
-      if (res.code === 200 && res.data?.token && res.data?.id && res.data?.username) {
-        const receivedToken = res.data.token;
-        const receivedApiUserInfo = res.data; 
+      // Instead of checking res.code, res.data.token, etc., check for accessToken directly
+      if (res && res.accessToken && res.tokenType) {
+        const receivedToken = res.accessToken; // Directly get accessToken
         
-        console.log('[userStore loginAction] Login successful, token received (inside if block):', receivedToken);
-        console.log('[userStore loginAction] Received user info from API (inside if block):', JSON.stringify(receivedApiUserInfo));
+        console.log('[userStore loginAction] Login successful, token received:', receivedToken);
 
-        const fullUserInfo: UserInfo = {
-          id: receivedApiUserInfo.id,
-          username: receivedApiUserInfo.username,
-          email: receivedApiUserInfo.email || undefined,
-          avatar: receivedApiUserInfo.avatar || avatar.value || '',
-          role: receivedApiUserInfo.role, 
-          roles: receivedApiUserInfo.role ? [receivedApiUserInfo.role] : [],         
-          permissions: receivedApiUserInfo.permissions || [],
-          createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
-          studentInfo: receivedApiUserInfo.studentInfo || null,
-          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username,
-          phone: receivedApiUserInfo.phone || null
-        };
+        // Store token in localStorage
+        localStorage.setItem('token', receivedToken);
+        token.value = receivedToken; // Update Pinia state immediately
 
-        _updateState(receivedToken, fullUserInfo);
-        
-        console.log('[userStore loginAction] Returning true from success path.');
-        return true;
+        // After token is stored, fetch full user info
+        const userInfoFetched = await getUserInfoAction();
+        if (userInfoFetched) {
+          console.log('[userStore loginAction] User info fetched successfully. Returning true.');
+          return true;
+        } else {
+          console.error('[userStore loginAction] Failed to fetch user info after login.');
+          // Even if token is received, if user info cannot be fetched, login is considered failed
+          return false;
+        }
       } else {
-        const errorMsg = res?.message || '登录失败: 响应数据格式无效或缺少token/用户信息';
+        const errorMsg = res?.message || '登录失败: 响应数据格式无效或缺少token';
         console.error('[userStore loginAction] Login condition failed. Error message:', errorMsg, 'Full Response Payload:', JSON.stringify(res));
         console.log('[userStore loginAction] Returning false due to failed condition.');
         return false;
@@ -193,13 +180,13 @@ export const useUserStore = defineStore('user', () => {
   const resetState = () => {
     console.log('[userStore resetState] Resetting user state...');
     token.value = ''
-    userInfo.value = null 
+    userInfo.value = null
     username.value = ''
     avatar.value = ''
     roles.value = []
     permissions.value = []
     localStorage.removeItem('token')
-    localStorage.removeItem('user_avatar_url') 
+    localStorage.removeItem('user_avatar_url')
     localStorage.removeItem('user-info'); // Ensure this is here from previous steps
     sessionStorage.removeItem(USER_INFO_KEY); // Clear sessionStorage too
 
@@ -209,6 +196,22 @@ export const useUserStore = defineStore('user', () => {
     });
     console.log('[userStore resetState] Redirection to login initiated (or failed if error above).');
   }
+
+  // New: Clear All Auth Data (for testing/debugging purposes)
+  const clearAllAuthData = () => {
+    console.log('[userStore clearAllAuthData] Clearing all authentication related data...');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user_avatar_url');
+    localStorage.removeItem('user-info');
+    sessionStorage.removeItem(USER_INFO_KEY); // Assuming USER_INFO_KEY resolves to 'user_info'
+    token.value = '';
+    userInfo.value = null;
+    username.value = '';
+    avatar.value = '';
+    roles.value = [];
+    permissions.value = [];
+    console.log('[userStore clearAllAuthData] All authentication related data cleared.');
+  };
 
   // Attempt to load user info if token exists on initial store creation
   // This helps maintain login state across page refreshes
@@ -376,6 +379,7 @@ export const useUserStore = defineStore('user', () => {
     rehydrateStateFromSession,
     updateUserEmailAction,
     updateUserProfile,
+    clearAllAuthData,
   }
 }, {
   // Optional: Enable persistence if needed, though manual localStorage is used here

@@ -1,0 +1,18 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.ConfigMapper">
+
+    <resultMap id="SystemConfigResultMap" type="com.ikunmanager.model.SystemConfig">
+        <id property="configKey" column="config_key"/>
+        <result property="configValue" column="config_value"/>
+        <result property="description" column="description"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="SystemConfigResultMap">
+        SELECT * FROM system_config
+    </select>
+
+    <select id="findConfigValueByKey" resultType="java.lang.String">
+        SELECT config_value FROM system_config WHERE config_key = #{configKey}
+    </select>
+</mapper>

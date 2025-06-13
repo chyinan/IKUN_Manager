@@ -10,7 +10,7 @@ import './assets/main.css'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
-// import '@/styles/dark-overrides.css'
+import '@/styles/dark-overrides.css'
 // Temporarily remove locale import entirely
 // import zhCn from 'element-plus/lib/locale/lang/zh-cn'; 
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'

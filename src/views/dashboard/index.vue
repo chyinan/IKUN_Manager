@@ -317,7 +317,10 @@ const initData = async () => {
 
 // 生命周期钩子
 onMounted(() => {
-  initData()
+  fetchEmployeeStats()
+  // fetchDeptCount()
+  // fetchClassCount()
+  // fetchExamStats()
 })
 </script>
 

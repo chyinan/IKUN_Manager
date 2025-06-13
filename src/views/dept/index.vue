@@ -16,7 +16,7 @@
         <el-button type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>新增部门
         </el-button>
-        <el-upload
+        <!-- <el-upload
           :action="''" 
           :show-file-list="false"
           :before-upload="beforeUpload"
@@ -26,7 +26,7 @@
           <el-button type="warning">
             <el-icon><Upload /></el-icon>导入数据
           </el-button>
-        </el-upload>
+        </el-upload> -->
         <el-button type="success" @click="handleExport">
           <el-icon><Download /></el-icon>导出数据
         </el-button>
@@ -108,9 +108,9 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
-import { Delete, Edit, Plus, Search, Download, Upload } from '@element-plus/icons-vue'
-import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
-import { getDeptList, addDept, updateDept, deleteDept, importDepartments } from '@/api/dept'
+import { Delete, Edit, Plus, Search, Download } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules, /* UploadRequestOptions */ } from 'element-plus'
+import { getDeptList, addDept, updateDept, deleteDept, /* importDepartments */ } from '@/api/dept'
 import type { DeptItem, DeptResponseData } from '@/types/dept'
 import { exportToExcel } from '@/utils/export'
 import dayjs from 'dayjs'
@@ -318,83 +318,83 @@ const handleExport = () => {
   exportToExcel(dataToExport, '部门数据')
 }
 
-const beforeUpload = (file: File) => {
-  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel';
-  const isCsv = file.type === 'text/csv';
-  const isLt10M = file.size / 1024 / 1024 < 10;
+// const beforeUpload = (file: File) => {
+//   const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel';
+//   const isCsv = file.type === 'text/csv';
+//   const isLt10M = file.size / 1024 / 1024 < 10;
 
-  if (!isExcel && !isCsv) {
-    ElMessage.error('上传文件只能是 Excel 或 CSV 格式!');
-    return false;
-  }
-  if (!isLt10M) {
-    ElMessage.error('上传文件大小不能超过 10MB!');
-    return false;
-  }
-  loading.value = true;
-  return true;
-}
+//   if (!isExcel && !isCsv) {
+//     ElMessage.error('上传文件只能是 Excel 或 CSV 格式!');
+//     return false;
+//   }
+//   if (!isLt10M) {
+//     ElMessage.error('上传文件大小不能超过 10MB!');
+//     return false;
+//   }
+//   loading.value = true;
+//   return true;
+// }
 
-const handleImportRequest = async (options: UploadRequestOptions) => {
-  try {
-    const res = await importDepartments(options.file);
-    console.log("Import API Response:", res);
-    if (res.code === 200) {
-       let notificationMessage = `${res.message || '导入成功'}`;
-       if (res.data && res.data.errors && res.data.errors.length > 0) {
-           let errorDetails = res.data.errors.map((err: any) => `行 ${err.row}: ${err.error || err.errors.join(', ')}`).join('<br>');
-           ElNotification({
-              title: '导入完成（有错误）',
-              dangerouslyUseHTMLString: true,
-              message: `${notificationMessage}<br>以下行未成功导入：<br>${errorDetails}`,
-              type: 'warning',
-              duration: 0
-            });
-       } else {
-           ElMessage.success(notificationMessage);
-       }
-       await fetchData();
-    } else {
-        handleImportError(res); 
-    }
-  } catch (error: any) {
-      console.error('Import error caught:', error);
-      handleImportError(error);
-  } finally {
-    loading.value = false;
-  }
-}
+// const handleImportRequest = async (options: UploadRequestOptions) => {
+//   try {
+//     const res = await importDepartments(options.file);
+//     console.log("Import API Response:", res);
+//     if (res.code === 200) {
+//        let notificationMessage = `${res.message || '导入成功'}`;
+//        if (res.data && res.data.errors && res.data.errors.length > 0) {
+//            let errorDetails = res.data.errors.map((err: any) => `行 ${err.row}: ${err.error || err.errors.join(', ')}`).join('<br>');
+//            ElNotification({
+//               title: '导入完成（有错误）',
+//               dangerouslyUseHTMLString: true,
+//               message: `${notificationMessage}<br>以下行未成功导入：<br>${errorDetails}`,
+//               type: 'warning',
+//               duration: 0
+//             });
+//        } else {
+//            ElMessage.success(notificationMessage);
+//        }
+//        await fetchData();
+//     } else {
+//         handleImportError(res); 
+//     }
+//   } catch (error: any) {
+//       console.error('Import error caught:', error);
+//       handleImportError(error);
+//   } finally {
+//     loading.value = false;
+//   }
+// }
 
-const handleImportError = (error: any) => {
-  loading.value = false;
-  let title = '导入失败';
-  let message = '发生未知错误';
+// const handleImportError = (error: any) => {
+//   loading.value = false;
+//   let title = '导入失败';
+//   let message = '发生未知错误';
 
-  if (error && error.message) {
-    message = error.message;
-  } else if (error && error.response && error.response.data && error.response.data.message) {
-    message = error.response.data.message;
-  } else if (typeof error === 'string') {
-    message = error;
-  }
+//   if (error && error.message) {
+//     message = error.message;
+//   } else if (error && error.response && error.response.data && error.response.data.message) {
+//     message = error.response.data.message;
+//   } else if (typeof error === 'string') {
+//     message = error;
+//   }
   
-  const validationErrors = error?.data?.errors || error?.response?.data?.data?.errors;
-  if (validationErrors && Array.isArray(validationErrors) && validationErrors.length > 0) {
-    title = '导入失败（数据错误）';
-    message = `文件中有 ${validationErrors.length} 行数据格式错误，请修正后重试。`;
-    let errorDetails = validationErrors.map((err: any) => `行 ${err.row}: ${err.error || err.errors.join(', ')}`).join('<br>');
-      ElNotification({
-        title: title,
-        dangerouslyUseHTMLString: true,
-        message: `${message}<br>错误详情:<br>${errorDetails}`,
-        type: 'error',
-        duration: 0
-      });
-      return;
-  }
+//   const validationErrors = error?.data?.errors || error?.response?.data?.data?.errors;
+//   if (validationErrors && Array.isArray(validationErrors) && validationErrors.length > 0) {
+//     title = '导入失败（数据错误）';
+//     message = `文件中有 ${validationErrors.length} 行数据格式错误，请修正后重试。`;
+//     let errorDetails = validationErrors.map((err: any) => `行 ${err.row}: ${err.error || err.errors.join(', ')}`).join('<br>');
+//       ElNotification({
+//         title: title,
+//         dangerouslyUseHTMLString: true,
+//         message: `${message}<br>错误详情:<br>${errorDetails}`,
+//         type: 'error',
+//         duration: 0
+//       });
+//       return;
+//   }
 
-  ElMessage.error(`${title}: ${message}`);
-}
+//   ElMessage.error(`${title}: ${message}`);
+// }
 </script>
 
 <style lang="scss" scoped>

@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 10/06/2025 16:43:45
+ Date: 12/06/2025 09:21:19
 */
 
 SET NAMES utf8mb4;
@@ -99,7 +99,7 @@ CREATE TABLE `department`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_dept_name`(`dept_name` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 32 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '部门表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 90 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '部门表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of department
@@ -132,7 +132,7 @@ CREATE TABLE `employee`  (
   UNIQUE INDEX `uk_emp_id`(`emp_id` ASC) USING BTREE,
   INDEX `idx_dept_id`(`dept_id` ASC) USING BTREE,
   CONSTRAINT `fk_emp_dept` FOREIGN KEY (`dept_id`) REFERENCES `department` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 29 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '员工表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 89 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '员工表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of employee
@@ -521,7 +521,7 @@ CREATE TABLE `system_log`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_create_time`(`create_time` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3162 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 3163 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_log
@@ -811,6 +811,7 @@ INSERT INTO `system_log` VALUES (3158, 'database', '更新', '更新 admin 更�
 INSERT INTO `system_log` VALUES (3159, 'system', 'connect', 'connect 客户端连接: J_6v_5z9NIzGaQ8-AAAB', 'System', '2025-06-10 16:01:01');
 INSERT INTO `system_log` VALUES (3160, 'system', 'disconnect', 'disconnect 客户端断开: J_6v_5z9NIzGaQ8-AAAB, 原因: client namespace disconnect', 'System', '2025-06-10 16:01:02');
 INSERT INTO `system_log` VALUES (3161, 'auth', '登录成功', '登录成功 用户 \'S2023001\' (显示名: \'张伟\', ID: 8, Role: student) 登录成功.', 'S2023001', '2025-06-10 16:06:48');
+INSERT INTO `system_log` VALUES (3162, 'auth', '登录成功', '登录成功 用户 \'admin\' (显示名: \'N/A\', ID: 1, Role: admin) 登录成功.', 'admin', '2025-06-11 14:29:34');
 
 -- ----------------------------
 -- Table structure for user
@@ -834,7 +835,7 @@ CREATE TABLE `user`  (
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (1, 'admin', '$2b$10$yGelu4IUCHu6sGk7WsIgxOOWp/WqJCd1oQkC8V6quTdrYE3AONoHm', 'admin@test.com', 'avatar-1-1748925908680-419831104.png', '2025-02-20 21:45:19', '2025-06-03 17:19:44', 'admin', NULL);
+INSERT INTO `user` VALUES (1, 'admin', '$2a$10$CjLJ2/QuOu3bZGzf3u4SGOvNjDSNdodT/5G.6TQFh.oUsj.MCideG', 'admin@test.com', 'avatar-1-1748925908680-419831104.png', '2025-02-20 21:45:19', '2025-06-12 09:15:13', 'admin', NULL);
 INSERT INTO `user` VALUES (2, 'test', '$2b$10$MshDQphPxvIRK6mNiVd1f.8HhPV9ysV84hyUiRglzIzdXfuB0ETeC', 'test@example.com', NULL, '2025-02-20 21:45:19', '2025-04-06 02:07:25', 'student', NULL);
 INSERT INTO `user` VALUES (3, 'chyinan', '$2b$10$LeimjP0GK2OC9DObsO9WvuvHdksCwQsXNVA3uHNjIBadcuD3nBgb6', '1817175451@qq.com', 'avatar-3-1745847609124-586820353.png', '2025-02-20 21:51:36', '2025-04-28 21:40:09', 'student', NULL);
 INSERT INTO `user` VALUES (8, 'S2023001', '$2b$10$vvCCMqjv930BKa1I6IUYKeBt5HyDktViy/4unT.mQTAKfAHE1qczW', '1011@qq.com', NULL, '2025-06-04 22:48:28', '2025-06-06 15:11:42', 'student', '张伟');
@@ -849,7 +850,7 @@ CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_class_score_stats` AS 
 -- View structure for v_student_score_stats
 -- ----------------------------
 DROP VIEW IF EXISTS `v_student_score_stats`;
-CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_student_score_stats` AS select `ss`.`id` AS `score_id`,`ss`.`student_id` AS `student_id`,`s`.`student_id` AS `student_number`,`s`.`name` AS `student_name`,`s`.`gender` AS `gender`,`c`.`id` AS `class_id`,`c`.`class_name` AS `class_name`,`c`.`teacher` AS `class_teacher`,`e`.`id` AS `exam_id`,`e`.`exam_name` AS `exam_name`,`e`.`exam_type` AS `exam_type`,date_format(`e`.`exam_date`,'%Y-%m-%d') AS `exam_date`,`e`.`status` AS `exam_status`,`ss`.`subject` AS `subject`,`sub`.`id` AS `subject_id`,`sub`.`subject_code` AS `subject_code`,`ss`.`score` AS `score`,coalesce(`es`.`full_score`,100.00) AS `full_score`,coalesce(`es`.`pass_score`,60.00) AS `pass_score`,coalesce(`es`.`weight`,1.00) AS `weight`,(`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) AS `is_passed`,round(((`ss`.`score` / coalesce(`es`.`full_score`,100.00)) * 100),2) AS `score_percentage`,(case when (`ss`.`score` >= 90) then '优秀' when (`ss`.`score` >= 80) then '良好' when (`ss`.`score` >= 70) then '中等' when (`ss`.`score` >= 60) then '及格' else '不及格' end) AS `score_level`,`ss`.`exam_time` AS `exam_time`,`ss`.`create_time` AS `create_time`,`ss`.`update_time` AS `update_time` from (((((`student_score` `ss` join `student` `s` on((`ss`.`student_id` = `s`.`id`))) join `class` `c` on((`s`.`class_id` = `c`.`id`))) join `exam` `e` on((`ss`.`exam_id` = `e`.`id`))) left join `subject` `sub` on((`ss`.`subject` = `sub`.`subject_name`))) left join `exam_subject` `es` on(((`ss`.`exam_id` = `es`.`exam_id`) and (`sub`.`id` = `es`.`subject_id`))));
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_student_score_stats` AS select `ss`.`id` AS `score_id`,`ss`.`student_id` AS `student_id`,`s`.`student_id` AS `student_number`,`s`.`name` AS `student_name`,`s`.`gender` AS `gender`,`c`.`id` AS `class_id`,`c`.`class_name` AS `class_name`,`c`.`teacher` AS `class_teacher`,`e`.`id` AS `exam_id`,`e`.`exam_name` AS `exam_name`,`e`.`exam_type` AS `exam_type`,date_format(`e`.`exam_date`,'%Y-%m-%d') AS `exam_date`,`e`.`status` AS `exam_status`,`ss`.`subject` AS `subject`,`sub`.`id` AS `subject_id`,`sub`.`subject_code` AS `subject_code`,`ss`.`score` AS `score`,coalesce(`es`.`full_score`,100.00) AS `full_score`,coalesce(`es`.`pass_score`,60.00) AS `pass_score`,coalesce(`es`.`weight`,1.00) AS `weight`,(`ss`.`score` >= coalesce(`es`.`pass_score`,60.00)) AS `is_passed`,round(((`ss`.`score` / coalesce(`es`.`full_score`,100.00)) * 100),2) AS `score_percentage`,(case when (`ss`.`score` >= 90) then '优秀' when (`ss`.`score` >= 80) then '良好' when (`ss`.`score` >= 70) then '中等' when (`ss`.`score` >= 60) then '及格' else '不及格' end) AS `score_level`,`ss`.`create_time` AS `create_time`,`ss`.`update_time` AS `update_time` from (((((`student_score` `ss` join `student` `s` on((`ss`.`student_id` = `s`.`id`))) join `class` `c` on((`s`.`class_id` = `c`.`id`))) join `exam` `e` on((`ss`.`exam_id` = `e`.`id`))) left join `subject` `sub` on((`ss`.`subject` = `sub`.`subject_name`))) left join `exam_subject` `es` on(((`ss`.`exam_id` = `es`.`exam_id`) and (`sub`.`id` = `es`.`subject_id`))));
 
 -- ----------------------------
 -- View structure for v_student_score_summary

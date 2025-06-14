@@ -1,27 +1,52 @@
 package com.ikunmanager.service;
 
+import com.ikunmanager.dto.EmployeeStatsDTO;
+import com.ikunmanager.mapper.DepartmentMapper;
 import com.ikunmanager.mapper.EmployeeMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Service
 public class EmployeeService {
 
-    private final EmployeeMapper employeeMapper;
+    @Autowired
+    private EmployeeMapper employeeMapper;
 
     @Autowired
-    public EmployeeService(EmployeeMapper employeeMapper) {
-        this.employeeMapper = employeeMapper;
-    }
+    private DepartmentMapper departmentMapper;
 
-    public Map<String, Object> getEmployeeStats() {
-        long total = employeeMapper.countTotalEmployees();
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("total", total);
-        // 未来可以在这里添加更多统计数据
+    public EmployeeStatsDTO getEmployeeStatistics() {
+        EmployeeStatsDTO stats = new EmployeeStatsDTO();
+
+        // 员工总数
+        Long totalEmployees = employeeMapper.getTotalEmployees();
+        stats.setTotal(totalEmployees);
+
+        // 部门数量
+        Long totalDepartments = departmentMapper.getTotalDepartments();
+        stats.setDeptCount(totalDepartments);
+
+        // 平均薪资
+        Double totalSalary = employeeMapper.getTotalSalary();
+        if (totalEmployees != null && totalEmployees > 0) {
+            stats.setAverageSalary(totalSalary / totalEmployees);
+        } else {
+            stats.setAverageSalary(0.0);
+        }
+
+        // 在职员工数
+        Long activeEmployees = employeeMapper.getActiveEmployees();
+        stats.setActiveCount(activeEmployees);
+
+        // 部门分布
+        stats.setDeptDistribution(employeeMapper.getDepartmentDistribution());
+
+        // 性别分布
+        stats.setGenderDistribution(employeeMapper.getGenderDistribution());
+
+        // 部门平均薪资
+        stats.setSalaryDistribution(employeeMapper.getDepartmentAverageSalary());
+
         return stats;
     }
 } 

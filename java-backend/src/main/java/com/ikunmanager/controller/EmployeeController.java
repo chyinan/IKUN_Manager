@@ -1,14 +1,16 @@
 package com.ikunmanager.controller;
 
-import com.ikunmanager.model.Employee;
+import com.ikunmanager.entity.Employee;
 import com.ikunmanager.service.EmployeeService;
 import com.ikunmanager.mapper.EmployeeMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
+
+import com.ikunmanager.dto.EmployeeStatsDTO;
+import com.ikunmanager.common.ApiResponse;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api/employee")
@@ -24,28 +26,32 @@ public class EmployeeController {
     }
 
     @GetMapping("/list")
-    public List<Employee> getEmployeeList(
+    public ApiResponse<List<Employee>> getEmployeeList(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String empId,
             @RequestParam(required = false) String deptName,
             @RequestParam(required = false) String status
     ) {
-        return employeeMapper.findAll(name, empId, deptName, status);
+        return ApiResponse.ok(employeeMapper.findAll(name, empId, deptName, status));
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getEmployeeStats() {
-        Map<String, Object> stats = employeeService.getEmployeeStats();
-        return ResponseEntity.ok(stats);
+    public ApiResponse<EmployeeStatsDTO> getEmployeeStats() {
+        try {
+            EmployeeStatsDTO stats = employeeService.getEmployeeStatistics();
+            return ApiResponse.ok(stats);
+        } catch (Exception e) {
+            return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "获取员工统计数据失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Employee> getEmployeeById(@PathVariable Long id) {
+    public ApiResponse<Employee> getEmployeeById(@PathVariable Long id) {
         Employee employee = employeeMapper.findById(id);
         if (employee != null) {
-            return ResponseEntity.ok(employee);
+            return ApiResponse.ok(employee);
         } else {
-            return ResponseEntity.notFound().build();
+            return ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Employee not found");
         }
     }
 } 

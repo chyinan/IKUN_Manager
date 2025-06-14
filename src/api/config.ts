@@ -6,7 +6,9 @@ import request from '@/utils/request'
 import type { ApiResponse } from '@/types/common'
 
 // API服务器地址
-export const apiUrl = 'http://localhost:8081/api';
+// 注意: 这个 apiUrl 变量可能在某些地方被直接使用，但 axios 实例的 baseURL 已经覆盖了其作为默认前缀的作用。
+// 如果项目中有直接使用 apiUrl 拼接的地方，需要单独检查。
+export const apiUrl = 'http://localhost:8081/api'; 
 
 // 超时设置（毫秒）
 export const timeout = 5000;
@@ -28,19 +30,11 @@ interface RegexConfig {
  * 获取正则表达式配置
  */
 export const getRegexConfig = (): Promise<ApiResponse<RegexConfig>> => {
-  return request.get<ApiResponse<RegexConfig>>('/config/regex')
+  return request.get<ApiResponse<RegexConfig>>('api/config/regex') // 添加 api/
     .catch(error => {
         console.error('[API config.ts] Error fetching regex config:', error);
-        // 返回一个符合类型的错误响应，而不是抛出，避免上层调用中断
-        return Promise.resolve({
-            code: error.response?.status || 500,
-            message: error.message || '获取配置失败',
-            data: {
-                studentIdRegex: '',
-                employeeIdRegex: '',
-                logRetentionDays: 0
-            }
-        });
+        // 直接抛出错误，让上层调用者（如 store 的 fetchAndSetConfig）处理
+        throw error;
     });
 }
 
@@ -49,15 +43,10 @@ export const getRegexConfig = (): Promise<ApiResponse<RegexConfig>> => {
  * @param config 配置对象
  */
 export const updateRegexConfig = (config: RegexConfig): Promise<ApiResponse<void>> => {
-  return request.put<ApiResponse<void>>('/config/regex', config)
+  return request.put<ApiResponse<void>>('api/config/regex', config) // 添加 api/
     .catch(error => {
       console.error('[API config.ts] Error updating regex config:', error);
-      // 返回符合类型的错误响应
-      return Promise.resolve({
-        code: error.response?.status || 500,
-        message: error.message || '更新配置失败',
-        data: undefined
-      });
+      throw error;
     });
 }
 
@@ -69,14 +58,10 @@ interface CarouselIntervalConfig {
  * 获取轮播图全局切换时间配置
  */
 export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselIntervalConfig>> => {
-  return request.get<ApiResponse<CarouselIntervalConfig>>('/config/carousel-interval')
+  return request.get<ApiResponse<CarouselIntervalConfig>>('api/config/carousel-interval') // 添加 api/
     .catch(error => {
       console.error('[API config.ts] Error fetching carousel interval config:', error);
-      return Promise.resolve({
-        code: error.response?.status || 500,
-        message: error.message || '获取轮播图切换时间失败',
-        data: { carouselInterval: 5000 } // Default to 5000ms on error
-      });
+      throw error;
     });
 }
 
@@ -85,13 +70,9 @@ export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselInterva
  * @param config 包含 carouselInterval 的配置对象
  */
 export const updateCarouselIntervalConfig = (config: CarouselIntervalConfig): Promise<ApiResponse<void>> => {
-  return request.put<ApiResponse<void>>('/config/carousel-interval', config)
+  return request.put<ApiResponse<void>>('api/config/carousel-interval', config) // 添加 api/
     .catch(error => {
       console.error('[API config.ts] Error updating carousel interval config:', error);
-      return Promise.resolve({
-        code: error.response?.status || 500,
-        message: error.message || '更新轮播图切换时间失败',
-        data: undefined
-      });
+      throw error;
     });
 } 

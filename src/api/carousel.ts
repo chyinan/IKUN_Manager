@@ -42,7 +42,7 @@ export interface CarouselImageData {
  */
 export function getAllCarouselImages(): Promise<CarouselListResponse> {
   return request({
-    url: '/carousel/all',
+    url: 'api/carousel/all', // Added api/
     method: 'get'
   })
 }
@@ -53,7 +53,7 @@ export function getAllCarouselImages(): Promise<CarouselListResponse> {
  */
 export function getActiveCarouselImages(): Promise<CarouselListResponse> {
   return request({
-    url: '/carousel',
+    url: 'api/carousel', // Added api/
     method: 'get'
   })
 }
@@ -65,7 +65,7 @@ export function getActiveCarouselImages(): Promise<CarouselListResponse> {
  */
 export function addCarouselImage(data: FormData): Promise<CarouselDetailResponse> {
   return request({
-    url: '/carousel',
+    url: 'api/carousel', // Added api/
     method: 'post',
     data,
     headers: {
@@ -82,7 +82,7 @@ export function addCarouselImage(data: FormData): Promise<CarouselDetailResponse
  */
 export function updateCarouselImage(id: number, data: Partial<CarouselImageData>): Promise<CarouselDetailResponse> {
   return request({
-    url: `/carousel/${id}`,
+    url: `api/carousel/${id}`, // Added api/
     method: 'put',
     data
   })
@@ -95,7 +95,7 @@ export function updateCarouselImage(id: number, data: Partial<CarouselImageData>
  */
 export function deleteCarouselImage(id: number): Promise<any> {
   return request({
-    url: `/carousel/${id}`,
+    url: `api/carousel/${id}`, // Added api/
     method: 'delete'
   })
 }
@@ -107,10 +107,10 @@ export function deleteCarouselImage(id: number): Promise<any> {
  */
 export function updateCarouselOrder(orderData: Array<{ id: number; display_order: number }>): Promise<any> {
   return request({
-    url: '/carousel/order',
+    url: 'api/carousel/order', // Added api/
     method: 'post',
     data: {
       order: orderData // 后端期望 { order: [...] }
     }
   })
-} 
+}

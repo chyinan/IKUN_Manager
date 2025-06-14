@@ -8,7 +8,7 @@ import type { SubjectInfo } from '@/types/subject';
  */
 export const getSubjectList = (): Promise<ApiResponse<SubjectInfo[]>> => {
   return request({
-    url: '/subject/list',
+    url: '/api/subject/list', // 确保路径正确
     method: 'get',
   });
 };
@@ -19,7 +19,7 @@ export const getSubjectList = (): Promise<ApiResponse<SubjectInfo[]>> => {
  */
 export const addSubject = (data: { name: string, subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
   return request({
-    url: '/subject',
+    url: '/api/subject/add', // 确保路径正确
     method: 'post',
     data,
   });
@@ -32,7 +32,7 @@ export const addSubject = (data: { name: string, subject_code?: string }): Promi
  */
 export const updateSubject = (id: number, data: { name: string, subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
   return request({
-    url: `/subject/${id}`,
+    url: `/api/subject/update/${id}`, // 确保路径正确
     method: 'put',
     data,
   });
@@ -44,7 +44,7 @@ export const updateSubject = (id: number, data: { name: string, subject_code?: s
  */
 export const deleteSubject = (id: number): Promise<ApiResponse<null>> => {
   return request({
-    url: `/subject/${id}`,
+    url: `/api/subject/delete/${id}`, // 确保路径正确
     method: 'delete',
   });
 };

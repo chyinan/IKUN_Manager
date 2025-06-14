@@ -1,8 +1,9 @@
 package com.ikunmanager.mapper;
 
-import com.ikunmanager.model.Department;
+import com.ikunmanager.entity.Department;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 @Mapper
@@ -12,19 +13,23 @@ public interface DepartmentMapper {
 
     Department findById(@Param("id") Long id);
 
-    int insert(Department department);
+    void insert(Department department);
 
-    int update(Department department);
+    void update(Department department);
 
-    int delete(@Param("id") Long id);
+    void delete(@Param("id") Long id);
 
     Department findByDeptName(@Param("deptName") String deptName);
 
-    int batchDelete(@Param("ids") List<Long> ids);
+    List<Long> findIdsByDeptNames(List<String> deptNames);
 
     int batchInsert(@Param("departments") List<Department> departments);
 
     // You might also consider batch operations if needed later
     // int batchInsert(@Param("departments") List<Department> departments);
+
+    // 获取部门总数
+    @Select("SELECT COUNT(*) FROM department")
+    Long getTotalDepartments();
 
 }

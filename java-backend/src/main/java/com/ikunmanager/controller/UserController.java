@@ -1,5 +1,6 @@
 package com.ikunmanager.controller;
 
+import com.ikunmanager.common.ApiResponse;
 import com.ikunmanager.mapper.UserMapper;
 import com.ikunmanager.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,14 +24,15 @@ public class UserController {
     }
 
     @GetMapping("/info")
-    public User getUserInfo() {
+    public ApiResponse<User> getUserInfo() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
-        return userMapper.findByUsername(currentUsername);
+        User user = userMapper.findByUsername(currentUsername);
+        return ApiResponse.ok(user);
     }
 
     @GetMapping
-    public List<User> getAllUsers() {
-        return userMapper.findAll();
+    public ApiResponse<List<User>> getAllUsers() {
+        return ApiResponse.ok(userMapper.findAll());
     }
 }

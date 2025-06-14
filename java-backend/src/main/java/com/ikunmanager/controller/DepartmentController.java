@@ -1,12 +1,13 @@
 package com.ikunmanager.controller;
 
-import com.ikunmanager.model.Department;
+import com.ikunmanager.common.ApiResponse;
+import com.ikunmanager.entity.Department;
 import com.ikunmanager.mapper.DepartmentMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -17,89 +18,81 @@ public class DepartmentController {
     private DepartmentMapper departmentMapper;
 
     @GetMapping
-    public ResponseEntity<List<Department>> getAllDepartments() {
+    public ApiResponse<List<Department>> getAllDepartments() {
         List<Department> departments = departmentMapper.findAll();
-        return new ResponseEntity<>(departments, HttpStatus.OK);
+        return ApiResponse.ok(departments);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Department> getDepartmentById(@PathVariable Long id) {
+    public ApiResponse<Department> getDepartmentById(@PathVariable Long id) {
         Department department = departmentMapper.findById(id);
         if (department != null) {
-            return new ResponseEntity<>(department, HttpStatus.OK);
+            return ApiResponse.ok(department);
         } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Department not found");
         }
     }
 
     @PostMapping
-    public ResponseEntity<Department> addDepartment(@RequestBody Department department) {
-        // Check for duplicate department name before inserting
+    public ApiResponse<Department> addDepartment(@RequestBody Department department) {
         Department existingDepartment = departmentMapper.findByDeptName(department.getDeptName());
         if (existingDepartment != null) {
-            return new ResponseEntity<>(HttpStatus.CONFLICT); // 409 Conflict
+            return ApiResponse.error(HttpStatus.CONFLICT.value(), "Department name already exists");
         }
+        department.setCreateTime(LocalDateTime.now());
+        department.setUpdateTime(LocalDateTime.now());
         departmentMapper.insert(department);
-        return new ResponseEntity<>(department, HttpStatus.CREATED);
+        return ApiResponse.ok(department);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Department> updateDepartment(@PathVariable Long id, @RequestBody Department department) {
-        // Check if the department exists
+    public ApiResponse<Department> updateDepartment(@PathVariable Long id, @RequestBody Department department) {
         Department existingDepartmentById = departmentMapper.findById(id);
         if (existingDepartmentById == null) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // 404 Not Found
+            return ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Department not found");
         }
 
-        // Check for duplicate department name for *other* departments
         Department existingDepartmentByName = departmentMapper.findByDeptName(department.getDeptName());
         if (existingDepartmentByName != null && !existingDepartmentByName.getId().equals(id)) {
-            return new ResponseEntity<>(HttpStatus.CONFLICT); // 409 Conflict
+            return ApiResponse.error(HttpStatus.CONFLICT.value(), "Department name already exists");
         }
 
         department.setId(id);
-        int result = departmentMapper.update(department);
-        if (result > 0) {
-            return new ResponseEntity<>(department, HttpStatus.OK);
-        } else {
-            // This case should ideally not be reached if existingDepartmentById was found
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+        department.setUpdateTime(LocalDateTime.now());
+        departmentMapper.update(department);
+        return ApiResponse.ok(department);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<HttpStatus> deleteDepartment(@PathVariable Long id) {
-        int result = departmentMapper.delete(id);
-        if (result > 0) {
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    public ApiResponse<Void> deleteDepartment(@PathVariable Long id) {
+        Department departmentToDelete = departmentMapper.findById(id);
+        if (departmentToDelete == null) {
+            return ApiResponse.error(HttpStatus.NOT_FOUND.value(), "Department not found");
         }
-    }
-
-    @DeleteMapping("/batch")
-    public ResponseEntity<HttpStatus> batchDeleteDepartments(@RequestBody List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // 400 Bad Request if no IDs are provided
-        }
-        int result = departmentMapper.batchDelete(ids);
-        if (result > 0) {
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT); // 204 No Content for successful deletion
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // 404 Not Found if no records were deleted (e.g., IDs not found)
-        }
+        departmentMapper.delete(id);
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<HttpStatus> batchInsertDepartments(@RequestBody List<Department> departments) {
+    public ApiResponse<Void> batchInsertDepartments(@RequestBody List<Department> departments) {
         if (departments == null || departments.isEmpty()) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // 400 Bad Request if no departments are provided
+            return ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "Department list cannot be empty");
         }
+
+        for (Department department : departments) {
+            Department existingDepartment = departmentMapper.findByDeptName(department.getDeptName());
+            if (existingDepartment != null) {
+                return ApiResponse.error(HttpStatus.CONFLICT.value(), "Duplicate department name found in batch: " + department.getDeptName());
+            }
+            department.setCreateTime(LocalDateTime.now());
+            department.setUpdateTime(LocalDateTime.now());
+        }
+
         int result = departmentMapper.batchInsert(departments);
         if (result > 0) {
-            return new ResponseEntity<>(HttpStatus.CREATED); // 201 Created for successful insertion
+            return ApiResponse.ok(null);
         } else {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST); // Or other appropriate status if no records were inserted
+            return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Batch insert failed");
         }
     }
 }

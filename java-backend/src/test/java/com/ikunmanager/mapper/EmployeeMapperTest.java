@@ -1,12 +1,13 @@
 package com.ikunmanager.mapper;
 
-import com.ikunmanager.model.Employee;
+import com.ikunmanager.entity.Employee;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,13 +45,13 @@ public class EmployeeMapperTest {
         newEmployee.setAge(25);
         newEmployee.setPosition("测试职位");
         newEmployee.setDeptId(1L); // Assuming department with ID 1 exists
-        newEmployee.setSalary(9999.99);
+        newEmployee.setSalary(new java.math.BigDecimal("9999.99"));
         newEmployee.setStatus("在职");
         newEmployee.setPhone("12345678900");
         newEmployee.setEmail("test@example.com");
-        newEmployee.setJoinDate(new Date());
-        newEmployee.setCreateTime(new Date());
-        newEmployee.setUpdateTime(new Date());
+        newEmployee.setJoinDate(LocalDate.now());
+        newEmployee.setCreateTime(LocalDateTime.now());
+        newEmployee.setUpdateTime(LocalDateTime.now());
 
         employeeMapper.insert(newEmployee);
         assertNotNull(newEmployee.getId()); // ID should be generated after insert
@@ -67,15 +68,15 @@ public class EmployeeMapperTest {
         assertNotNull(existingEmployee);
 
         existingEmployee.setName("张三-更新");
-        existingEmployee.setSalary(16000.00);
-        existingEmployee.setUpdateTime(new Date());
+        existingEmployee.setSalary(new java.math.BigDecimal("16000.00"));
+        existingEmployee.setUpdateTime(LocalDateTime.now());
 
         employeeMapper.update(existingEmployee);
 
         Employee updatedEmployee = employeeMapper.findById(1L);
         assertNotNull(updatedEmployee);
         assertEquals("张三-更新", updatedEmployee.getName());
-        assertEquals(16000.00, updatedEmployee.getSalary());
+        assertEquals(new java.math.BigDecimal("16000.00"), updatedEmployee.getSalary());
     }
 
     @Test
@@ -88,11 +89,11 @@ public class EmployeeMapperTest {
         employeeToDelete.setAge(30);
         employeeToDelete.setPosition("临时工");
         employeeToDelete.setDeptId(1L);
-        employeeToDelete.setSalary(100.00);
+        employeeToDelete.setSalary(new java.math.BigDecimal("100.00"));
         employeeToDelete.setStatus("在职");
-        employeeToDelete.setJoinDate(new Date());
-        employeeToDelete.setCreateTime(new Date());
-        employeeToDelete.setUpdateTime(new Date());
+        employeeToDelete.setJoinDate(LocalDate.now());
+        employeeToDelete.setCreateTime(LocalDateTime.now());
+        employeeToDelete.setUpdateTime(LocalDateTime.now());
 
         employeeMapper.insert(employeeToDelete);
         assertNotNull(employeeToDelete.getId());

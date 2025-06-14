@@ -1,126 +1,231 @@
 <template>
   <div class="log-container">
-    <!-- 顶部操作栏 -->
+    <!-- 顶部搜索和操作栏 -->
     <div class="operation-header">
-      <div class="log-title">
-        <el-icon><Monitor /></el-icon>
-        <span>系统日志监控</span>
-      </div>
-      <div class="operation-buttons">
-        <el-button type="danger" @click="handleClearLogs">
-          <el-icon><Delete /></el-icon>清空日志
-        </el-button>
-        <el-button type="success" @click="exportLogs" disabled>
-          <el-icon><Download /></el-icon>导出日志
-        </el-button>
-      </div>
+      <el-input
+        v-model="searchParams.content"
+        placeholder="搜索日志内容..."
+        class="search-input"
+        clearable>
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+
+      <el-select v-model="searchParams.type" placeholder="日志类型" clearable class="filter-item">
+        <el-option
+          v-for="item in logTypeOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value" />
+      </el-select>
+
+      <el-input
+        v-model="searchParams.operation"
+        placeholder="操作类型..."
+        class="filter-item"
+        clearable />
+
+      <el-input
+        v-model="searchParams.operator"
+        placeholder="操作人..."
+        class="filter-item"
+        clearable />
+
+      <el-date-picker
+        v-model="searchDateRange"
+        type="datetimerange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD HH:mm:ss"
+        class="filter-item" />
+
+      <el-button type="primary" @click="handleSearch">
+        <el-icon><Search /></el-icon>搜索
+      </el-button>
+      <el-button @click="handleReset">
+        <el-icon><RefreshLeft /></el-icon>重置
+      </el-button>
     </div>
 
-    <!-- 日志显示区域 -->
-    <div class="log-terminal" ref="terminalRef">
-      <div 
-        v-for="(log, index) in logs" 
-        :key="log.id || index"
-        :class="['log-line', `log-${log.type}`]"
-        :data-operation="log.operation">
-        <span class="log-time">[{{ formatTime(log.createTime) }}]</span>
-        <span class="log-content">
-          <span v-if="log.operator" :class="getOperatorClass(log.operator)">[{{ log.operator }}]</span>
-          <span v-html="highlightSimple(log.content)"></span>
-        </span>
-      </div>
-    </div>
+    <!-- 日志数据表格 -->
+    <el-table
+      :data="logs"
+      stripe
+      border
+      highlight-current-row
+      class="log-table"
+      v-loading="loading"
+      @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="55" align="center" />
+      <el-table-column prop="id" label="ID" width="80" align="center" />
+      <el-table-column prop="createTime" label="时间" width="180">
+        <template #default="{ row }">
+          {{ formatTime(row.createTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="type" label="类型" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag :type="getLogTypeTagType(row.type)">{{ row.type }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="operation" label="操作" width="150" />
+      <el-table-column prop="operator" label="操作人" width="120">
+        <template #default="{ row }">
+          <span :class="getOperatorClass(row.operator)">{{ row.operator }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="content" label="内容" min-width="250" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-html="highlightSimple(row.content)"></span>
+        </template>
+      </el-table-column>
+    </el-table>
 
-    <!-- 统计信息 -->
-    <div class="log-stats">
-      <el-tag type="info" size="large">总日志数: {{ totalLogs }}</el-tag>
-      <el-tag type="success" size="large">系统: {{ systemCount }}</el-tag>
-      <el-tag type="warning" size="large">数据库: {{ dbCount }}</el-tag>
-      <el-tag type="danger" size="large">错误: {{ errorCount }}</el-tag>
+    <!-- 分页器和批量删除按钮 -->
+    <div class="pagination-footer">
+      <el-button
+        type="danger"
+        @click="handleBatchDelete"
+        :disabled="selectedLogIds.length === 0"
+        class="batch-delete-btn">
+        <el-icon><Delete /></el-icon>批量删除 ({{ selectedLogIds.length }})
+      </el-button>
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="totalLogs"
+        :page-sizes="[10, 20, 30, 50]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        class="pagination" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
-import { getLogList, clearLogs } from '@/api/log';
-import type { LogEntry } from '@/types/log';
+import { ref, onMounted, computed, watch } from 'vue';
+import { getLogList, batchDeleteLogs } from '@/api/log';
+import type { LogEntry, LogQueryParams } from '@/types/log';
+import type { PageInfo } from '@/types/page'; // 导入 PageInfo
 import { ElMessage, ElMessageBox } from 'element-plus';
-import io from 'socket.io-client';
-import { Monitor, Delete, Download } from '@element-plus/icons-vue';
+import { Monitor, Delete, Download, Search, RefreshLeft } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 
 const logs = ref<LogEntry[]>([]);
-const terminalRef = ref<HTMLElement | null>(null);
-const totalLogs = ref(0); // For total count from server
+const totalLogs = ref(0);
+const loading = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(10);
 
-// --- Fetching Initial Logs ---
+// 搜索和过滤参数
+const searchParams = ref<LogQueryParams>({
+  type: '',
+  operation: '',
+  content: '',
+  operator: '',
+  startDate: '',
+  endDate: '',
+});
+
+// 日期范围选择器
+const searchDateRange = ref<[Date, Date] | null>(null);
+
+// 监听日期范围变化，更新 startDate 和 endDate
+watch(searchDateRange, (newRange) => {
+  if (newRange && newRange.length === 2) {
+    searchParams.value.startDate = dayjs(newRange[0]).format('YYYY-MM-DD HH:mm:ss');
+    searchParams.value.endDate = dayjs(newRange[1]).format('YYYY-MM-DD HH:mm:ss');
+  } else {
+    searchParams.value.startDate = '';
+    searchParams.value.endDate = '';
+  }
+});
+
+// 日志类型选项
+const logTypeOptions = [
+  { label: '所有类型', value: '' },
+  { label: '系统', value: 'system' },
+  { label: '数据库', value: 'database' },
+  { label: 'Vue前端', value: 'vue' },
+  { label: '认证', value: 'auth' },
+  { label: '管理', value: 'management' },
+  { label: '邮箱', value: 'mailbox' },
+  { label: '用户', value: 'user' },
+  { label: '错误', value: 'error' },
+  { label: '信息', value: 'info' },
+  { label: '警告', value: 'warn' },
+];
+
+// 获取日志列表
 const fetchLogs = async () => {
+  loading.value = true;
   try {
-    // Fetch a decent number of recent logs initially
-    const res = await getLogList({ page: 1, pageSize: 200 }); 
-    if (res.code === 200 && Array.isArray(res.data)) {
-      logs.value = res.data.reverse(); // Reverse to have oldest at top, newest at bottom
-      totalLogs.value = res.total || res.data.length;
+    const params: LogQueryParams = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      type: searchParams.value.type === '' ? undefined : searchParams.value.type,
+      operation: searchParams.value.operation === '' ? undefined : searchParams.value.operation,
+      content: searchParams.value.content === '' ? undefined : searchParams.value.content,
+      operator: searchParams.value.operator === '' ? undefined : searchParams.value.operator,
+      startDate: searchParams.value.startDate === '' ? undefined : searchParams.value.startDate,
+      endDate: searchParams.value.endDate === '' ? undefined : searchParams.value.endDate,
+    };
+    const res = await getLogList(params);
+    console.log('获取到的日志数据:', res);
+
+    if (res.code === 200 && res.data) {
+      logs.value = res.data.list || [];
+      totalLogs.value = res.data.total || 0;
     } else {
-      ElMessage.error('获取初始日志失败');
+      ElMessage.warning(res?.message || '获取日志列表失败');
+      logs.value = [];
+      totalLogs.value = 0;
     }
-    // Scroll to bottom after initial load
-    scrollToBottom();
-  } catch (error) {
-    console.error(error);
-    ElMessage.error('加载日志时发生错误');
+  } catch (error: any) {
+    console.error('获取日志列表失败:', error);
+    ElMessage.error(error.response?.data?.message || error.message || '获取日志列表失败');
+    logs.value = [];
+    totalLogs.value = 0;
+  } finally {
+    loading.value = false;
   }
 };
 
-// --- Real-time Logs via Socket.IO ---
-// Make sure the URL is correct for your environment
-const socket = io(import.meta.env.VITE_APP_BASE_URL || 'http://localhost:3000', {
-  transports: ['websocket', 'polling'],
+// 搜索按钮点击事件
+const handleSearch = () => {
+  currentPage.value = 1; // 搜索时重置为第一页
+  fetchLogs();
+};
+
+// 重置按钮点击事件
+const handleReset = () => {
+  searchParams.value = {
+    type: '',
+    operation: '',
+    content: '',
+    operator: '',
+    startDate: '',
+    endDate: '',
+  };
+  searchDateRange.value = null; // 重置日期选择器
+  currentPage.value = 1;
+  pageSize.value = 10; // 重置为默认每页大小
+  fetchLogs();
+};
+
+// 监听分页变化
+watch([currentPage, pageSize], () => {
+  fetchLogs();
 });
 
 onMounted(() => {
   fetchLogs();
-
-  socket.on('connect', () => {
-    console.log('Socket.IO connected for logs.');
-  });
-
-  socket.on('serverLog', (logEntry: LogEntry) => {
-    logs.value.push(logEntry);
-    totalLogs.value++;
-    // Ensure we don't keep too many logs in memory on the frontend
-    if (logs.value.length > 500) {
-      logs.value.shift();
-    }
-    scrollToBottom();
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Socket.IO disconnected.');
-  });
-  
-  socket.on('connect_error', (err) => {
-    console.error('Socket.IO connection error:', err);
-    ElMessage.error('无法连接到实时日志服务');
-  });
 });
-
-onUnmounted(() => {
-  socket.disconnect();
-});
-
-// --- Helper Functions for Template ---
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (terminalRef.value) {
-      terminalRef.value.scrollTop = terminalRef.value.scrollHeight;
-    }
-  });
-};
 
 const formatTime = (timeStr: string | undefined) => {
-  if (!timeStr) return '...';
+  if (!timeStr) return '';
   return dayjs(timeStr).format('YYYY-MM-DD HH:mm:ss');
 };
 
@@ -132,8 +237,6 @@ const getOperatorClass = (operator: string | undefined) => {
   return 'hl-operator';
 };
 
-// Using v-html, so BE CAREFUL with user-generated content.
-// Since this is for logs, it's generally considered safe.
 const highlightSimple = (content: string) => {
   if (!content) return '';
   return content
@@ -142,34 +245,34 @@ const highlightSimple = (content: string) => {
     .replace(/(delete|删除|清空|禁用)/gi, '<span class="hl-delete">$1</span>');
 };
 
-// --- Statistics (from currently displayed logs) ---
-const systemCount = computed(() => logs.value.filter(log => log.type === 'system').length);
-const dbCount = computed(() => logs.value.filter(log => log.type === 'database').length);
-const errorCount = computed(() => logs.value.filter(log => log.type === 'error').length);
-
 // --- Button Actions ---
-const handleClearLogs = async () => {
-    ElMessageBox.confirm(
-    '这将清除数据库中的所有日志条目。此操作无法撤销，是否继续？',
-    '警告：清空所有日志',
+const handleBatchDelete = async () => {
+  if (selectedLogIds.value.length === 0) {
+    ElMessage.warning('请选择要删除的日志');
+    return;
+  }
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedLogIds.value.length} 条日志吗？此操作无法撤销，是否继续？`,
+    '警告：批量删除日志',
     {
-      confirmButtonText: '确认清空',
+      confirmButtonText: '确认删除',
       cancelButtonText: '取消',
       type: 'warning',
     }
   )
     .then(async () => {
       try {
-        const res = await clearLogs();
+        const res = await batchDeleteLogs(selectedLogIds.value);
         if (res.code === 200) {
-          ElMessage.success('所有日志已成功清空！');
-          logs.value = []; // Clear frontend logs
-          totalLogs.value = 0;
+          ElMessage.success(res.message || '批量删除成功！');
+          fetchLogs(); // 重新获取日志列表
+          selectedLogIds.value = []; // 清空选中项
         } else {
-          ElMessage.error(res.message || '清空日志失败');
+          ElMessage.error(res.message || '批量删除失败');
         }
       } catch (error: any) {
-        ElMessage.error(error.message || '清空日志时发生服务器错误');
+        console.error('批量删除日志时发生错误:', error);
+        ElMessage.error(error.response?.data?.message || error.message || '批量删除日志时发生服务器错误');
       }
     })
     .catch(() => {
@@ -180,6 +283,28 @@ const handleClearLogs = async () => {
 const exportLogs = () => {
   ElMessage.warning('导出功能正在紧张开发中，敬请期待！');
   // In the future, implementation would call api/log.ts exportLogs function
+};
+
+// 多选功能
+const selectedLogIds = ref<number[]>([]);
+const handleSelectionChange = (selection: LogEntry[]) => {
+  selectedLogIds.value = selection.map(item => item.id!).filter(id => id !== undefined);
+};
+
+const getLogTypeTagType = (type: string) => {
+  switch (type) {
+    case 'system': return 'info';
+    case 'database': return 'success';
+    case 'error': return 'danger';
+    case 'auth': return 'warning';
+    case 'management': return ''; // default
+    case 'user': return 'primary';
+    case 'mailbox': return 'info';
+    case 'info': return '';
+    case 'warn': return 'warning';
+    case 'vue': return 'success';
+    default: return '';
+  }
 };
 </script>
 
@@ -195,7 +320,7 @@ const exportLogs = () => {
 
 .operation-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start; /* Adjust to start */
   align-items: center;
   padding: 15px 20px;
   margin-bottom: 15px;
@@ -203,6 +328,8 @@ const exportLogs = () => {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap; /* Allow wrapping for responsiveness */
+  gap: 10px; /* Spacing between items */
   transition: background-color 0.3s, border-color 0.3s;
 }
 
@@ -213,116 +340,71 @@ const exportLogs = () => {
   font-size: 18px;
   font-weight: bold;
   color: var(--el-text-color-primary);
+  margin-right: 20px; /* Space before search inputs */
 }
 
-.operation-buttons {
-  display: flex;
-  gap: 10px;
+.search-input,
+.filter-item {
+  width: 200px; /* Default width for search/filter inputs */
 }
 
-.log-terminal {
-  flex-grow: 1;
-  background-color: #1e1e1e; /* Dark background for terminal */
-  color: #d4d4d4;
-  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  padding: 15px;
-  border-radius: 8px;
-  overflow-y: auto;
-  border: 1px solid var(--el-border-color-darker);
+.log-table {
+  width: 100%;
+  flex-grow: 1; /* Allow table to take available space */
   margin-bottom: 15px;
-  /* Smooth scrolling */
-  scroll-behavior: smooth;
 }
 
-/* Adjust terminal for light mode */
-html:not(.dark) .log-terminal {
-  background-color: #f5f5f5;
-  color: #333;
-  border: 1px solid var(--el-border-color-lighter);
-}
-
-.log-line {
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin-bottom: 2px;
+.pagination-footer {
+  display: flex;
+  justify-content: space-between; /* Distribute items */
+  align-items: center;
+  padding: 10px 15px;
+  background-color: var(--el-bg-color-overlay);
+  border-radius: 4px;
+  flex-shrink: 0; /* Prevent footer from shrinking */
   transition: background-color 0.3s;
-  
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
 }
 
-html:not(.dark) .log-line:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+.batch-delete-btn {
+  margin-right: 20px; /* Space between button and pagination */
 }
 
-.log-time {
-  color: #909399;
-  margin-right: 15px;
-}
-html:not(.dark) .log-time {
-  color: #888;
-}
-
-/* Specific log type colors (works for both light/dark) */
-.log-line.log-system .log-content {
-  color: #66b1ff;
-}
-.log-line.log-database .log-content {
-  color: #85dcb8;
-}
-.log-line.log-error .log-content {
-  color: #ff8b8b;
+/* Specific styles for log content highlights */
+.hl-success {
+  color: var(--el-color-success);
   font-weight: bold;
 }
-.log-line.log-warn .log-content {
-  color: #e6a23c;
+.hl-error {
+  color: var(--el-color-danger);
+  font-weight: bold;
 }
-.log-line.log-info .log-content {
-  color: #909399;
+.hl-delete {
+  color: var(--el-color-warning);
+  font-weight: bold;
 }
-html:not(.dark) .log-line.log-info .log-content {
-    color: #909399;
+.hl-admin {
+  color: var(--el-color-primary);
+  font-weight: bold;
 }
-
-.log-content {
-  :deep(span) {
-    margin-right: 4px;
-  }
-
-  /* Classes for operator */
-  .hl-admin { color: #d695ff; font-weight: bold; }
-  .hl-system { color: #a5b6c7; font-style: italic; }
-  .hl-operator { color: #73a7ff; }
-
-  /* Dark mode overrides for highlight */
-  :deep(.hl-success) { color: #85dcb8; font-weight: bold; }
-  :deep(.hl-error) { color: #ffa8a8; font-weight: bold; }
-  :deep(.hl-delete) { color: #ff8b8b; }
-
+.hl-system {
+  color: var(--el-color-info);
+  font-weight: bold;
+}
+.hl-operator {
+  color: var(--el-text-color-regular);
 }
 
-/* Light mode overrides */
-html:not(.dark) .log-content {
-    .hl-admin { color: #9370DB; } /* MediumPurple */
-    .hl-system { color: #666; }
-    .hl-operator { color: #1e88e5; }
-
-    :deep(.hl-success) { color: #67c23a; }
-    :deep(.hl-error) { color: #f56c6c; }
-    :deep(.hl-delete) { color: #E53935; }
+/* Dark mode specific styles */
+.dark .operation-header,
+.dark .pagination-footer {
+  background-color: #263445;
+  border-color: #3b4d61;
 }
 
-.log-stats {
-  flex-shrink: 0;
-  padding: 10px 15px;
-  background-color: var(--el-card-bg-color, var(--el-bg-color-overlay));
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  display: flex;
-  gap: 15px;
-  transition: background-color 0.3s, border-color 0.3s;
+.dark .log-table {
+  --el-table-row-hover-bg-color: #2c3a4d;
+  --el-table-header-bg-color: #222e3e;
+  --el-table-header-text-color: #e0e0e0;
+  --el-table-border-color: #3b4d61;
 }
 </style>

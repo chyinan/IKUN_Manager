@@ -8,7 +8,7 @@ import type { ApiResponse } from '@/types/common'
  */
 export const getDeptList = (params?: any): Promise<ApiResponse<DeptResponseData[]>> => {
   console.log('调用getDeptList API');
-  return request.get<ApiResponse<DeptResponseData[]>>('/departments', { params })
+  return request.get<ApiResponse<DeptResponseData[]>>('api/departments', { params }) // Added api/
     .catch(error => {
         console.error('[API dept.ts] Error fetching department list:', error);
         throw error;
@@ -17,7 +17,7 @@ export const getDeptList = (params?: any): Promise<ApiResponse<DeptResponseData[
 
 export const addDept = (data: DeptBackendData): Promise<ApiResponse<DeptResponseData>> => {
   console.log('调用addDept API, 数据:', data);
-  return request.post<ApiResponse<DeptResponseData>>('/departments', data)
+  return request.post<ApiResponse<DeptResponseData>>('api/departments', data) // Added api/
     .catch(error => {
         console.error('[API dept.ts] Error adding department:', error);
         throw error;
@@ -26,7 +26,7 @@ export const addDept = (data: DeptBackendData): Promise<ApiResponse<DeptResponse
 
 export const updateDept = (id: number, data: Partial<DeptBackendData>) => {
   console.log('调用updateDept API, ID:', id, '数据:', data);
-  return request.put<ApiResponse<DeptResponseData>>(`/departments/${id}`, data)
+  return request.put<ApiResponse<DeptResponseData>>(`api/departments/${id}`, data) // Added api/
     .catch(error => {
         console.error(`[API dept.ts] Error updating department ID ${id}:`, error);
         throw error;
@@ -35,7 +35,7 @@ export const updateDept = (id: number, data: Partial<DeptBackendData>) => {
 
 export const deleteDept = (id: number) => {
   console.log('调用deleteDept API, ID:', id);
-  return request.delete<ApiResponse<void>>(`/departments/${id}`)
+  return request.delete<ApiResponse<void>>(`api/departments/${id}`) // Added api/
     .catch(error => {
         console.error(`[API dept.ts] Error deleting department ID ${id}:`, error);
         throw error;
@@ -48,7 +48,7 @@ export const deleteDept = (id: number) => {
 //   const formData = new FormData();
 //   formData.append('file', file);
 
-//   return request.post<ApiResponse<any>>('/dept/import', formData, {
+//   return request.post<ApiResponse<any>>('api/dept/import', formData, {
 //     headers: {
 //       'Content-Type': 'multipart/form-data'
 //     }

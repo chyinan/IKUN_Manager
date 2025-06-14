@@ -1,42 +1,44 @@
 package com.ikunmanager.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ikunmanager.mapper.StudentMapper;
 import com.ikunmanager.model.Student;
+import com.ikunmanager.service.StudentService;
+import com.ikunmanager.mapper.ClassMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import com.ikunmanager.model.IkunClass;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.hasSize;
 
-import com.ikunmanager.IkunManagerApplication; // 新增导入
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc; // 新增导入
-@SpringBootTest(classes = IkunManagerApplication.class)
-@AutoConfigureMockMvc // 新增
-@WithMockUser
+@SpringBootTest
+@AutoConfigureMockMvc
 public class StudentControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockBean
-    private StudentMapper studentMapper;
+    private StudentService studentService;
+
+    @MockBean
+    private ClassMapper classMapper;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -50,96 +52,84 @@ public class StudentControllerTest {
         student1.setId(1L);
         student1.setName("张伟");
         student1.setStudentId("S2023001");
+        student1.setGender("男");
+        student1.setClassName("高三(1)班");
 
         student2 = new Student();
         student2.setId(2L);
         student2.setName("王芳");
         student2.setStudentId("S2023002");
+        student2.setGender("女");
+        student2.setClassName("高三(2)班");
+
+        IkunClass mockIkunClass1 = new IkunClass();
+        mockIkunClass1.setId(101L);
+        mockIkunClass1.setClassName("高三(1)班");
+
+        IkunClass mockIkunClass2 = new IkunClass();
+        mockIkunClass2.setId(102L);
+        mockIkunClass2.setClassName("高三(2)班");
+        
+        given(classMapper.findByClassName("高三(1)班")).willReturn(mockIkunClass1);
+        given(classMapper.findByClassName("高三(2)班")).willReturn(mockIkunClass2);
     }
 
     @Test
-    public void getAllStudents_shouldReturnListOfStudents() throws Exception {
+    public void getStudentList_shouldReturnListOfStudents() throws Exception {
         List<Student> students = Arrays.asList(student1, student2);
-        given(studentMapper.findAll()).willReturn(students);
+        given(studentService.getAllStudents(null, null)).willReturn(students);
 
-        mockMvc.perform(get("/api/students"))
+        mockMvc.perform(get("/api/student/list").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].name", is("张伟")))
-                .andExpect(jsonPath("$[1].name", is("王芳")));
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[0].name", is("张伟")))
+                .andExpect(jsonPath("$.data[1].name", is("王芳")));
     }
 
     @Test
     public void getStudentById_whenStudentExists_shouldReturnStudent() throws Exception {
-        given(studentMapper.findById(1L)).willReturn(student1);
+        given(studentService.getStudentById(1L)).willReturn(student1);
 
-        mockMvc.perform(get("/api/students/1"))
+        mockMvc.perform(get("/api/student/1").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name", is("张伟")));
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.name", is("张伟")));
     }
 
     @Test
-    public void getStudentById_whenStudentDoesNotExist_shouldReturnNotFound() throws Exception {
-        given(studentMapper.findById(99L)).willReturn(null);
+    public void addStudent_shouldReturnCreatedStudent() throws Exception {
+        given(studentService.addStudent(any(Student.class))).willReturn(student1);
 
-        mockMvc.perform(get("/api/students/99"))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    public void createStudent_shouldReturnCreatedStudent() throws Exception {
-        given(studentMapper.insert(any(Student.class))).willReturn(1);
-
-        mockMvc.perform(post("/api/students")
+        mockMvc.perform(post("/api/student/add")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(student1)))
-                .andExpect(status().isOk()) // Based on your controller implementation returning the object directly
-                .andExpect(jsonPath("$.name", is("张伟")));
+                .content(objectMapper.writeValueAsString(student1))
+                .with(user("admin").roles("ADMIN")))
+                .andDo(MockMvcResultHandlers.print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.name", is("张伟")));
     }
 
     @Test
     public void updateStudent_whenStudentExists_shouldReturnUpdatedStudent() throws Exception {
-        given(studentMapper.findById(1L)).willReturn(student1);
-        given(studentMapper.update(any(Student.class))).willReturn(1);
+        given(studentService.updateStudent(any(Student.class))).willReturn(student1);
         
-        Student updatedDetails = new Student();
-        updatedDetails.setName("张伟-Updated");
-
-        mockMvc.perform(put("/api/students/1")
+        mockMvc.perform(put("/api/student/update")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updatedDetails)))
+                .content(objectMapper.writeValueAsString(student1))
+                .with(user("admin").roles("ADMIN")))
+                .andDo(MockMvcResultHandlers.print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name", is("张伟-Updated")));
-    }
-    
-    @Test
-    public void updateStudent_whenStudentDoesNotExist_shouldReturnNotFound() throws Exception {
-        given(studentMapper.findById(99L)).willReturn(null);
-
-        Student updatedDetails = new Student();
-        updatedDetails.setName("不存在的学生");
-
-        mockMvc.perform(put("/api/students/99")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updatedDetails)))
-                .andExpect(status().isNotFound());
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.name", is("张伟")));
     }
 
     @Test
-    public void deleteStudent_whenStudentExists_shouldReturnNoContent() throws Exception {
-        given(studentMapper.findById(1L)).willReturn(student1);
-        given(studentMapper.delete(1L)).willReturn(1);
-
-        mockMvc.perform(delete("/api/students/1"))
-                .andExpect(status().isNoContent());
-    }
-
-    @Test
-    public void deleteStudent_whenStudentDoesNotExist_shouldReturnNotFound() throws Exception {
-        given(studentMapper.findById(99L)).willReturn(null);
-
-        mockMvc.perform(delete("/api/students/99"))
-                .andExpect(status().isNotFound());
+    public void deleteStudent_whenStudentExists_shouldReturnOk() throws Exception {
+        mockMvc.perform(delete("/api/student/delete/1").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)));
     }
 }

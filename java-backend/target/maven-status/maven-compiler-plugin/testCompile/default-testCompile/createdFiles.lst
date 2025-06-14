@@ -2,4 +2,5 @@ com\ikunmanager\controller\StudentControllerTest.class
 com\ikunmanager\mapper\EmployeeMapperTest.class
 com\ikunmanager\controller\DepartmentControllerTest.class
 com\ikunmanager\mapper\DepartmentMapperTest.class
+com\ikunmanager\controller\ClassControllerTest.class
 com\ikunmanager\mapper\UserMapperTest.class

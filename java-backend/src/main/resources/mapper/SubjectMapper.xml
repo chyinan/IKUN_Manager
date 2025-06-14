@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.SubjectMapper">
+
+    <resultMap id="SubjectResultMap" type="com.ikunmanager.model.Subject">
+        <id property="id" column="id"/>
+        <result property="subjectName" column="subject_name"/>
+        <result property="subjectCode" column="subject_code"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="SubjectResultMap">
+        SELECT id, subject_name, subject_code, create_time, update_time
+        FROM subject
+        ORDER BY id DESC
+    </select>
+
+    <select id="findById" resultMap="SubjectResultMap">
+        SELECT id, subject_name, subject_code, create_time, update_time
+        FROM subject
+        WHERE id = #{id}
+    </select>
+
+    <select id="findBySubjectName" resultMap="SubjectResultMap">
+        SELECT id, subject_name, subject_code, create_time, update_time
+        FROM subject
+        WHERE subject_name = #{subjectName}
+    </select>
+
+    <insert id="insertSubject" parameterType="com.ikunmanager.model.Subject" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO subject (subject_name, subject_code, create_time, update_time)
+        VALUES (#{subjectName}, #{subjectCode}, NOW(), NOW())
+    </insert>
+
+    <update id="updateSubject" parameterType="com.ikunmanager.model.Subject">
+        UPDATE subject
+        SET
+            subject_name = #{subjectName},
+            subject_code = #{subjectCode},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteSubject">
+        DELETE FROM subject WHERE id = #{id}
+    </delete>
+
+</mapper> 

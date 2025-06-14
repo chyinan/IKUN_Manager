@@ -1,12 +1,12 @@
 package com.ikunmanager.mapper;
 
-import com.ikunmanager.model.Department;
+import com.ikunmanager.entity.Department;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,8 +40,8 @@ public class DepartmentMapperTest {
         newDepartment.setDeptName("测试部");
         newDepartment.setManager("测试经理");
         newDepartment.setDescription("这是一个测试部门");
-        newDepartment.setCreateTime(new Date());
-        newDepartment.setUpdateTime(new Date());
+        newDepartment.setCreateTime(LocalDateTime.now());
+        newDepartment.setUpdateTime(LocalDateTime.now());
 
         departmentMapper.insert(newDepartment);
         assertNotNull(newDepartment.getId());
@@ -59,7 +59,7 @@ public class DepartmentMapperTest {
 
         existingDepartment.setDeptName("技术部-更新");
         existingDepartment.setManager("更新经理");
-        existingDepartment.setUpdateTime(new Date());
+        existingDepartment.setUpdateTime(LocalDateTime.now());
 
         departmentMapper.update(existingDepartment);
 
@@ -76,8 +76,8 @@ public class DepartmentMapperTest {
         departmentToDelete.setDeptName("待删除部门");
         departmentToDelete.setManager("删除经理");
         departmentToDelete.setDescription("将被删除的部门");
-        departmentToDelete.setCreateTime(new Date());
-        departmentToDelete.setUpdateTime(new Date());
+        departmentToDelete.setCreateTime(LocalDateTime.now());
+        departmentToDelete.setUpdateTime(LocalDateTime.now());
 
         departmentMapper.insert(departmentToDelete);
         assertNotNull(departmentToDelete.getId());

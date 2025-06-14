@@ -4,7 +4,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ikunmanager.mapper.DepartmentMapper">
 
-    <resultMap id="DepartmentResultMap" type="com.ikunmanager.model.Department">
+    <resultMap id="DepartmentResultMap" type="com.ikunmanager.entity.Department">
         <id property="id" column="id"/>
         <result property="deptName" column="dept_name"/>
         <result property="manager" column="manager"/>

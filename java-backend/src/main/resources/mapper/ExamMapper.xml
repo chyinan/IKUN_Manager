@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.ExamMapper">
+
+    <resultMap id="ExamResultMap" type="com.ikunmanager.model.Exam">
+        <id property="id" column="id"/>
+        <result property="examName" column="exam_name"/>
+        <result property="examType" column="exam_type"/>
+        <result property="examDate" column="exam_date"/>
+        <result property="duration" column="duration"/>
+        <result property="subjects" column="subjects"/>
+        <result property="status" column="status"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <!-- Base SELECT statement for common exam fields -->
+    <sql id="Base_Column_List">
+        id, exam_name, exam_type, exam_date, duration, subjects, status, remark, create_time, update_time
+    </sql>
+
+    <select id="findAllExams" resultMap="ExamResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM exam
+        <where>
+            <if test="examName != null and examName != ''">
+                exam_name LIKE CONCAT('%', #{examName}, '%')
+            </if>
+            <if test="examType != null and examType != ''">
+                AND exam_type = #{examType}
+            </if>
+        </where>
+        ORDER BY exam_date DESC, id DESC
+    </select>
+
+    <select id="findExamById" resultMap="ExamResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM exam
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insertExam" parameterType="com.ikunmanager.model.Exam" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO exam (exam_name, exam_type, exam_date, duration, subjects, status, remark, create_time, update_time)
+        VALUES (#{examName}, #{examType}, #{examDate}, #{duration}, #{subjects}, #{status}, #{remark}, NOW(), NOW())
+    </insert>
+
+    <update id="updateExam" parameterType="com.ikunmanager.model.Exam">
+        UPDATE exam
+        SET
+            exam_name = #{examName},
+            exam_type = #{examType},
+            exam_date = #{examDate},
+            duration = #{duration},
+            subjects = #{subjects},
+            status = #{status},
+            remark = #{remark},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteExam">
+        DELETE FROM exam WHERE id = #{id}
+    </delete>
+
+    <!-- Exam-Class Link Operations -->
+    <insert id="insertExamClassLink">
+        INSERT INTO exam_class_link (exam_id, class_id)
+        VALUES (#{examId}, #{classId})
+    </insert>
+
+    <delete id="deleteExamClassLinkByExamId">
+        DELETE FROM exam_class_link WHERE exam_id = #{examId}
+    </delete>
+
+    <!-- Exam-Subject Link Operations -->
+    <insert id="insertExamSubjectLink">
+        INSERT INTO exam_subject (exam_id, subject_id, full_score, pass_score, weight, create_time)
+        VALUES (#{examId}, #{subjectId}, 100.00, 60.00, 1.00, NOW()) <!-- Default scores/weight for new links -->
+    </insert>
+
+    <delete id="deleteExamSubjectLinkByExamId">
+        DELETE FROM exam_subject WHERE exam_id = #{examId}
+    </delete>
+
+    <!-- Utility Methods -->
+    <select id="findDistinctExamTypes" resultType="java.lang.String">
+        SELECT DISTINCT exam_type FROM exam WHERE exam_type IS NOT NULL AND exam_type != '' ORDER BY exam_type
+    </select>
+
+    <!-- Helper methods for populating transient fields -->
+    <select id="findClassNamesByExamId" resultType="java.lang.String">
+        SELECT c.class_name
+        FROM exam_class_link ecl
+        JOIN class c ON ecl.class_id = c.id
+        WHERE ecl.exam_id = #{examId}
+    </select>
+
+    <select id="findClassIdsByExamId" resultType="java.lang.Long">
+        SELECT class_id
+        FROM exam_class_link
+        WHERE exam_id = #{examId}
+    </select>
+
+    <select id="findSubjectNamesByExamId" resultType="java.lang.String">
+        SELECT s.subject_name
+        FROM exam_subject es
+        JOIN subject s ON es.subject_id = s.id
+        WHERE es.exam_id = #{examId}
+    </select>
+
+    <select id="findSubjectIdsByExamId" resultType="java.lang.Long">
+        SELECT subject_id
+        FROM exam_subject
+        WHERE exam_id = #{examId}
+    </select>
+
+</mapper> 

@@ -32,7 +32,7 @@ export interface Message {
  * [Student] Fetches all message threads for the current student.
  */
 export function getStudentThreads(): Promise<ApiResponse<MailboxThread[]>> {
-  return request.get('/mailbox/student-threads');
+  return request.get('api/mailbox/student-threads'); // Added api/
 }
 
 /**
@@ -40,7 +40,7 @@ export function getStudentThreads(): Promise<ApiResponse<MailboxThread[]>> {
  * @param params - Optional query params for filtering/pagination
  */
 export function getAdminThreads(params?: any): Promise<ApiResponse<MailboxThread[]>> {
-  return request.get('/mailbox/admin-threads', { params });
+  return request.get('api/mailbox/admin-threads', { params }); // Added api/
 }
 
 /**
@@ -49,7 +49,7 @@ export function getAdminThreads(params?: any): Promise<ApiResponse<MailboxThread
  * @param content - The initial message content.
  */
 export function createThread(title: string, content: string): Promise<ApiResponse<MailboxThread & { id: number }>> {
-  return request.post('/mailbox/threads', { title, content });
+  return request.post('api/mailbox/threads', { title, content }); // Added api/
 }
 
 /**
@@ -57,7 +57,7 @@ export function createThread(title: string, content: string): Promise<ApiRespons
  * @param threadId - The ID of the thread.
  */
 export function getMessagesInThread(threadId: number): Promise<ApiResponse<Message[]>> {
-  return request.get(`/mailbox/threads/${threadId}`);
+  return request.get(`api/mailbox/threads/${threadId}`); // Added api/
 }
 
 /**
@@ -66,7 +66,7 @@ export function getMessagesInThread(threadId: number): Promise<ApiResponse<Messa
  * @param content - The reply content.
  */
 export function replyToThread(threadId: number, content: string): Promise<ApiResponse<Message>> {
-  return request.post(`/mailbox/threads/${threadId}/reply`, { content });
+  return request.post(`api/mailbox/threads/${threadId}/reply`, { content }); // Added api/
 }
 
 /**
@@ -75,5 +75,5 @@ export function replyToThread(threadId: number, content: string): Promise<ApiRes
  * @param status - The new status to set.
  */
 export function updateThreadStatus(threadId: number, status: ThreadStatus): Promise<ApiResponse<any>> {
-    return request.put(`/mailbox/threads/${threadId}/status`, { status });
-} 
+    return request.put(`api/mailbox/threads/${threadId}/status`, { status }); // Added api/
+}

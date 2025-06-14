@@ -8,6 +8,7 @@
         <result property="name" column="name"/>
         <result property="gender" column="gender"/>
         <result property="classId" column="class_id"/>
+        <result property="className" column="class_name"/>
         <result property="phone" column="phone"/>
         <result property="email" column="email"/>
         <result property="userId" column="user_id"/>
@@ -17,34 +18,69 @@
     </resultMap>
 
     <select id="findAll" resultMap="StudentResultMap">
-        SELECT * FROM student
+        SELECT
+            s.*,
+            c.class_name
+        FROM
+            student s
+        LEFT JOIN
+            class c ON s.class_id = c.id
+        <where>
+            <if test="name != null and name != ''">
+                AND s.name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="studentId != null and studentId != ''">
+                AND s.student_id LIKE CONCAT('%', #{studentId}, '%')
+            </if>
+        </where>
+        ORDER BY s.id DESC
     </select>
 
     <select id="findById" resultMap="StudentResultMap">
-        SELECT * FROM student WHERE id = #{id}
+        SELECT
+            s.*,
+            c.class_name
+        FROM
+            student s
+        LEFT JOIN
+            class c ON s.class_id = c.id
+        WHERE
+            s.id = #{id}
     </select>
 
-    <insert id="insert" parameterType="com.ikunmanager.model.Student" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO student (student_id, name, gender, class_id, phone, email, user_id, join_date, create_time, update_time)
-        VALUES (#{studentId}, #{name}, #{gender}, #{classId}, #{phone}, #{email}, #{userId}, #{joinDate}, NOW(), NOW())
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student (
+            student_id, name, gender, class_id, phone, email, join_date, create_time, update_time, user_id
+        )
+        VALUES (
+            #{studentId}, #{name}, #{gender}, #{classId}, #{phone}, #{email}, #{joinDate}, NOW(), NOW(), #{userId}
+        )
     </insert>
 
-    <update id="update" parameterType="com.ikunmanager.model.Student">
-        UPDATE student SET
-        student_id = #{studentId},
-        name = #{name},
-        gender = #{gender},
-        class_id = #{classId},
-        phone = #{phone},
-        email = #{email},
-        user_id = #{userId},
-        join_date = #{joinDate},
-        update_time = NOW()
+    <update id="update">
+        UPDATE student
+        SET
+            student_id = #{studentId},
+            name = #{name},
+            gender = #{gender},
+            class_id = #{classId},
+            phone = #{phone},
+            email = #{email},
+            join_date = #{joinDate},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 
     <delete id="delete">
         DELETE FROM student WHERE id = #{id}
     </delete>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO student (student_id, name, gender, class_id, phone, email, join_date, create_time, update_time)
+        VALUES
+        <foreach collection="students" item="student" separator=",">
+            (#{student.studentId}, #{student.name}, #{student.gender}, #{student.classId}, #{student.phone}, #{student.email}, #{student.joinDate}, NOW(), NOW())
+        </foreach>
+    </insert>
 
 </mapper>

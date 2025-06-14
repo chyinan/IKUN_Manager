@@ -17,7 +17,7 @@ export interface Announcement {
  */
 export function getAnnouncements(params?: any): Promise<ApiResponse<Announcement[]>> {
   return request({
-    url: '/announcements',
+    url: 'api/announcements', // Added api/
     method: 'get',
     params,
   });
@@ -36,7 +36,7 @@ export interface AdminAnnouncement extends Announcement {
  */
 export function getAllAnnouncementsAdmin(): Promise<ApiResponse<AdminAnnouncement[]>> {
   return request({
-    url: '/announcements/all',
+    url: 'api/announcements/all', // Added api/
     method: 'get',
   });
 }
@@ -48,7 +48,7 @@ export function getAllAnnouncementsAdmin(): Promise<ApiResponse<AdminAnnouncemen
  */
 export function createAnnouncement(data: Partial<AdminAnnouncement>): Promise<ApiResponse<Announcement>> {
   return request({
-    url: '/announcements',
+    url: 'api/announcements', // Added api/
     method: 'post',
     data,
   });
@@ -62,7 +62,7 @@ export function createAnnouncement(data: Partial<AdminAnnouncement>): Promise<Ap
  */
 export function updateAnnouncement(id: number, data: Partial<AdminAnnouncement>): Promise<ApiResponse<Announcement>> {
   return request({
-    url: `/announcements/${id}`,
+    url: `api/announcements/${id}`, // Added api/
     method: 'put',
     data,
   });
@@ -75,7 +75,7 @@ export function updateAnnouncement(id: number, data: Partial<AdminAnnouncement>)
  */
 export function deleteAnnouncement(id: number): Promise<ApiResponse<null>> {
   return request({
-    url: `/announcements/${id}`,
+    url: `api/announcements/${id}`, // Added api/
     method: 'delete',
   });
-} 
+}

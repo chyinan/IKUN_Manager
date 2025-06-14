@@ -6,13 +6,11 @@ export type LogType = 'system' | 'database' | 'vue' | 'info' | 'warn' | 'error' 
 // 日志条目接口
 export interface LogEntry {
   id?: number;
-  type: LogType;
+  type: string;
+  operation?: string;
   content: string;
   operator?: string;
-  operation?: string;
   createTime?: string;
-  ip?: string;
-  module?: string;
 }
 
 // 日志响应接口
@@ -24,9 +22,10 @@ export interface LogResponse extends ApiResponse<LogEntry[]> {
 export interface LogQueryParams {
   page?: number;
   pageSize?: number;
-  type?: LogType;
+  type?: string;
+  operation?: string;
+  content?: string;
   operator?: string;
-  startTime?: string;
-  endTime?: string;
-  keyword?: string;
+  startDate?: string;
+  endDate?: string;
 }

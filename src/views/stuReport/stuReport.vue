@@ -64,7 +64,11 @@
         </el-card>
         <el-card class="chart-card">
           <template #header>学科能力分析 (班级平均)</template>
-          <v-chart class="chart" :option="subjectRadarOption" autoresize />
+          <v-chart 
+            v-if="mainClassStats && Object.keys(mainClassStats.averageScores).length > 0" 
+            class="chart" :option="subjectRadarOption" autoresize 
+          />
+          <el-empty v-else description="暂无学科成绩数据" />
         </el-card>
         <el-card class="chart-card top-students-card">
           <template #header>总分Top 5</template>
@@ -92,12 +96,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, markRaw, provide, inject, type Ref } from 'vue';
 import { ElMessage, ElCard, ElSelect, ElOption, ElEmpty, ElTable, ElTableColumn, ElIcon } from 'element-plus';
-import { getScoreList } from '@/api/score';
+import { getScoreList, getScoresByExamAndClass, type ScoreDetailDTO } from '@/api/score';
 import { getClassList } from '@/api/class';
 import { getExamList } from '@/api/exam';
 import type { ClassItem as Class } from '@/types/common';
 import type { Exam } from '@/types/common';
-import type { ScoreDetail } from '@/api/score';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { PieChart, BarChart, RadarChart } from 'echarts/charts';
@@ -253,10 +256,13 @@ const subjectRadarOption = computed<EChartsOption>(() => ({
     textStyle: {
       color: isDark.value ? '#ccc' : '#333'
     },
-    data: ['班级平均', '班级最高']
+    data: ['班级平均分', '班级最高分']
   },
   radar: {
-    indicator: mainClassStats.value ? Object.keys(mainClassStats.value.averageScores).map(subject => ({ name: subject, max: 100 })) : [],
+    indicator: Object.keys(mainClassStats.value?.averageScores || {}).map(subject => ({
+      name: subject,
+      max: 100 // Assuming max score is 100 for all subjects
+    })),
     shape: 'circle',
     center: ['50%', '45%'],
     radius: '65%',
@@ -276,20 +282,28 @@ const subjectRadarOption = computed<EChartsOption>(() => ({
   },
   series: [
     {
-      name: '学科能力分析',
+      name: '班级平均分',
       type: 'radar',
       data: [
         {
-          value: mainClassStats.value ? Object.values(mainClassStats.value.averageScores) : [],
-          name: '班级平均',
-          itemStyle: { color: chartColors.value[0] },
-          lineStyle: { width: 3 }
-        },
+          value: Object.values(mainClassStats.value?.averageScores || {}).filter(val => typeof val === 'number' && !isNaN(val)) as number[],
+          name: '班级平均分',
+          areaStyle: {
+            opacity: 0.7
+          }
+        }
+      ]
+    },
+    {
+      name: '班级最高分',
+      type: 'radar',
+      data: [
         {
-          value: mainClassStats.value ? Object.values(mainClassStats.value.highestScores) : [],
-          name: '班级最高',
-          itemStyle: { color: chartColors.value[1] },
-          lineStyle: { width: 3 }
+          value: Object.values(mainClassStats.value?.highestScores || {}).filter(val => typeof val === 'number' && !isNaN(val)) as number[],
+          name: '班级最高分',
+          areaStyle: {
+            opacity: 0.7
+          }
         }
       ]
     }
@@ -371,7 +385,7 @@ function createEmptyStats(): ClassStats {
   };
 }
 
-function calculateClassStats(classScores: ScoreDetail[]): ClassStats {
+function calculateClassStats(classScores: ScoreDetailDTO[]): ClassStats {
   if (!classScores || classScores.length === 0) {
     return createEmptyStats();
   }
@@ -388,11 +402,11 @@ function calculateClassStats(classScores: ScoreDetail[]): ClassStats {
 
   for (const record of classScores) {
     const rawScore = parseFloat(record.score as any);
-    if (record.student_id && !isNaN(rawScore)) {
-      const studentId = record.student_id.toString();
+    if (record.studentId && !isNaN(rawScore)) {
+      const studentId = record.studentId.toString();
 
       if (!studentData[studentId]) {
-        studentData[studentId] = { totalScore: 0, subjectScores: {}, name: record.student_name, id: record.student_id };
+        studentData[studentId] = { totalScore: 0, subjectScores: {}, name: record.studentName, id: record.studentId.toString() };
       }
 
       studentData[studentId].totalScore += rawScore;
@@ -465,20 +479,18 @@ const fetchClassReport = async () => {
   loading.value = true;
   hasSelection.value = true;
   try {
-    const res = await getScoreList({
-      classId: selectedClass.value,
-      examId: selectedExam.value.id,
-      pageSize: 5000 // Ensure all scores are fetched
-    });
-    if (res.code === 200 && res.data.length > 0) {
+    const res = await getScoresByExamAndClass(selectedExam.value.id, selectedClass.value);
+
+    if (res.code === 200 && res.data && Array.isArray(res.data) && res.data.length > 0) {
       mainClassStats.value = calculateClassStats(res.data);
     } else {
       mainClassStats.value = createEmptyStats();
       ElMessage.info('未找到该班级在此次考试中的成绩记录');
     }
   } catch (error) {
-    ElMessage.error('获取班级成绩报告失败');
-    mainClassStats.value = null;
+    console.error('获取班级报告失败:', error);
+    ElMessage.error('获取班级报告失败');
+    mainClassStats.value = createEmptyStats(); // 错误时清空数据
   } finally {
     loading.value = false;
   }

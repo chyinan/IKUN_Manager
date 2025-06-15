@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.AnnouncementMapper">
+
+    <resultMap id="AnnouncementResultMap" type="com.ikunmanager.model.Announcement">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectAnnouncementSql">
+        SELECT
+            id,
+            title,
+            content,
+            created_at,
+            updated_at
+        FROM
+            announcements
+    </sql>
+
+    <select id="findAll" resultMap="AnnouncementResultMap">
+        <include refid="selectAnnouncementSql"/>
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findById" resultMap="AnnouncementResultMap">
+        <include refid="selectAnnouncementSql"/>
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.ikunmanager.model.Announcement" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO announcements (title, content, created_at, updated_at)
+        VALUES (#{title}, #{content}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.model.Announcement">
+        UPDATE announcements
+        SET
+            title = #{title},
+            content = #{content},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM announcements WHERE id = #{id}
+    </delete>
+
+</mapper> 

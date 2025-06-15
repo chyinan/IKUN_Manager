@@ -27,7 +27,7 @@
       <!-- 用户信息下拉菜单 -->
       <el-dropdown class="avatar-container right-menu-item" trigger="click" @command="handleCommand">
         <div class="avatar-wrapper">
-          <el-avatar :size="30" :src="userStore.avatar || '/avatar.png'" />
+          <el-avatar :size="30" :src="userStore.avatar || defaultAvatar" />
           <span class="username">{{ userStore.userInfo?.display_name || userStore.username }}</span>
           <el-icon class="el-icon-caret-bottom">
             <CaretBottom />
@@ -56,6 +56,8 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+// import defaultAvatar from '@/assets/default_avatar.png' // 导入默认头像图片
+const defaultAvatar = new URL('../assets/default-avatar.png', import.meta.url).href;
 import { 
   Expand, 
   Fold, 

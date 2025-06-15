@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.CarouselMapper">
+
+    <resultMap id="CarouselImageResultMap" type="com.ikunmanager.model.CarouselImage">
+        <id property="id" column="id"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="title" column="title"/>
+        <result property="linkUrl" column="link_url"/>
+        <result property="displayOrder" column="display_order"/>
+        <result property="isActive" column="is_active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectCarouselImageSql">
+        SELECT
+            id,
+            image_url,
+            title,
+            link_url,
+            display_order,
+            is_active,
+            created_at,
+            updated_at
+        FROM
+            carousel_images
+    </sql>
+
+    <select id="findAllActive" resultMap="CarouselImageResultMap">
+        <include refid="selectCarouselImageSql"/>
+        WHERE is_active = TRUE
+        ORDER BY display_order ASC, created_at DESC
+    </select>
+
+    <select id="findById" resultMap="CarouselImageResultMap">
+        <include refid="selectCarouselImageSql"/>
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.ikunmanager.model.CarouselImage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO carousel_images (image_url, title, link_url, display_order, is_active, created_at, updated_at)
+        VALUES (#{imageUrl}, #{title}, #{linkUrl}, #{displayOrder}, #{isActive}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.model.CarouselImage">
+        UPDATE carousel_images
+        <set>
+            <if test="imageUrl != null">
+                image_url = #{imageUrl},
+            </if>
+            <if test="title != null">
+                title = #{title},
+            </if>
+            <if test="linkUrl != null">
+                link_url = #{linkUrl},
+            </if>
+            <if test="displayOrder != null">
+                display_order = #{displayOrder},
+            </if>
+            <if test="isActive != null">
+                is_active = #{isActive},
+            </if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM carousel_images WHERE id = #{id}
+    </delete>
+
+    <delete id="batchDelete">
+        DELETE FROM carousel_images WHERE id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper> 

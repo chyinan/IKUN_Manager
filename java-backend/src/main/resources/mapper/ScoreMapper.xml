@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.ScoreMapper">
+
+    <resultMap id="ScoreResultMap" type="com.ikunmanager.model.Score">
+        <id property="id" column="id"/>
+        <result property="studentId" column="student_id"/>
+        <result property="examId" column="exam_id"/>
+        <result property="subject" column="subject"/>
+        <result property="score" column="score"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectScoreSql">
+        SELECT
+            id,
+            student_id,
+            exam_id,
+            subject,
+            score,
+            create_time,
+            update_time
+        FROM
+            student_score
+    </sql>
+
+    <select id="findByPage" resultMap="ScoreResultMap">
+        <include refid="selectScoreSql"/>
+        <where>
+            <if test="studentId != null">
+                AND student_id = #{studentId}
+            </if>
+            <if test="examId != null">
+                AND exam_id = #{examId}
+            </if>
+            <if test="subject != null and subject != ''">
+                AND subject LIKE CONCAT('%', #{subject}, '%')
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="countByPage" resultType="int">
+        SELECT COUNT(id) FROM student_score
+        <where>
+            <if test="studentId != null">
+                AND student_id = #{studentId}
+            </if>
+            <if test="examId != null">
+                AND exam_id = #{examId}
+            </if>
+            <if test="subject != null and subject != ''">
+                AND subject LIKE CONCAT('%', #{subject}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="ScoreResultMap">
+        <include refid="selectScoreSql"/>
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.ikunmanager.model.Score" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student_score (student_id, exam_id, subject, score, create_time, update_time)
+        VALUES (#{studentId}, #{examId}, #{subject}, #{score}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.model.Score">
+        UPDATE student_score
+        SET
+            student_id = #{studentId},
+            exam_id = #{examId},
+            subject = #{subject},
+            score = #{score},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM student_score WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByIds">
+        DELETE FROM student_score WHERE id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="findByStudentIdAndExamId" resultMap="ScoreResultMap">
+        <include refid="selectScoreSql"/>
+        WHERE student_id = #{studentId} AND exam_id = #{examId}
+    </select>
+    
+    <select id="findByStudentIdAndExamIdAndSubject" resultMap="ScoreResultMap">
+        <include refid="selectScoreSql"/>
+        WHERE student_id = #{studentId} AND exam_id = #{examId} AND subject = #{subject}
+    </select>
+
+    <!-- 新增 ScoreDetailDTO 的 resultMap -->
+    <resultMap id="ScoreDetailDTOResultMap" type="com.ikunmanager.dto.ScoreDetailDTO">
+        <id property="id" column="id"/>
+        <result property="studentId" column="student_id"/>
+        <result property="studentName" column="student_name"/>
+        <result property="className" column="class_name"/>
+        <result property="examId" column="exam_id"/>
+        <result property="subject" column="subject"/>
+        <result property="score" column="score"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <!-- 新增根据考试ID和班级ID获取成绩详情列表的查询 -->
+    <select id="findScoresByExamAndClass" resultMap="ScoreDetailDTOResultMap">
+        SELECT
+            ss.id,
+            ss.student_id,
+            s.name AS student_name,
+            c.class_name,
+            ss.exam_id,
+            ss.subject,
+            ss.score,
+            ss.create_time,
+            ss.update_time
+        FROM
+            student_score ss
+        LEFT JOIN
+            student s ON ss.student_id = s.id
+        LEFT JOIN
+            class c ON s.class_id = c.id
+        WHERE
+            ss.exam_id = #{examId}
+            <if test="classId != null">
+                AND s.class_id = #{classId}
+            </if>
+        ORDER BY ss.student_id, ss.subject
+    </select>
+
+</mapper> 

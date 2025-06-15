@@ -7,6 +7,7 @@ import com.ikunmanager.mapper.SubjectMapper;
 import com.ikunmanager.model.Exam;
 import com.ikunmanager.model.IkunClass;
 import com.ikunmanager.model.Subject;
+import com.ikunmanager.dto.ExamStatsDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -184,5 +185,18 @@ public class ExamService {
                 examMapper.updateExam(exam); // Update status in DB
             }
         }
+    }
+
+    public ExamStatsDTO getExamStatistics() {
+        ExamStatsDTO stats = new ExamStatsDTO();
+
+        // 考试总数
+        Long totalExams = examMapper.getTotalExams();
+        stats.setTotal(totalExams);
+
+        // 考试类型分布
+        stats.setTypeDistribution(examMapper.getExamTypeDistribution());
+
+        return stats;
     }
 } 

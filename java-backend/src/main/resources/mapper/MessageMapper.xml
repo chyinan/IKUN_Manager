@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.MessageMapper">
+
+    <resultMap id="MessageResultMap" type="com.ikunmanager.model.Message">
+        <id property="id" column="id"/>
+        <result property="threadId" column="thread_id"/>
+        <result property="senderUserId" column="sender_user_id"/>
+        <result property="content" column="content"/>
+        <result property="isRead" column="is_read"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectMessageSql">
+        SELECT
+            id,
+            thread_id,
+            sender_user_id,
+            content,
+            is_read,
+            create_time
+        FROM
+            messages
+    </sql>
+
+    <select id="findByThreadId" resultMap="MessageResultMap">
+        <include refid="selectMessageSql"/>
+        WHERE thread_id = #{threadId}
+        ORDER BY create_time ASC
+    </select>
+
+    <select id="findById" resultMap="MessageResultMap">
+        <include refid="selectMessageSql"/>
+        WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.ikunmanager.model.Message" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO messages (thread_id, sender_user_id, content, is_read, create_time)
+        VALUES (#{threadId}, #{senderUserId}, #{content}, #{isRead}, NOW())
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.model.Message">
+        UPDATE messages
+        SET
+            thread_id = #{threadId},
+            sender_user_id = #{senderUserId},
+            content = #{content},
+            is_read = #{isRead}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM messages WHERE id = #{id}
+    </delete>
+
+    <update id="markMessagesAsRead">
+        UPDATE messages
+        SET
+            is_read = 1
+        WHERE thread_id = #{threadId} AND sender_user_id != #{userId} AND is_read = 0
+    </update>
+
+</mapper> 

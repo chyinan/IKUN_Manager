@@ -12,7 +12,7 @@
         <div class="avatar-container">
           <el-avatar
             :size="120"
-            :src="userInfo.avatar || defaultAvatar"
+            :src="displayAvatar"
             @error="avatarError"
           />
           <el-upload
@@ -151,12 +151,13 @@ import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus
 import { 
   Lock, SwitchButton, Delete, ArrowRight
 } from '@element-plus/icons-vue'
+import defaultAvatar from '@/assets/default-avatar.png' // 导入默认头像图片
 
 // 用户信息接口
 interface UserInfo {
   username: string
   email: string
-  avatar: string
+  avatar?: string // Make avatar optional in the interface as it will be computed
 }
 
 // 密码表单接口
@@ -176,19 +177,21 @@ const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const passwordFormRef = ref<FormInstance>()
 
-// 默认头像
-const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-
 // 用户信息表单
 const userInfo = reactive<UserInfo>({
   username: userStore.username || localStorage.getItem('username') || '',
   email: userStore.userInfo?.email || localStorage.getItem('email') || '', 
-  avatar: userStore.avatar || defaultAvatar 
+  // avatar: userStore.avatar || defaultAvatar // Remove direct assignment
 })
+
+// Computed property for displaying avatar
+const displayAvatar = computed(() => {
+  return userStore.avatar || defaultAvatar;
+});
 
 // 初始值
 const initialEmail = ref(userInfo.email)
-const initialAvatar = ref(userInfo.avatar)
+const initialAvatar = ref(userStore.avatar) // Track initial avatar directly from store
 
 // 加载状态
 const loading = reactive({
@@ -240,12 +243,13 @@ const passwordRules = reactive<FormRules>({
 
 // 检查是否有更改
 const hasChanges = computed(() => {
-  return userInfo.email !== initialEmail.value || userInfo.avatar !== initialAvatar.value
+  return userInfo.email !== initialEmail.value || userStore.avatar !== initialAvatar.value // Compare with userStore.avatar
 })
 
 // 头像上传错误处理
 const avatarError = () => {
-  userInfo.avatar = defaultAvatar
+  // When image fails to load, the src property already handles fallback to defaultAvatar
+  // No need to set userInfo.avatar here, as it's now computed
 }
 
 // 处理头像上传
@@ -255,9 +259,9 @@ const handleUploadAvatar = async (options: UploadRequestOptions) => {
     const response = await uploadFile(options.file)
     if (response.code === 200) {
       const newAvatarUrl = response.data.filePath
-      // Now, update the user's info with the new avatar URL
+      // Update user's info with the new avatar URL in the store
       await userStore.updateUserProfile({ avatar: newAvatarUrl })
-      userInfo.avatar = newAvatarUrl // Update local display
+      // userInfo.avatar = newAvatarUrl // Remove direct assignment
       initialAvatar.value = newAvatarUrl // Update initial value to prevent "unsaved changes"
       ElMessage.success('头像更换成功')
     } else {
@@ -355,15 +359,16 @@ const confirmDeactivate = () => {
 
 // 初始化数据
 onMounted(() => {
+  // Removed direct userInfo.avatar assignment here as it's now a computed property
   if (userStore.username) {
     userInfo.username = userStore.username
     userInfo.email = userStore.userInfo?.email || localStorage.getItem('email') || ''
-    userInfo.avatar = userStore.avatar || defaultAvatar
+    // userInfo.avatar = userStore.avatar || defaultAvatar // Remove direct assignment
   }
   
-  if (!userInfo.avatar) {
-    userInfo.avatar = defaultAvatar
-  }
+  // if (!userInfo.avatar) { // This check is no longer needed
+  //   userInfo.avatar = defaultAvatar
+  // }
 })
 </script>
 

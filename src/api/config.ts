@@ -67,10 +67,14 @@ export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselInterva
 
 /**
  * 更新轮播图全局切换时间配置
- * @param config 包含 carouselInterval 的配置对象
+ * @param interval 轮播图切换时间（毫秒）
  */
-export const updateCarouselIntervalConfig = (config: CarouselIntervalConfig): Promise<ApiResponse<void>> => {
-  return request.put<ApiResponse<void>>('api/config/carousel-interval', config) // 添加 api/
+export const updateCarouselIntervalConfig = (interval: number): Promise<ApiResponse<void>> => {
+  return request.put<ApiResponse<void>>(
+    'api/config/carousel-interval', 
+    JSON.stringify(interval), // 将数字转换为JSON字符串
+    { headers: { 'Content-Type': 'application/json' } } // 显式设置Content-Type
+  )
     .catch(error => {
       console.error('[API config.ts] Error updating carousel interval config:', error);
       throw error;

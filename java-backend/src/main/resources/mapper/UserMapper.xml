@@ -30,8 +30,49 @@
         WHERE username = #{username}
     </select>
 
+    <select id="findById" resultType="com.ikunmanager.model.User">
+        SELECT
+            id,
+            username,
+            password,
+            email,
+            avatar,
+            create_time AS createTime,
+            update_time AS updateTime,
+            role,
+            display_name AS displayName
+        FROM user
+        WHERE id = #{id}
+    </select>
+
     <insert id="insert" parameterType="com.ikunmanager.model.User" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user (username, password, email, avatar, role, display_name, create_time, update_time)
         VALUES (#{username}, #{password}, #{email}, #{avatar}, #{role}, #{displayName}, NOW(), NOW())
     </insert>
+
+    <update id="update" parameterType="com.ikunmanager.model.User">
+        UPDATE user
+        <set>
+            <if test="username != null">
+                username = #{username},
+            </if>
+            <if test="password != null">
+                password = #{password},
+            </if>
+            <if test="email != null">
+                email = #{email},
+            </if>
+            <if test="avatar != null">
+                avatar = #{avatar},
+            </if>
+            <if test="role != null">
+                role = #{role},
+            </if>
+            <if test="displayName != null">
+                display_name = #{displayName},
+            </if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
 </mapper>

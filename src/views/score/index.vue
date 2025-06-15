@@ -206,7 +206,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance } from 'element-plus'
 import { getClassList } from '@/api/class'
 import { getStudentList } from '@/api/student'
-import { createExamIfNotExists, getExamListByType } from '@/api/exam'
+import { createExamIfNotExists, getExamListByType, getExamTypeOptions } from '@/api/exam'
 import type { SubjectType, ScoreData, ApiResponse, StudentItemResponse } from '@/types/common'
 import { School, Calendar, UserFilled, Check, Close, User } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
@@ -214,7 +214,6 @@ import dayjs from 'dayjs'
 // 导入新的score API
 import * as scoreApi from '@/api/score'
 import { 
-  getExamTypeOptions, 
   getSubjectOptions,
   getScoreList,
   getStudentScoreByExamId,
@@ -349,6 +348,7 @@ const fetchScores = async () => {
   // 如果没有选择学生或考试类型，不调用API
   if (!selectedStudent.value || !selectedExamType.value) {
     scoreList.value = []
+    pagination.total = 0; // Ensure total is reset
     return
   }
 
@@ -356,17 +356,20 @@ const fetchScores = async () => {
     console.log('开始获取成绩列表...')
     const params: ScoreQueryParams = {
       studentId: selectedStudent.value,
-      examType: selectedExamType.value
+      examType: selectedExamType.value,
+      page: pagination.currentPage, // Pass pagination info
+      pageSize: pagination.pageSize  // Pass pagination info
     }
-    
-    const response = await getScoreList(params) // Returns ApiResponse<ScoreDetail[]>
+
+    const response = await getScoreList(params) // Returns ApiResponse<PaginatedResponse<ScoreDetail>>
     console.log('成绩列表API响应:', response)
-    
-    if (response && response.code === 200 && Array.isArray(response.data)) {
-      scoreList.value = response.data
+
+    // 检查响应和数据结构
+    if (response && response.code === 200 && response.data && Array.isArray(response.data.list)) {
+      scoreList.value = response.data.list || []; // 从 response.data.list 中获取数据
+      pagination.total = response.data.total || 0; // 从 response.data.total 中获取总数
       console.log('成绩列表:', scoreList.value)
-      pagination.total = response.data.length; 
-      if (response.data.length === 0) {
+      if (scoreList.value.length === 0) {
           ElMessage.info('未查询到相关成绩记录。');
         }
       } else {
@@ -459,7 +462,10 @@ const handleExamTypeChange = async () => {
   
   try {
     loading.value = true;
+    // getExams 现在直接返回 ExamItemResponse[]，不再包裹在 ApiResponse 中
     const examListResult = await scoreApi.getExams(selectedExamType.value);
+    
+    // 直接检查 examListResult 是否是数组且有数据
     if (Array.isArray(examListResult) && examListResult.length > 0) {
       examNames.value = examListResult.map(item => ({
         id: item.id,
@@ -477,6 +483,7 @@ const handleExamTypeChange = async () => {
   } catch (error) {
     console.error('获取考试名称列表失败:', error);
     ElMessage.error('获取考试名称列表失败');
+    examNames.value = []; // 错误时清空考试名称列表
   } finally {
     loading.value = false;
   }
@@ -506,57 +513,35 @@ const fetchStudentScores = async (studentId: number, examId: number) => {
   resetScoreForm(); // Resets scoreForm, originalScores, and activeSubjects
 
   try {
-    // API returns ApiResponse<ScoreData> where ScoreData = { subjects: string[], scores: {...} }
+    // API returns ApiResponse<List<Score>>
     const res = await scoreApi.getStudentScoreByExamId(studentId, examId);
     console.log('获取学生成绩响应:', res);
 
-    // Corrected: Check res.code and access res.data for subjects and scores
-    if (res && res.code === 200 && res.data && Array.isArray(res.data.subjects) && typeof res.data.scores === 'object') {
-      const scoreData = res.data as ScoreData; // Assert type ScoreData
-      
-      // 1. Update active subjects
-      if (Array.isArray(scoreData.subjects)) {
-         activeSubjects.value = scoreData.subjects;
-         console.log('Active subjects set to:', activeSubjects.value);
-      } else {
-         activeSubjects.value = []; // Fallback to empty array
-         console.warn('scoreData.subjects is not an array');
-      }
+    if (res && res.code === 200 && Array.isArray(res.data)) {
+      const scoresList = res.data as Score[]; // Assert type as Score array
 
-      // 2. Initialize scoreForm and originalScores based on active subjects
+      // 1. Update active subjects and initialize scoreForm/originalScores
+      const newActiveSubjects: string[] = [];
       const newScoreForm: Record<string, number | null> = {};
-      activeSubjects.value.forEach(subject => {
-        // Corrected: Remove assertion, add safer access and type checks
-        const scoresObject = scoreData.scores;
-        if (scoresObject && typeof scoresObject === 'object' && scoresObject.hasOwnProperty(subject)) {
-          const scoreValue = scoresObject[subject as keyof typeof scoresObject]; // Access using keyof
-          if (scoreValue !== undefined && scoreValue !== null) {
-              // Try parsing after converting to string for robustness
-              const numericScore = parseFloat(String(scoreValue)); 
-              if (!isNaN(numericScore)) {
-                  newScoreForm[subject] = numericScore;
-      } else {
-                  newScoreForm[subject] = null;
-                  console.warn(`Received non-numeric score value for ${subject}:`, scoreValue);
-              }
-          } else {
-              // Value is null or undefined
-              newScoreForm[subject] = null;
-          }
+
+      scoresList.forEach(scoreItem => {
+        if (scoreItem.subject && scoreItem.score !== undefined && scoreItem.score !== null) {
+          newActiveSubjects.push(scoreItem.subject);
+          newScoreForm[scoreItem.subject] = parseFloat(String(scoreItem.score));
         } else {
-            // Subject key doesn't exist in the scores object
-            newScoreForm[subject] = null;
-            console.warn(`Subject ${subject} not found in scores object`);
+          console.warn(`Invalid score item encountered:`, scoreItem);
         }
       });
       
+      activeSubjects.value = newActiveSubjects;
       scoreForm.value = newScoreForm;
       originalScores.value = { ...scoreForm.value }; // Deep copy for comparison
 
+      console.log('Active subjects set to:', activeSubjects.value);
       console.log('学生成绩加载完成', scoreForm.value);
       isScoreChanged.value = false; // Reset changed flag after load
     } else {
-      console.warn('未找到学生成绩记录、科目列表或API响应无效, 表单已重置.');
+      console.warn('未找到学生成绩记录或API响应无效, 表单已重置.');
       ElMessage.info(`未找到该考试的成绩记录，可编辑并保存新成绩`);
       // Form is already reset by resetScoreForm()
     }

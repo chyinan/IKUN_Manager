@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { ApiResponse, ScoreData, SubjectScore } from '@/types/common'
+import type { ApiResponse, ScoreData, SubjectScore, PaginatedResponse, ExamItemResponse } from '@/types/common'
 import axios from 'axios'
 import { apiUrl } from './config'
 
@@ -15,6 +15,7 @@ export interface ScoreQueryParams {
   endDate?: string
   page?: number
   pageSize?: number
+  exam_id?: number
 }
 
 // 成绩详情接口
@@ -31,6 +32,19 @@ export interface ScoreDetail {
   exam_id?: number
 }
 
+// 成绩详情DTO接口 (对应后端的 ScoreDetailDTO)
+export interface ScoreDetailDTO {
+  id?: number;
+  studentId: number;
+  studentName: string;
+  className: string;
+  examId: number;
+  subject: string;
+  score: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
 // 学生成绩保存参数
 export interface SaveScoreParams {
   studentId: number
@@ -41,9 +55,10 @@ export interface SaveScoreParams {
 }
 
 // 获取成绩列表
-export const getScoreList = (params?: any): Promise<ApiResponse<ScoreDetail[]>> => {
+export const getScoreList = (params?: any): Promise<ApiResponse<PaginatedResponse<ScoreDetail>>> => {
   console.log('调用getScoreList API, 参数:', params);
-  return request.get<ApiResponse<ScoreDetail[]>>('api/score/list', { params }) // Added api/
+  // 后端返回的是 PageInfo 结构，我们需要将其映射到 PaginatedResponse
+  return request.get<ApiResponse<PaginatedResponse<ScoreDetail>>>('api/score/list', { params })
     .catch(error => {
         console.error('[API score.ts] Error fetching score list:', error);
         throw error;
@@ -57,15 +72,15 @@ export function getScoreDetail(id: number) {
 }
 
 // 添加成绩
-export function addScore(data: SaveScoreParams) {
-  console.log('调用addScore API, 数据:', data);
-  return request.post<ApiResponse<ScoreDetail>>('api/score/add', data) // Added api/
+export function addScore(data: Score): Promise<ApiResponse<Score>> {
+  console.log('API addScore:', data);
+  return request.post<ApiResponse<Score>>('api/score/add', data);
 }
 
 // 更新成绩
-export function updateScore(id: number, data: Partial<SaveScoreParams>) {
-  console.log('调用updateScore API, ID:', id, '数据:', data);
-  return request.put<ApiResponse<ScoreDetail>>(`api/score/${id}`, data) // Added api/
+export function updateScore(data: Score): Promise<ApiResponse<Score>> {
+  console.log('API updateScore:', data);
+  return request.put<ApiResponse<Score>>('api/score/update', data);
 }
 
 // 删除成绩
@@ -161,13 +176,69 @@ export const getStudentScore = (studentId: number, examType: string): Promise<Ap
 }
 
 // 保存学生成绩
-export const saveStudentScore = (data: SaveScoreParams): Promise<ApiResponse<boolean>> => {
-  return request.post<ApiResponse<boolean>>('api/score/save', data) // Added api/
-    .catch(error => {
-        console.error('[API score.ts] Error saving student score:', error);
-        throw error;
-    });
-}
+export const saveStudentScore = async (data: SaveScoreParams): Promise<ApiResponse<boolean>> => {
+  console.log('[saveStudentScore] 准备保存的原始数据:', data);
+  const { studentId, examId, scores } = data;
+
+  if (!studentId || !examId) {
+    throw new Error('学生ID或考试ID缺失，无法保存成绩。');
+  }
+
+  const results: Promise<any>[] = [];
+
+  for (const subject in scores) {
+    if (Object.prototype.hasOwnProperty.call(scores, subject)) {
+      const currentScoreValue = scores[subject];
+
+      // 检查当前科目成绩是否为空，如果为空则跳过，不进行保存
+      if (currentScoreValue === null || currentScoreValue === undefined) {
+        console.warn(`[saveStudentScore] 科目 ${subject} 的成绩为空，跳过保存。`);
+        continue;
+      }
+      
+      try {
+        // 尝试获取现有成绩，以便决定是更新还是添加
+        // 注意：getScoreByStudentExamAndSubject 的 data 可能是 Score 或 null
+        const existingScoreRes = await getScoreByStudentExamAndSubject(studentId, examId, subject);
+        
+        if (existingScoreRes && existingScoreRes.code === 200 && existingScoreRes.data) {
+          // 成绩已存在，执行更新
+          const existingScore = existingScoreRes.data;
+          const scoreToUpdate: Score = {
+            id: existingScore.id,
+            studentId,
+            examId,
+            subject,
+            score: currentScoreValue
+          };
+          results.push(updateScore(scoreToUpdate));
+        } else {
+          // 成绩不存在，执行添加
+          const scoreToAdd: Score = {
+            studentId,
+            examId,
+            subject,
+            score: currentScoreValue
+          };
+          results.push(addScore(scoreToAdd));
+        }
+      } catch (error) {
+        console.error(`[saveStudentScore] 处理科目 ${subject} 失败:`, error);
+        // 可以选择记录错误或抛出，这里选择抛出以阻止部分成功
+        throw error; 
+      }
+    }
+  }
+
+  // 等待所有保存/更新操作完成
+  try {
+    await Promise.all(results);
+    return { code: 200, message: '所有成绩保存成功！', data: true };
+  } catch (error) {
+    console.error('[saveStudentScore] 批量保存成绩过程中发生错误:', error);
+    throw error;
+  }
+};
 
 // 获取班级成绩
 export function getClassScores(classId: number, examType: string): Promise<ApiResponse<any>> {
@@ -236,9 +307,9 @@ export async function testConnection() {
 /**
  * 获取所有考试类型
  */
-export async function getExamTypes() {
+export async function getExamTypes(): Promise<string[]> {
   try {
-    const response = await axios.get(`${apiUrl}/exam/types`); // This still uses apiUrl, which has /api
+    const response = await request.get<ApiResponse<string[]>>('/api/exam/types');
     return response.data;
   } catch (error) {
     console.error('Error fetching exam types:', error);
@@ -250,10 +321,10 @@ export async function getExamTypes() {
  * 根据考试类型获取考试列表
  * @param examType 考试类型
  */
-export async function getExams(examType: string): Promise<any[]> {
+export async function getExams(examType: string): Promise<ExamItemResponse[]> {
   try {
-    const response = await axios.get(`${apiUrl}/exam/listByType`, { params: { type: examType } }); // This still uses apiUrl, which has /api
-    return response.data.data; // Assuming data structure is { code, message, data: [] }
+    const response = await request.get<ApiResponse<ExamItemResponse[]>>('/api/exam/list', { params: { examType: examType } });
+    return response.data;
   } catch (error) {
     console.error('Error fetching exams by type:', error);
     throw error;
@@ -313,9 +384,9 @@ export const getScoreReportByStudent = (studentId: number): Promise<ApiResponse<
 };
 
 // 获取某个考试某个班级的成绩列表 (供后台管理使用)
-export const getScoresByExamAndClass = (examId: number, classId: number): Promise<ApiResponse<any[]>> => {
+export const getScoresByExamAndClass = (examId: number, classId: number): Promise<ApiResponse<ScoreDetailDTO[]>> => {
   console.log(`调用getScoresByExamAndClass API, examId: ${examId}, classId: ${classId}`);
-  return request.get<ApiResponse<any[]>>(`api/score/exam/${examId}/class/${classId}`) // Added api/
+  return request.get<ApiResponse<ScoreDetailDTO[]>>(`api/score/exam/${examId}/class/${classId}`) // Added api/
     .catch(error => {
       console.error('[API score.ts] Error fetching scores by exam and class:', error);
       throw error;
@@ -389,4 +460,19 @@ export function getStudentUpcomingExams(studentId: number): Promise<ApiResponse<
       console.error('[API score.ts] Error fetching student upcoming exams:', error);
       throw error;
     });
+}
+
+export interface Score {
+    id?: number;
+    studentId: number;
+    examId: number;
+    subject: string;
+    score: number;
+    createTime?: string;
+    updateTime?: string;
+}
+
+export function getScoreByStudentExamAndSubject(studentId: number, examId: number, subject: string): Promise<ApiResponse<Score | null>> {
+  console.log(`调用getScoreByStudentExamAndSubject API, studentId: ${studentId}, examId: ${examId}, subject: ${subject}`);
+  return request.get<ApiResponse<Score | null>>(`api/score/student/${studentId}/exam/${examId}/subject/${subject}`);
 }

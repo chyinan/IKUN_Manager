@@ -4,13 +4,13 @@ import type { AxiosPromise } from 'axios'
 // 定义轮播图项的接口
 export interface CarouselImage {
   id: number
-  image_url: string
+  imageUrl: string
   title?: string | null
-  link_url?: string | null
-  display_order: number
-  is_active: boolean | number // boolean for frontend, number (0 or 1) for backend sometimes
-  created_at?: string
-  updated_at?: string
+  linkUrl?: string | null
+  displayOrder: number
+  isActive: boolean | number // boolean for frontend, number (0 or 1) for backend sometimes
+  createdAt?: string
+  updatedAt?: string
 }
 
 // 定义获取所有轮播图 (供管理后台使用) 的响应数据接口
@@ -30,9 +30,9 @@ interface CarouselDetailResponse {
 // 定义上传/更新时可能用到的数据结构 (不含id，因为新增时没有，更新时通过URL传递)
 export interface CarouselImageData {
   title?: string | null
-  link_url?: string | null
-  display_order?: number
-  is_active?: boolean | number
+  linkUrl?: string | null
+  displayOrder?: number
+  isActive?: boolean | number
   imageFile?: File // For new uploads
 }
 
@@ -65,12 +65,9 @@ export function getActiveCarouselImages(): Promise<CarouselListResponse> {
  */
 export function addCarouselImage(data: FormData): Promise<CarouselDetailResponse> {
   return request({
-    url: 'api/carousel', // Added api/
+    url: 'api/carousel/add', // Changed to include /add
     method: 'post',
     data,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
   })
 }
 
@@ -95,7 +92,7 @@ export function updateCarouselImage(id: number, data: Partial<CarouselImageData>
  */
 export function deleteCarouselImage(id: number): Promise<any> {
   return request({
-    url: `api/carousel/${id}`, // Added api/
+    url: `api/carousel/delete/${id}`, // Changed to include /delete
     method: 'delete'
   })
 }

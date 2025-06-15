@@ -15,6 +15,7 @@
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
+    "@stagewise/toolbar-vue": "^0.4.6",
     "@vueuse/core": "^13.1.0",
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^5.1.12",
@@ -40,7 +41,6 @@
   "devDependencies": {
     "@playwright/test": "^1.52.0",
     "@rushstack/eslint-patch": "^1.1.4",
-    "@stagewise/toolbar-vue": "^0.4.4",
     "@types/node": "^16.11.56",
     "@vitejs/plugin-vue": "^3.0.3",
     "@vitejs/plugin-vue-jsx": "^2.0.1",

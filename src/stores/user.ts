@@ -6,6 +6,8 @@ import type { LoginData, UserInfo, ApiResponse } from '@/types/common'
 import router from '@/router'
 
 const USER_INFO_KEY = 'user_info';
+// The base URL for accessing uploaded files from the backend.
+const BASE_UPLOAD_URL = 'http://localhost:8081'; 
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -16,20 +18,34 @@ export const useUserStore = defineStore('user', () => {
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
 
+  // Helper function to get full avatar URL
+  const getFullAvatarUrl = (relativePath: string | null | undefined): string => {
+    if (!relativePath) {
+      return '';
+    }
+    // If it's already a full URL, return as is
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+      return relativePath;
+    }
+    // Handle paths that might incorrectly include '/uploads/' already
+    const pathSegment = relativePath.startsWith('/uploads/') ? relativePath : `/uploads/${relativePath}`;
+    return BASE_UPLOAD_URL + pathSegment;
+  };
+
   // Helper function to update both Pinia state and storage
   const _updateState = (responseToken: string, responseUserInfo: UserInfo) => {
     // Update Pinia state
     token.value = responseToken;
     userInfo.value = responseUserInfo;
     username.value = responseUserInfo.username;
-    avatar.value = responseUserInfo.avatar || '';
+    avatar.value = getFullAvatarUrl(responseUserInfo.avatar); // Apply helper here
     roles.value = responseUserInfo.role ? [responseUserInfo.role] : [];
     
     // Persist to storage
     localStorage.setItem('token', responseToken);
     sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(responseUserInfo));
     if (responseUserInfo.avatar) {
-      localStorage.setItem('user_avatar_url', responseUserInfo.avatar);
+      localStorage.setItem('user_avatar_url', getFullAvatarUrl(responseUserInfo.avatar)); // Apply helper here
     }
     console.log('[User Store] State and storage updated.', responseUserInfo);
   };
@@ -43,7 +59,7 @@ export const useUserStore = defineStore('user', () => {
         if (parsedInfo && typeof parsedInfo === 'object' && parsedInfo.id && parsedInfo.username) {
           userInfo.value = parsedInfo;
           username.value = parsedInfo.username;
-          avatar.value = parsedInfo.avatar || '';
+          avatar.value = getFullAvatarUrl(parsedInfo.avatar); // Apply helper here
           roles.value = parsedInfo.role ? [parsedInfo.role] : [];
           console.log('[User Store] Rehydrated user info from sessionStorage.');
           return true;
@@ -57,10 +73,10 @@ export const useUserStore = defineStore('user', () => {
 
   // Action to set avatar
   const setAvatar = (newAvatarUrl: string) => {
-    avatar.value = newAvatarUrl;
+    avatar.value = getFullAvatarUrl(newAvatarUrl); // Apply helper here
     // Also save to localStorage to keep it synchronized
-    localStorage.setItem('user_avatar_url', newAvatarUrl);
-    console.log('[userStore] Avatar state updated:', newAvatarUrl);
+    localStorage.setItem('user_avatar_url', getFullAvatarUrl(newAvatarUrl)); // Apply helper here
+    console.log('[userStore] Avatar state updated:', getFullAvatarUrl(newAvatarUrl));
   };
 
   // Login Action (修正)
@@ -232,7 +248,7 @@ export const useUserStore = defineStore('user', () => {
       id: receivedUser.id,
       username: receivedUser.username,
       email: receivedUser.email,
-      avatar: receivedUser.avatar,
+      avatar: getFullAvatarUrl(receivedUser.avatar), // Apply helper here
       roles: receivedUser.roles,
       permissions: receivedUser.permissions,
       createTime: receivedUser.createTime || new Date().toISOString(),
@@ -248,65 +264,48 @@ export const useUserStore = defineStore('user', () => {
 
   // 从本地存储加载用户信息 (ensure createTime and studentInfo)
   const loadUserInfo = () => {
-    const storedInfo = localStorage.getItem('user-info');
-    if (storedInfo) {
+    const storedUserInfo = sessionStorage.getItem(USER_INFO_KEY);
+    if (storedUserInfo) {
       try {
-        const parsedInfo = JSON.parse(storedInfo) as UserInfo; // Type assertion
+        const parsedInfo = JSON.parse(storedUserInfo) as UserInfo;
         if (parsedInfo && typeof parsedInfo === 'object' && parsedInfo.id && parsedInfo.username) {
-          userInfo.value = {
-            id: parsedInfo.id,
-            username: parsedInfo.username,
-            email: parsedInfo.email,
-            avatar: parsedInfo.avatar,
-            roles: parsedInfo.roles,
-            permissions: parsedInfo.permissions,
-            createTime: parsedInfo.createTime || new Date().toISOString(),
-            studentInfo: parsedInfo.studentInfo || null, // Correctly load studentInfo
-            display_name: parsedInfo.display_name || parsedInfo.username, // Preserve display_name
-            phone: parsedInfo.phone || null // Preserve phone
-          };
-          console.log('从本地存储加载用户信息:', userInfo.value);
-        } else {
-          console.warn('本地存储的用户信息格式不正确:', parsedInfo);
-          resetState(); // Reset if format is incorrect
+          userInfo.value = parsedInfo;
+          username.value = parsedInfo.username;
+          avatar.value = getFullAvatarUrl(parsedInfo.avatar); // Apply helper here
+          roles.value = parsedInfo.role ? [parsedInfo.role] : [];
+          console.log('[User Store] Rehydrated user info from sessionStorage (loadUserInfo).');
+          return true;
         }
-      } catch (error) {
-        console.error('解析本地存储的用户信息失败:', error);
-        resetState(); // Reset on parse error
+      } catch(e) {
+        console.error('[User Store] Failed to parse user info from sessionStorage (loadUserInfo)', e);
       }
     }
-  }
+    return false;
+  };
+
+  // Initial load on store creation
+  loadUserInfo();
 
   // Action to specifically update the user's email in the store
   const updateUserEmailAction = (newEmail: string) => {
-    if (userInfo.value && userInfo.value.email !== newEmail) {
+    if (userInfo.value) {
       userInfo.value.email = newEmail;
-      // Potentially update localStorage if you decide to keep full user-info there
-      // localStorage.setItem('user-info', JSON.stringify(userInfo.value));
+      // Optionally update sessionStorage here as well if you want this change to persist immediately
+      sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo.value));
     }
   };
 
   // 获取并设置用户信息
   async function fetchAndSetUserInfo() {
     if (!token.value) {
-      console.warn('没有token, 无法获取用户信息');
+      console.log('[fetchAndSetUserInfo] No token available, skipping fetch user info.');
       return;
     }
-    try {
-      console.log('开始获取用户信息...');
-      const res = await getUserInfo(); // res 类型是 ApiResponse<UserInfo>
-      console.log('获取用户信息响应:', res);
-      if (res.code === 200 && res.data) {
-        // 确保传递给 setUserInfo 的是 UserInfo 类型
-        setUserInfo(res.data as UserInfo); 
-        console.log('用户信息获取并设置成功');
-      } else {
-        console.error('获取用户信息失败:', res.message);
-        ElMessage.error(res.message || '获取用户信息失败');
-      }
-    } catch (error: any) {
-      console.error('获取用户信息时出错:', error);
-      ElMessage.error(error.message || '获取用户信息时出错');
+    console.log('[fetchAndSetUserInfo] Token available, attempting to fetch user info.');
+    const success = await getUserInfoAction();
+    if (!success) {
+      console.warn('[fetchAndSetUserInfo] Failed to fetch user info, resetting state.');
+      resetState(); // Clear invalid token/state
     }
   }
 
@@ -325,35 +324,30 @@ export const useUserStore = defineStore('user', () => {
   });
 
   const updateUserProfile = async (data: Partial<UserInfo>) => {
+    console.log('[User Store] Attempting to update user profile with data:', data);
     try {
-      // The API expects a specific shape, so we create it from the incoming data.
-      // This also handles the type mismatch where data.phone could be `null`.
-      const apiData = {
-        email: data.email,
-        display_name: data.display_name,
-        phone: data.phone === null ? undefined : data.phone,
-        avatar: data.avatar,
-      };
+      // If the avatar data contains the full path, extract just the filename
+      if (data.avatar && data.avatar.includes('/')) {
+        data.avatar = data.avatar.split('/').pop();
+      }
 
-      const res = await apiUpdateUserProfile(apiData);
-      if (res.code === 200 && res.data) {
-        // Update local state with the full user info object returned from the API
-        const fullUserInfo = {
-          ...userInfo.value,
-          ...res.data,
-        } as UserInfo;
-
-        _updateState(token.value, fullUserInfo);
-
-        ElMessage.success('个人资料更新成功！');
+      const response = await apiUpdateUserProfile(data);
+      console.log('[API user.ts] API response for update user profile:', response);
+      if (response.code === 200 && response.data) {
+        console.log('[User Store] Update user profile details success, new user info:', response.data);
+        const updatedUserInfo: UserInfo = response.data;
+        if (token.value) {
+          _updateState(token.value, updatedUserInfo);
+        }
+        ElMessage.success('用户资料更新成功');
         return true;
       } else {
-        ElMessage.error(res.message || '资料更新失败');
+        ElMessage.error(response.message || '更新用户资料失败');
         return false;
       }
     } catch (error: any) {
-      console.error('[User Store] updateUserProfile failed:', error);
-      ElMessage.error(error.message || '更新资料时发生错误');
+      console.error('[User Store] Update user profile API call failed:', error);
+      ElMessage.error('更新用户资料失败');
       return false;
     }
   };
@@ -380,6 +374,7 @@ export const useUserStore = defineStore('user', () => {
     updateUserEmailAction,
     updateUserProfile,
     clearAllAuthData,
+    fetchAndSetUserInfo,
   }
 }, {
   // Optional: Enable persistence if needed, though manual localStorage is used here

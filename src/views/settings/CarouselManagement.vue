@@ -38,8 +38,8 @@
           <div class="preview-image-wrapper">
             <el-image 
               style="width: 100px; height: 60px"
-              :src="getImageFullUrl(row.image_url)" 
-              :preview-src-list="[getImageFullUrl(row.image_url)]"
+              :src="getImageFullUrl(row.imageUrl)" 
+              :preview-src-list="[getImageFullUrl(row.imageUrl)]"
               fit="contain"
               lazy
             />
@@ -53,23 +53,26 @@
       </el-table-column>
       <el-table-column label="跳转链接" min-width="200">
         <template #default="{ row }">
-          <el-link :href="row.link_url" target="_blank" v-if="row.link_url">{{ row.link_url }}</el-link>
+          <el-link :href="row.linkUrl" target="_blank" v-if="row.linkUrl">{{ row.linkUrl }}</el-link>
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="display_order" label="顺序" width="80" sortable />
+      <el-table-column prop="displayOrder" label="顺序" width="80" sortable />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-switch 
-            v-model="row.is_active"
+            v-model="row.isActive"
             :active-value="true" 
             :inactive-value="false"
             @change="(value: boolean) => handleStatusChange(row, value)"
           />
         </template>
       </el-table-column>
-      <el-table-column prop="updated_at" label="更新时间" width="180">
-          <template #default="{row}">{{ formatDateTime(row.updated_at) }}</template>
+      <el-table-column prop="updatedAt" label="更新时间" width="180">
+          <template #default="{row}">
+            {{ console.log('row.updatedAt:', row.updatedAt) }}
+            {{ formatDateTime(row.updatedAt) }}
+          </template>
       </el-table-column>
       <el-table-column label="操作" fixed="right" width="200">
         <template #default="{ row }">
@@ -108,20 +111,20 @@
             </template>
           </el-upload>
         </el-form-item>
-        <el-form-item label="当前图片" v-if="dialogMode === 'edit' && currentImageForm.image_url">
-           <el-image style="width: 200px; height: auto;" :src="getImageFullUrl(currentImageForm.image_url)" fit="contain"/>
+        <el-form-item label="当前图片" v-if="dialogMode === 'edit' && currentImageForm.imageUrl">
+           <el-image style="width: 200px; height: auto;" :src="getImageFullUrl(currentImageForm.imageUrl)" fit="contain"/>
         </el-form-item>
         <el-form-item label="标题" prop="title">
           <el-input v-model="currentImageForm.title" placeholder="请输入图片标题" />
         </el-form-item>
-        <el-form-item label="跳转链接" prop="link_url">
-          <el-input v-model="currentImageForm.link_url" placeholder="请输入点击跳转的URL (可选)" />
+        <el-form-item label="跳转链接" prop="linkUrl">
+          <el-input v-model="currentImageForm.linkUrl" placeholder="请输入点击跳转的URL (可选)" />
         </el-form-item>
-        <el-form-item label="显示顺序" prop="display_order">
-          <el-input-number v-model="currentImageForm.display_order" :min="0" />
+        <el-form-item label="显示顺序" prop="displayOrder">
+          <el-input-number v-model="currentImageForm.displayOrder" :min="0" />
         </el-form-item>
-        <el-form-item label="是否激活" prop="is_active">
-          <el-switch v-model="currentImageForm.is_active" :active-value="true" :inactive-value="false" />
+        <el-form-item label="是否激活" prop="isActive">
+          <el-switch v-model="currentImageForm.isActive" :active-value="true" :inactive-value="false" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -158,33 +161,49 @@ const imageFormRef = ref<FormInstance>();
 const uploadRef = ref<UploadInstance>();
 const selectedFile = ref<UploadRawFile | null>(null);
 
-const API_BASE_URL = import.meta.env.VITE_APP_BASE_API || ''; // For constructing full image URLs if necessary
+const API_BASE_URL = import.meta.env.VITE_APP_BASE_API || '';
 
 const defaultFormData: CarouselImageData = {
   title: '',
-  link_url: '',
-  display_order: 0,
-  is_active: true,
+  linkUrl: '',
+  displayOrder: 0,
+  isActive: true,
   imageFile: undefined
 };
 
-const currentImageForm = reactive<CarouselImageData & { id?: number, image_url?: string }>({ ...defaultFormData });
+const currentImageForm = reactive<CarouselImageData & { id?: number, imageUrl?: string }>({ ...defaultFormData });
 
 const formRules = reactive<FormRules>({
   // imageFile: [{ required: true, message: '请上传图片文件', trigger: 'change' }], // Handled by selectedFile check for add mode
   title: [{ required: false, message: '请输入标题', trigger: 'blur' }],
-  display_order: [{ type: 'number', message: '顺序必须是数字' }],
+  displayOrder: [{ type: 'number', message: '顺序必须是数字' }],
 });
 
-// 获取图片完整URL (根据后端返回的路径是否已包含/uploads/来决定是否拼接)
+// 获取图片完整URL
 const getImageFullUrl = (imageUrl: string | undefined): string => {
   if (!imageUrl) return '';
-  // Assuming backend returns a full relative path like /uploads/carousel/image.jpg
-  if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('http')) {
-    return imageUrl; 
+
+  // 如果已经是完整的HTTP/HTTPS URL，直接返回
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    console.log(`getImageFullUrl: Already full URL: ${imageUrl}`);
+    return imageUrl;
   }
-  // Fallback for safety, though the above should be the primary case.
-  return `${(API_BASE_URL || '').replace(/\/$/, '')}/${imageUrl.replace(/^\//, '')}`;
+
+  // 获取服务器基础URL，移除 '/api' 部分
+  const serverBaseUrl = API_BASE_URL.replace('/api', '').replace(/\/$/, '');
+  console.log(`getImageFullUrl: serverBaseUrl: ${serverBaseUrl}`);
+
+  // 如果后端返回的路径已经包含了 /uploads/，则直接拼接服务器基础URL
+  if (imageUrl.startsWith('/uploads/')) {
+    const fullUrl = `${serverBaseUrl}${imageUrl}`;
+    console.log(`getImageFullUrl: /uploads/ path, full URL: ${fullUrl}`);
+    return fullUrl;
+  }
+
+  // 否则，假定是相对于 uploads 目录的路径（如 'carousel/image.jpg'），需要加上 /uploads/
+  const fullUrl = `${serverBaseUrl}/uploads/${imageUrl.replace(/^\//, '')}`; // 确保不出现双斜杠
+  console.log(`getImageFullUrl: relative path, full URL: ${fullUrl}`);
+  return fullUrl;
 };
 
 const fetchCarouselImages = async () => {
@@ -192,7 +211,7 @@ const fetchCarouselImages = async () => {
   try {
     const res = await getAllCarouselImages();
     if (res.code === 200) {
-      carouselImages.value = res.data.map((img: CarouselImage) => ({ ...img, is_active: !!img.is_active }));
+      carouselImages.value = res.data.map((img: CarouselImage) => ({ ...img, isActive: !!img.isActive }));
     } else {
       ElMessage.error(res.message || '获取轮播图列表失败');
     }
@@ -228,7 +247,7 @@ onMounted(() => {
 
 const resetForm = () => {
   selectedFile.value = null;
-  Object.assign(currentImageForm, { ...defaultFormData, id: undefined, image_url: undefined });
+  Object.assign(currentImageForm, { ...defaultFormData, id: undefined, imageUrl: undefined });
   uploadRef.value?.clearFiles(); // 清空el-upload组件的文件列表
   imageFormRef.value?.resetFields(); // 重置表单校验状态
   imageFormRef.value?.clearValidate();
@@ -245,7 +264,7 @@ const handleOpenEditDialog = (rowData: CarouselImage) => {
   dialogMode.value = 'edit';
   Object.assign(currentImageForm, { 
     ...rowData, 
-    is_active: !!rowData.is_active // 确保是布尔值
+    isActive: !!rowData.isActive // 确保是布尔值
   });
   dialogVisible.value = true;
 };
@@ -268,87 +287,89 @@ const handleUploadExceed: UploadProps['onExceed'] = (files) => {
 
 const handleStatusChange = async (rowData: CarouselImage, newStatus: boolean) => {
   try {
-    const res = await updateCarouselImage(rowData.id, { is_active: newStatus });
+    const res = await updateCarouselImage(rowData.id, { isActive: newStatus });
     if (res.code === 200) {
       ElMessage.success('状态更新成功');
       // Optional: you can find and update the item in carouselImages.value locally
       // to avoid a full refetch, but refetching is safer.
       const index = carouselImages.value.findIndex(img => img.id === rowData.id);
       if (index !== -1) {
-        carouselImages.value[index].is_active = newStatus;
+        carouselImages.value[index].isActive = newStatus;
       }
     } else {
       // Revert switch state on failure
-      rowData.is_active = !newStatus;
+      rowData.isActive = !newStatus;
       ElMessage.error(res.message || '状态更新失败');
     }
   } catch (error: any) {
     console.error(`Error updating status for image ${rowData.id}:`, error);
     // Revert switch state on failure
-    rowData.is_active = !newStatus;
+    rowData.isActive = !newStatus;
     ElMessage.error(error?.response?.data?.message || error.message || '状态更新失败');
   }
 };
 
 const handleSubmitForm = async () => {
   if (!imageFormRef.value) return;
-  
-  await imageFormRef.value.validate(async (valid) => {
-    if (valid) {
-      if (dialogMode.value === 'add' && !selectedFile.value) {
-        ElMessage.warning('请选择要上传的图片文件。');
+
+  try {
+    await imageFormRef.value.validate();
+    submitLoading.value = true;
+
+    if (dialogMode.value === 'add') {
+      if (!selectedFile.value) {
+        ElMessage.error('请选择图片文件进行上传');
+        submitLoading.value = false;
         return;
       }
 
-      submitLoading.value = true;
-      try {
-        const formData = new FormData();
-        
-        // Append file only in add mode
-        if (dialogMode.value === 'add' && selectedFile.value) {
-          formData.append('imageFile', selectedFile.value);
-        }
+      const formData = new FormData();
+      formData.append('file', selectedFile.value);
+      // Append other fields, ensuring not to append null values
+      if (currentImageForm.title) formData.append('title', currentImageForm.title);
+      if (currentImageForm.linkUrl) formData.append('linkUrl', currentImageForm.linkUrl);
+      formData.append('displayOrder', String(currentImageForm.displayOrder || 0));
+      formData.append('isActive', String(!!currentImageForm.isActive));
 
-        // Append other fields, ensuring not to append null values
-        if (currentImageForm.title) formData.append('title', currentImageForm.title);
-        if (currentImageForm.link_url) formData.append('link_url', currentImageForm.link_url);
-        formData.append('display_order', String(currentImageForm.display_order || 0));
-        formData.append('is_active', String(!!currentImageForm.is_active));
-
-        if (dialogMode.value === 'add') {
-          const res = await addCarouselImage(formData);
-          if (res.code === 201) {
-            ElMessage.success('添加成功');
-            dialogVisible.value = false;
-            fetchCarouselImages(); // Refresh list
-          } else {
-            ElMessage.error(res.message || '添加失败');
-          }
-        } else if (currentImageForm.id) {
-          // For edit, we don't send file, so we send a plain object, not FormData
-          const updateData: CarouselImageData = {
-            title: currentImageForm.title,
-            link_url: currentImageForm.link_url,
-            display_order: currentImageForm.display_order,
-            is_active: currentImageForm.is_active,
-          };
-          const res = await updateCarouselImage(currentImageForm.id, updateData);
-          if (res.code === 200) {
-            ElMessage.success('更新成功');
-            dialogVisible.value = false;
-            fetchCarouselImages(); // Refresh list
-          } else {
-            ElMessage.error(res.message || '更新失败');
-          }
-        }
-      } catch (error: any) {
-        console.error('Error submitting form:', error);
-        ElMessage.error(error?.response?.data?.message || error.message || '操作失败');
-      } finally {
+      const res = await addCarouselImage(formData);
+      if (res.code === 200) {
+        ElMessage.success('轮播图添加成功！');
+        dialogVisible.value = false;
+        fetchCarouselImages(); // Refresh list
+      } else {
+        ElMessage.error(res.message || '添加轮播图失败');
+      }
+    } else {
+      // Edit mode
+      if (!currentImageForm.id) {
+        ElMessage.error('轮播图ID缺失，无法更新。');
         submitLoading.value = false;
+        return;
+      }
+
+      const updateData: CarouselImageData = {
+        title: currentImageForm.title,
+        linkUrl: currentImageForm.linkUrl,
+        displayOrder: currentImageForm.displayOrder,
+        isActive: currentImageForm.isActive,
+      };
+      console.log('Sending updateData:', updateData);
+
+      const res = await updateCarouselImage(currentImageForm.id, updateData);
+      if (res.code === 200) {
+        ElMessage.success('轮播图更新成功！');
+        dialogVisible.value = false;
+        fetchCarouselImages(); // Refresh list
+      } else {
+        ElMessage.error(res.message || '更新轮播图失败');
       }
     }
-  });
+  } catch (error: any) {
+    console.error('Error submitting form:', error);
+    ElMessage.error(error?.response?.data?.message || error.message || '操作失败');
+  } finally {
+    submitLoading.value = false;
+  }
 };
 
 const handleDeleteImage = (id: number) => {
@@ -373,7 +394,7 @@ const handleDeleteImage = (id: number) => {
 const handleSaveInterval = async () => {
   intervalLoading.value = true;
   try {
-    const res = await updateCarouselIntervalConfig({ carouselInterval: carouselInterval.value });
+    const res = await updateCarouselIntervalConfig(carouselInterval.value);
     if (res.code === 200) {
       ElMessage.success('切换时间保存成功！');
     } else {

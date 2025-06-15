@@ -119,4 +119,17 @@
         WHERE exam_id = #{examId}
     </select>
 
+    <!-- Statistics Methods for Exam Dashboard -->
+    <select id="getTotalExams" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM exam
+    </select>
+
+    <select id="getExamTypeDistribution" resultType="java.util.Map">
+        SELECT exam_type AS type, COUNT(*) AS count
+        FROM exam
+        GROUP BY exam_type
+        ORDER BY count DESC
+    </select>
+
 </mapper> 

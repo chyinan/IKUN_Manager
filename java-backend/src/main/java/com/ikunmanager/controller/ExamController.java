@@ -3,6 +3,7 @@ package com.ikunmanager.controller;
 import com.ikunmanager.common.ApiResponse;
 import com.ikunmanager.model.Exam;
 import com.ikunmanager.service.ExamService;
+import com.ikunmanager.dto.ExamStatsDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,5 +55,15 @@ public class ExamController {
     public ApiResponse<List<String>> getExamTypes() {
         List<String> types = examService.getDistinctExamTypes();
         return ApiResponse.ok(types);
+    }
+
+    @GetMapping("/stats")
+    public ApiResponse<ExamStatsDTO> getExamStats() {
+        try {
+            ExamStatsDTO stats = examService.getExamStatistics();
+            return ApiResponse.ok(stats);
+        } catch (Exception e) {
+            return ApiResponse.error(500, "获取考试统计数据失败: " + e.getMessage());
+        }
     }
 } 

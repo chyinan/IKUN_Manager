@@ -19,16 +19,16 @@
             height="400px"
           >
             <el-carousel-item v-for="item in carouselImages" :key="item.id">
-              <a v-if="item.link_url && item.link_url.trim() !== '' && item.link_url.trim() !== '#'"
-                 :href="formatLinkUrl(item.link_url)"
+              <a v-if="item.linkUrl && item.linkUrl.trim() !== '' && item.linkUrl.trim() !== '#'"
+                 :href="formatLinkUrl(item.linkUrl)"
                  target="_blank"
                  rel="noopener noreferrer"
               >
-                <img :src="getImageUrl(item.image_url)" :alt="item.title || '轮播图'" class="carousel-image"/>
+                <img :src="getImageUrl(item.imageUrl)" :alt="item.title || '轮播图'" class="carousel-image"/>
                 <h3 v-if="item.title" class="carousel-title">{{ item.title }}</h3>
               </a>
               <template v-else>
-                <img :src="getImageUrl(item.image_url)" :alt="item.title || '轮播图'" class="carousel-image"/>
+                <img :src="getImageUrl(item.imageUrl)" :alt="item.title || '轮播图'" class="carousel-image"/>
                 <h3 v-if="item.title" class="carousel-title">{{ item.title }}</h3>
               </template>
             </el-carousel-item>
@@ -66,16 +66,23 @@ const carouselImages = ref<CarouselImage[]>([])
 const loading = ref(true)
 const carouselPlayInterval = ref(5000);
 
-const SERVER_BASE_URL = 'http://localhost:3000';
+// 获取Vite配置的API基础URL
+const API_BASE_URL = import.meta.env.VITE_APP_BASE_API || '';
 
-const getImageUrl = (imageUrlFromServer: string) => {
+const getImageUrl = (imageUrlFromServer: string | undefined): string => {
   if (!imageUrlFromServer) return '';
 
-  let path = imageUrlFromServer;
-  if (!path.startsWith('/')) {
-    path = '/' + path;
+  // 如果已经是完整的HTTP/HTTPS URL，直接返回
+  if (imageUrlFromServer.startsWith('http://') || imageUrlFromServer.startsWith('https://')) {
+    return imageUrlFromServer;
   }
-  return `${SERVER_BASE_URL}${path}`;
+
+  // 获取服务器基础URL，移除 '/api' 部分
+  const serverBaseUrl = API_BASE_URL.replace('/api', '').replace(/\/$/, '');
+
+  // 否则，假定是相对于 uploads 目录的路径（如 'carousel/image.jpg'），需要加上 /uploads/
+  const fullUrl = `${serverBaseUrl}/uploads/${imageUrlFromServer.replace(/^\//, '')}`; // 确保不出现双斜杠
+  return fullUrl;
 }
 
 const formatLinkUrl = (url: string | null | undefined): string => {

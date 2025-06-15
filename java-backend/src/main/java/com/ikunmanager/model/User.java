@@ -2,6 +2,7 @@ package com.ikunmanager.model;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import com.ikunmanager.dto.StudentInfo;
 
 @Data
 public class User {
@@ -14,4 +15,6 @@ public class User {
     private LocalDateTime updateTime;
     private String role;
     private String displayName;
+    private String phone;
+    private StudentInfo studentInfo;
 }

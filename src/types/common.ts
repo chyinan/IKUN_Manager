@@ -76,7 +76,7 @@ export interface StudentSubmitData {
 // 新增：用于 UserInfo 中关联的学生信息子类型
 export interface StudentRelatedInfo {
   student_pk: number;
-  studentIdStr: string; // 学号字符串
+  student_id_str: string; // 学号字符串
   name: string;         // 学生真实姓名
   email?: string | null; // 学生表中的Email
   phone?: string | null; // 学生表中的Phone
@@ -352,23 +352,25 @@ export interface LoginData {
   roles?: string[];
   permissions?: string[];
   createTime?: string; // Assuming create_time from backend is string
-  display_name?: string; // Add display_name
+  displayName?: string; // Add display_name
   studentInfo?: StudentRelatedInfo | null; // Add studentInfo using the new type
   phone?: string | null; // Add phone property
 }
 
 // User Info Data (Frontend)
-export interface UserInfo extends BaseFields {
-  username: string
-  email?: string // 这个 email 应该反映最终确认的 email (可能是 user.email 或 student.email)
-  avatar?: string | null
-  roles?: string[]
-  permissions?: string[]
-  createTime: string 
-  display_name?: string; 
-  studentInfo?: StudentRelatedInfo | null; 
-  role?: string; 
-  phone?: string | null; // 添加 phone 字段
+export interface UserInfo {
+  id: number;
+  username: string;
+  email?: string;
+  avatar?: string | null;
+  role: string;
+  roles?: string[]; // Frontend specific, derived from role
+  permissions?: string[];
+  createTime: string;
+  updateTime: string;
+  displayName?: string; // 修正为驼峰命名，匹配后端JSON
+  phone?: string | null; // 新增手机号字段
+  studentInfo?: StudentRelatedInfo | null; // 学生信息对象
 }
 
 // Password Update Data (Frontend/Backend)

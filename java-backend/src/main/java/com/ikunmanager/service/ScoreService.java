@@ -3,6 +3,7 @@ package com.ikunmanager.service;
 import com.github.pagehelper.PageInfo;
 import com.ikunmanager.model.Score;
 import com.ikunmanager.dto.ScoreDetailDTO;
+import com.ikunmanager.dto.ExamTaken;
 import java.util.List;
 
 public interface ScoreService {
@@ -15,4 +16,6 @@ public interface ScoreService {
     List<Score> getScoresByStudentAndExam(Long studentId, Long examId);
     Score getScoreByStudentExamAndSubject(Long studentId, Long examId, String subject);
     List<ScoreDetailDTO> getScoresByExamAndClass(Long examId, Long classId);
+    List<ExamTaken> getExamsTakenByStudentId(Long studentId);
+    List<ExamTaken> getStudentUpcomingExams(Long studentId);
 } 

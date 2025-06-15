@@ -21,6 +21,12 @@ public class AnnouncementController {
         return ApiResponse.ok(announcements);
     }
 
+    @GetMapping("")
+    public ApiResponse<List<Announcement>> getAnnouncementsForStudentPortal() {
+        List<Announcement> announcements = announcementService.getAllAnnouncements();
+        return ApiResponse.ok(announcements);
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<Announcement> getAnnouncementById(@PathVariable Long id) {
         Announcement announcement = announcementService.getAnnouncementById(id);

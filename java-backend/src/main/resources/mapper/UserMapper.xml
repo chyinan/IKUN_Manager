@@ -1,57 +1,97 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ikunmanager.mapper.UserMapper">
-    <select id="findAll" resultType="com.ikunmanager.model.User">
+
+    <!-- 定义 StudentInfo 的 resultMap -->
+    <resultMap id="StudentInfoResultMap" type="com.ikunmanager.dto.StudentInfo">
+        <result property="studentIdStr" column="student_id_str"/>
+        <result property="phone" column="student_phone"/>
+    </resultMap>
+
+    <!-- 更新 User 的 resultMap，包含 phone 和嵌套的 studentInfo -->
+    <resultMap id="UserResultMap" type="com.ikunmanager.model.User">
+        <id property="id" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="email" column="email"/>
+        <result property="avatar" column="avatar"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="role" column="role"/>
+        <!-- 如果 user.display_name 为空，则使用 student.name 作为 display_name -->
+        <result property="displayName" column="display_name"/>
+        <result property="phone" column="user_phone"/>
+
+        <!-- 嵌套 StudentInfo -->
+        <association property="studentInfo" resultMap="StudentInfoResultMap" />
+    </resultMap>
+
+    <!-- 修改 findAll，使用 UserResultMap -->
+    <select id="findAll" resultMap="UserResultMap">
         SELECT 
-            id, 
-            username, 
-            password, 
-            email, 
-            avatar, 
-            create_time AS createTime, 
-            update_time AS updateTime, 
-            role, 
-            display_name AS displayName
-        FROM user
+            u.id AS user_id, 
+            u.username, 
+            u.password, 
+            u.email, 
+            u.avatar, 
+            u.create_time, 
+            u.update_time, 
+            u.role, 
+            COALESCE(u.display_name, s.name) AS display_name,
+            COALESCE(u.phone, s.phone) AS user_phone,
+            s.student_id AS student_id_str,
+            s.phone AS student_phone
+        FROM `user` u
+        LEFT JOIN student s ON u.id = s.user_id
     </select>
 
-    <select id="findByUsername" resultType="com.ikunmanager.model.User">
+    <!-- 修改 findByUsername，使用 UserResultMap -->
+    <select id="findByUsername" resultMap="UserResultMap">
         SELECT
-            id,
-            username,
-            password,
-            email,
-            avatar,
-            create_time AS createTime,
-            update_time AS updateTime,
-            role,
-            display_name AS displayName
-        FROM user
-        WHERE username = #{username}
+            u.id AS user_id,
+            u.username,
+            u.password,
+            u.email,
+            u.avatar,
+            u.create_time,
+            u.update_time,
+            u.role,
+            COALESCE(u.display_name, s.name) AS display_name,
+            COALESCE(u.phone, s.phone) AS user_phone,
+            s.student_id AS student_id_str,
+            s.phone AS student_phone
+        FROM `user` u
+        LEFT JOIN student s ON u.id = s.user_id
+        WHERE u.username = #{username}
     </select>
 
-    <select id="findById" resultType="com.ikunmanager.model.User">
+    <!-- 修改 findById，使用 UserResultMap -->
+    <select id="findById" resultMap="UserResultMap">
         SELECT
-            id,
-            username,
-            password,
-            email,
-            avatar,
-            create_time AS createTime,
-            update_time AS updateTime,
-            role,
-            display_name AS displayName
-        FROM user
-        WHERE id = #{id}
+            u.id AS user_id,
+            u.username,
+            u.password,
+            u.email,
+            u.avatar,
+            u.create_time,
+            u.update_time,
+            u.role,
+            COALESCE(u.display_name, s.name) AS display_name,
+            COALESCE(u.phone, s.phone) AS user_phone,
+            s.student_id AS student_id_str,
+            s.phone AS student_phone
+        FROM `user` u
+        LEFT JOIN student s ON u.id = s.user_id
+        WHERE u.id = #{id}
     </select>
 
     <insert id="insert" parameterType="com.ikunmanager.model.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user (username, password, email, avatar, role, display_name, create_time, update_time)
-        VALUES (#{username}, #{password}, #{email}, #{avatar}, #{role}, #{displayName}, NOW(), NOW())
+        INSERT INTO `user` (username, password, email, avatar, role, display_name, phone, create_time, update_time)
+        VALUES (#{username}, #{password}, #{email}, #{avatar}, #{role}, #{displayName}, #{phone}, NOW(), NOW())
     </insert>
 
     <update id="update" parameterType="com.ikunmanager.model.User">
-        UPDATE user
+        UPDATE `user`
         <set>
             <if test="username != null">
                 username = #{username},
@@ -70,6 +110,9 @@
             </if>
             <if test="displayName != null">
                 display_name = #{displayName},
+            </if>
+            <if test="phone != null">
+                phone = #{phone},
             </if>
             update_time = NOW()
         </set>

@@ -40,6 +40,12 @@ public class CarouselController {
         return ApiResponse.ok(images);
     }
 
+    @GetMapping("")
+    public ApiResponse<List<CarouselImage>> getActiveCarouselImagesForStudentPortal() {
+        List<CarouselImage> images = carouselService.getAllActiveCarouselImages();
+        return ApiResponse.ok(images);
+    }
+
     @PostMapping("/add")
     public ApiResponse<CarouselImage> addCarouselImage(
             @RequestParam("file") MultipartFile file,

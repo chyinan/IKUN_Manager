@@ -139,4 +139,51 @@
         ORDER BY ss.student_id, ss.subject
     </select>
 
+    <!-- ExamTaken 的 resultMap -->
+    <resultMap id="ExamTakenResultMap" type="com.ikunmanager.dto.ExamTaken">
+        <id property="examId" column="exam_id"/>
+        <result property="examName" column="exam_name"/>
+        <result property="examDate" column="exam_date"/>
+        <result property="examType" column="exam_type"/>
+        <result property="subjects" column="subjects"/>
+    </resultMap>
+
+    <!-- 新增获取学生已参加的所有考试列表的查询 -->
+    <select id="findExamsTakenByStudentId" resultMap="ExamTakenResultMap">
+        SELECT DISTINCT
+            e.id AS exam_id,
+            e.exam_name,
+            e.exam_date,
+            e.exam_type,
+            e.subjects
+        FROM
+            student_score ss
+        JOIN
+            exam e ON ss.exam_id = e.id
+        WHERE
+            ss.student_id = #{studentId}
+        ORDER BY
+            e.exam_date DESC
+    </select>
+
+    <!-- 新增获取学生即将进行的考试列表的查询 -->
+    <select id="findStudentUpcomingExams" resultMap="ExamTakenResultMap">
+        SELECT DISTINCT
+            e.id AS exam_id,
+            e.exam_name,
+            e.exam_date,
+            e.exam_type,
+            e.subjects
+        FROM
+            exam e
+        JOIN
+            exam_class_link ecl ON e.id = ecl.exam_id
+        JOIN
+            student s ON ecl.class_id = s.class_id
+        WHERE
+            s.id = #{studentId} AND e.exam_date >= NOW() <!-- 过滤未来和今天的考试 -->
+        ORDER BY
+            e.exam_date ASC
+    </select>
+
 </mapper> 

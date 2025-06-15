@@ -5,7 +5,7 @@
         校园学生门户
       </div>
       <div class="user-actions">
-        <span>欢迎您，{{ userStore.userInfo?.display_name || userStore.username }}</span>
+        <span>欢迎您，{{ userStore.userInfo?.displayName || userStore.username }}</span>
         <el-dropdown @command="handleCommand" trigger="click" popper-class="user-profile-dropdown">
           <el-avatar :src="userStore.avatar" :icon="UserFilled" class="user-avatar" />
           <template #dropdown>

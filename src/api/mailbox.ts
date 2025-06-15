@@ -30,9 +30,10 @@ export interface Message {
 
 /**
  * [Student] Fetches all message threads for the current student.
+ * @param studentId - The ID of the student user.
  */
-export function getStudentThreads(): Promise<ApiResponse<MailboxThread[]>> {
-  return request.get('api/mailbox/student-threads'); // Added api/
+export function getStudentThreads(studentId: number): Promise<ApiResponse<MailboxThread[]>> {
+  return request.get(`api/mailbox/student-threads/${studentId}`); // Modified to include studentId
 }
 
 /**

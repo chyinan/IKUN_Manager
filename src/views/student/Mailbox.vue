@@ -119,7 +119,13 @@ const formatTime = (time: string) => dayjs(time).format('YYYY-MM-DD HH:mm:ss');
 const fetchThreads = async () => {
   loading.value = true;
   try {
-    const res = await getStudentThreads();
+    const studentId = userStore.userInfo?.id;
+    if (!studentId) {
+      ElMessage.error('无法获取学生ID，请重新登录');
+      loading.value = false;
+      return;
+    }
+    const res = await getStudentThreads(studentId);
     if (res.code === 200) {
       threads.value = res.data;
     } else {

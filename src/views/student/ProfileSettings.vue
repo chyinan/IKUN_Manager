@@ -19,12 +19,12 @@
           <el-row :gutter="40">
             <el-col :span="12">
               <el-form-item label="姓名:">
-                <span class="info-text">{{ userStore.userInfo.display_name || userStore.userInfo.username }}</span>
+                <span class="info-text">{{ userStore.userInfo.displayName || userStore.userInfo.username }}</span>
               </el-form-item>
             </el-col>
             <el-col :span="12">
               <el-form-item label="学号:">
-                <span class="info-text">{{ userStore.userInfo.studentInfo?.studentIdStr || 'N/A' }}</span> 
+                <span class="info-text">{{ userStore.userInfo.studentInfo?.student_id_str || 'N/A' }}</span> 
               </el-form-item>
             </el-col>
           </el-row>

@@ -4,6 +4,7 @@ import com.github.pagehelper.PageInfo;
 import com.ikunmanager.common.ApiResponse;
 import com.ikunmanager.model.Score;
 import com.ikunmanager.dto.ScoreDetailDTO;
+import com.ikunmanager.dto.ExamTaken;
 import com.ikunmanager.service.ScoreService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -88,5 +89,17 @@ public class ScoreController {
             @PathVariable Long examId, @PathVariable Long classId) {
         List<ScoreDetailDTO> scores = scoreService.getScoresByExamAndClass(examId, classId);
         return ApiResponse.ok(scores);
+    }
+
+    @GetMapping("/student/{studentId}/exams-taken")
+    public ApiResponse<List<ExamTaken>> getExamsTakenByStudentId(@PathVariable Long studentId) {
+        List<ExamTaken> exams = scoreService.getExamsTakenByStudentId(studentId);
+        return ApiResponse.ok(exams);
+    }
+
+    @GetMapping("/student/{studentId}/upcoming-exams")
+    public ApiResponse<List<ExamTaken>> getStudentUpcomingExams(@PathVariable Long studentId) {
+        List<ExamTaken> upcomingExams = scoreService.getStudentUpcomingExams(studentId);
+        return ApiResponse.ok(upcomingExams);
     }
 } 

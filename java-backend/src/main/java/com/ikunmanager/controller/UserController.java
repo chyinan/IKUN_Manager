@@ -29,6 +29,7 @@ public class UserController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = authentication.getName();
         User user = userMapper.findByUsername(currentUsername);
+        System.out.println("Backend User Info fetched: " + user);
         return ApiResponse.ok(user);
     }
 

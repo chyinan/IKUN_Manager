@@ -139,7 +139,7 @@ export const useUserStore = defineStore('user', () => {
           roles: receivedApiUserInfo.role ? [receivedApiUserInfo.role] : [],
           permissions: receivedApiUserInfo.permissions || [],
           createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
-          display_name: receivedApiUserInfo.display_name || receivedApiUserInfo.username,
+          displayName: receivedApiUserInfo.displayName,
           studentInfo: receivedApiUserInfo.studentInfo || null,
           phone: receivedApiUserInfo.phone || null
         };
@@ -248,19 +248,19 @@ export const useUserStore = defineStore('user', () => {
       id: receivedUser.id,
       username: receivedUser.username,
       email: receivedUser.email,
-      avatar: getFullAvatarUrl(receivedUser.avatar), // Apply helper here
+      avatar: receivedUser.avatar,
+      role: receivedUser.role,
       roles: receivedUser.roles,
       permissions: receivedUser.permissions,
       createTime: receivedUser.createTime || new Date().toISOString(),
-      studentInfo: receivedUser.studentInfo || null, // Correctly handle studentInfo
-      display_name: receivedUser.display_name || receivedUser.username, // Preserve display_name
-      phone: receivedUser.phone || null // Preserve phone
+      updateTime: receivedUser.updateTime || new Date().toISOString(),
+      displayName: receivedUser.displayName,
+      phone: receivedUser.phone || null,
+      studentInfo: receivedUser.studentInfo || null
     };
-    // Consider if storing the full object in localStorage is necessary/secure
-    // For now, we assume localStorage might not be the primary source for studentInfo if it's frequently updated
-    // or if login/getUserInfo always provides it fresh.
-    // localStorage.setItem('user-info', JSON.stringify(userInfo.value)); // Optional: re-evaluate storing complex objects
-  }
+    sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo.value));
+    console.log('[User Store] User info updated in Pinia and sessionStorage:', userInfo.value);
+  };
 
   // 从本地存储加载用户信息 (ensure createTime and studentInfo)
   const loadUserInfo = () => {

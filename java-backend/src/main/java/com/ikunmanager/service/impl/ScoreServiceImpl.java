@@ -3,6 +3,7 @@ package com.ikunmanager.service.impl;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import com.ikunmanager.dto.ScoreDetailDTO;
+import com.ikunmanager.dto.ExamTaken;
 import com.ikunmanager.mapper.ScoreMapper;
 import com.ikunmanager.model.Score;
 import com.ikunmanager.service.ScoreService;
@@ -64,5 +65,15 @@ public class ScoreServiceImpl implements ScoreService {
     @Override
     public List<ScoreDetailDTO> getScoresByExamAndClass(Long examId, Long classId) {
         return scoreMapper.findScoresByExamAndClass(examId, classId);
+    }
+
+    @Override
+    public List<ExamTaken> getExamsTakenByStudentId(Long studentId) {
+        return scoreMapper.findExamsTakenByStudentId(studentId);
+    }
+
+    @Override
+    public List<ExamTaken> getStudentUpcomingExams(Long studentId) {
+        return scoreMapper.findStudentUpcomingExams(studentId);
     }
 } 

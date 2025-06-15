@@ -18,7 +18,7 @@
           <el-table-column prop="last_replier_name" label="最新回复" width="150" />
           <el-table-column prop="update_time" label="更新时间" width="180">
              <template #default="{ row }">
-              {{ formatTime(row.update_time) }}
+              {{ formatTime(row.updateTime) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100">
@@ -32,10 +32,10 @@
       <div v-else class="thread-detail-view">
         <el-page-header @back="selectedThreadId = null" :content="selectedThread?.title || '对话详情'" />
         <div class="messages-area" ref="messagesAreaRef">
-          <div v-for="message in messages" :key="message.id" class="message" :class="{ 'my-message': message.sender_user_id === userStore.userInfo?.id }">
-            <el-avatar :src="message.sender_avatar" :icon="UserFilled" size="small" />
+          <div v-for="message in messages" :key="message.id" class="message" :class="{ 'my-message': message.senderUserId === userStore.userInfo?.id }">
+            <el-avatar :src="userStore.getFullAvatarUrl(message.senderAvatar)" :icon="UserFilled" size="small" />
             <div class="message-content">
-              <div class="message-sender">{{ message.sender_name }} <span class="message-time">{{ formatTime(message.create_time) }}</span></div>
+              <div class="message-sender">{{ message.senderName }} <span class="message-time">{{ formatTime(message.createTime) }}</span></div>
               <div class="message-bubble" v-html="message.content"></div>
             </div>
           </div>
@@ -97,7 +97,7 @@ const newThreadForm = reactive({
 const replyContent = ref('');
 const replying = ref(false);
 
-const getThreadStatus = (status: 'open' | 'replied' | 'in_progress' | 'resolved' | 'rejected') => {
+const getThreadStatus = (status: 'open' | 'in_progress' | 'replied' | 'resolved' | 'rejected') => {
   switch (status) {
     case 'open':
       return { text: '等待处理', type: 'primary' };
@@ -114,7 +114,18 @@ const getThreadStatus = (status: 'open' | 'replied' | 'in_progress' | 'resolved'
   }
 };
 
-const formatTime = (time: string) => dayjs(time).format('YYYY-MM-DD HH:mm:ss');
+const formatTime = (time: string) => {
+  console.log('[Mailbox] formatTime received:', time, 'Type:', typeof time); // Debugging log
+  if (!time) {
+    return 'N/A'; // Handle undefined or null time
+  }
+  const date = dayjs(time);
+  if (!date.isValid()) {
+    console.warn('[Mailbox] Invalid date received by formatTime:', time);
+    return '无效时间';
+  }
+  return date.format('YYYY-MM-DD HH:mm:ss');
+};
 
 const fetchThreads = async () => {
   loading.value = true;
@@ -127,7 +138,10 @@ const fetchThreads = async () => {
     }
     const res = await getStudentThreads(studentId);
     if (res.code === 200) {
-      threads.value = res.data;
+      threads.value = res.data.map(thread => {
+        console.log('[Mailbox] Thread update_time:', thread.update_time, 'Full Thread Object:', thread);
+        return thread;
+      });
     } else {
       ElMessage.error(res.message || '获取对话列表失败');
     }
@@ -146,7 +160,10 @@ const selectThread = async (threadId: number) => {
   try {
     const res = await getMessagesInThread(threadId);
     if (res.code === 200) {
-      messages.value = res.data;
+      messages.value = res.data.map(message => {
+        console.log('[Mailbox] Message create_time:', message.create_time, 'sender_avatar:', message.sender_avatar, 'Full Message Object:', message);
+        return message;
+      });
       await nextTick();
       if (messagesAreaRef.value) {
         messagesAreaRef.value.scrollTop = messagesAreaRef.value.scrollHeight;
@@ -202,7 +219,7 @@ const sendReply = async () => {
   replying.value = true;
   try {
     const res = await replyToThread(selectedThreadId.value, replyContent.value);
-    if (res.code === 201) {
+    if (res.code === 200 || res.code === 201) {
       replyContent.value = '';
       messages.value.push(res.data);
        await nextTick();
@@ -261,8 +278,10 @@ onMounted(fetchThreads);
 }
 
 .thread-detail-view {
+  padding: 0px;
   .el-page-header {
     margin-bottom: 20px;
+    padding-left: 10px; // Align with table content
     :deep(.el-page-header__title) {
       color: #005582;
     }
@@ -272,79 +291,92 @@ onMounted(fetchThreads);
       text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
     }
   }
-  .messages-area {
-    height: 400px;
-    overflow-y: auto;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 20px;
-    background-color: rgba(0, 0, 0, 0.1);
+}
 
-    .message {
-      display: flex;
-      margin-bottom: 15px;
+.messages-area {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 15px;
+  background-color: rgb(69 66 89 / 4%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+}
 
-      .message-content {
-        margin-left: 10px;
-        max-width: 70%;
-        .message-sender {
-          font-size: 0.8rem;
-          color: #555;
-          margin-bottom: 5px;
+.message {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
 
-          .message-time {
-            color: #f0f8ff; // AliceBlue, a very light blue, almost white
-            font-size: 0.75rem;
-            margin-left: 8px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-          }
-        }
+  .el-avatar {
+    flex-shrink: 0;
+    margin-right: 10px;
+    background-color: var(--el-color-info-light-7);
+    color: var(--el-color-white);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
 
-        .message-bubble {
-          background-color: #e5e5ea;
-          padding: 10px 15px;
-          border-radius: 15px;
-          display: inline-block;
-          max-width: 100%;
-          white-space: pre-wrap;
-          word-break: break-all;
-        }
+  .message-content {
+    display: flex;
+    flex-direction: column;
+    max-width: 70%;
+    
+    .message-sender {
+      font-size: 0.85em;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 5px;
+      .message-time {
+        font-size: 0.8em;
+        margin-left: 8px;
       }
-
-      &.my-message {
-        flex-direction: row-reverse;
-        .message-content {
-          margin-left: 0;
-          margin-right: 10px;
-          text-align: right;
-
-          .message-sender {
-             color: #fff; // Change sender name color for my messages
-          }
-
-           .message-bubble {
-             background-color: #007aff;
-             color: white;
-           }
-        }
-      }
+    }
+    .message-bubble {
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 10px 15px;
+      border-radius: 12px;
+      border-bottom-left-radius: 4px;
+      color: #fff;
+      word-break: break-word;
+      line-height: 1.5;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
   }
 
-  .reply-area {
-    :deep(.el-textarea__inner) {
-      background-color: rgba(0,0,0,0.1);
-      border-color: rgba(255,255,255,0.2);
-      color: #fff;
-      &:focus {
-        border-color: #bedeff;
-        box-shadow: 0 0 0 1px #bedeff inset;
-      }
-      &::placeholder {
-        color: rgba(255, 255, 255, 0.6);
-        font-weight: 500;
-      }
+  &.my-message {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    .el-avatar {
+      margin-left: 10px;
+      margin-right: 0;
+    }
+    .message-content {
+      align-items: flex-end;
+      margin-left: auto;
+      margin-right: 0;
+    }
+    .message-bubble {
+      background-color: rgba(64, 158, 255, 0.8);
+      border-bottom-right-radius: 4px;
+      border-bottom-left-radius: 12px;
+    }
+  }
+}
+
+.reply-area {
+  :deep(.el-textarea__inner) {
+    background-color: rgba(0,0,0,0.1);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+    &:focus {
+      border-color: #bedeff;
+      box-shadow: 0 0 0 1px #bedeff inset;
+    }
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 500;
     }
   }
 }
@@ -357,7 +389,6 @@ onMounted(fetchThreads);
   -webkit-backdrop-filter: blur(12px);
   overflow: hidden;
 
-  // --- 您提供的核心修复 ---
   --el-table-border-color: rgba(255, 255, 255, 0.2);
 
   .el-table__header-wrapper th,
@@ -365,7 +396,6 @@ onMounted(fetchThreads);
     background-color: rgb(91 161 233 / 8%) !important;
     color: #fff;
     font-weight: 600;
-    // border-color is now handled by the CSS variable above
   }
 
   .el-table__row {
@@ -379,10 +409,9 @@ onMounted(fetchThreads);
 
   td.el-table__cell,
   th.el-table__cell.is-leaf {
-    border-color: transparent !important; // Let the variable control this
+    border-color: transparent !important;
   }
 
-  // Remove the default top and bottom border lines of the table
   &::before,
   &::after {
     display: none;
@@ -391,7 +420,7 @@ onMounted(fetchThreads);
   .el-table__inner-wrapper {
      border-radius: 12px;
   }
-  
+
   .el-table__empty-text {
     color: #c0c4cc;
   }
@@ -404,7 +433,7 @@ onMounted(fetchThreads);
   }
 
   .el-button--primary.is-link {
-    color: #81d4fa; // Light blue for links
+    color: #81d4fa;
     font-weight: 500;
     &:hover, &:focus {
       color: #b3e5fc;

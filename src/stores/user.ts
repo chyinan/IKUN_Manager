@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import { login, logout, getUserInfo, updateUserProfile as apiUpdateUserProfile } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import type { LoginData, UserInfo, ApiResponse } from '@/types/common'
-import router from '@/router'
 
 const USER_INFO_KEY = 'user_info';
 // The base URL for accessing uploaded files from the backend.
@@ -17,6 +16,11 @@ export const useUserStore = defineStore('user', () => {
   const avatar = ref<string>(localStorage.getItem('user_avatar_url') || '')
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
+
+  // Getters
+  const isLoggedIn = computed(() => !!token.value)
+  const isAdmin = computed(() => roles.value.includes('admin'))
+  const isStudent = computed(() => roles.value.includes('student'))
 
   // Helper function to get full avatar URL
   const getFullAvatarUrl = (relativePath: string | null | undefined): string => {
@@ -61,11 +65,11 @@ export const useUserStore = defineStore('user', () => {
           username.value = parsedInfo.username;
           avatar.value = getFullAvatarUrl(parsedInfo.avatar); // Apply helper here
           roles.value = parsedInfo.role ? [parsedInfo.role] : [];
-          console.log('[User Store] Rehydrated user info from sessionStorage.');
+          console.log('[User Store] Rehydrated user info from sessionStorage (rehydrateStateFromSession).');
           return true;
         }
       } catch(e) {
-        console.error('[User Store] Failed to parse user info from sessionStorage', e);
+        console.error('[User Store] Failed to parse user info from sessionStorage in rehydrateStateFromSession', e);
       }
     }
     return false;
@@ -79,42 +83,42 @@ export const useUserStore = defineStore('user', () => {
     console.log('[userStore] Avatar state updated:', getFullAvatarUrl(newAvatarUrl));
   };
 
-  // Login Action (修正)
-  const loginAction = async (credentials: { username: string; password: string }) => {
+  // Login Action
+  const loginAction = async (credentials: { username: string; password: string }): Promise<string | null> => {
     try {
-      const res: any = await login(credentials); // Change type to any to handle direct token response
-      console.log('[userStore loginAction] Received API response:', JSON.stringify(res)); // Log the full response
+      const res: any = await login(credentials); 
+      console.log('[userStore loginAction] Received API response:', JSON.stringify(res));
 
-      // Instead of checking res.code, res.data.token, etc., check for accessToken directly
       if (res && res.accessToken && res.tokenType) {
-        const receivedToken = res.accessToken; // Directly get accessToken
+        const receivedToken = res.accessToken;
         
         console.log('[userStore loginAction] Login successful, token received:', receivedToken);
 
-        // Store token in localStorage
         localStorage.setItem('token', receivedToken);
-        token.value = receivedToken; // Update Pinia state immediately
+        token.value = receivedToken;
 
-        // After token is stored, fetch full user info
         const userInfoFetched = await getUserInfoAction();
         if (userInfoFetched) {
-          console.log('[userStore loginAction] User info fetched successfully. Returning true.');
-          return true;
+          console.log('[userStore loginAction] User info fetched successfully.');
+          // Determine path *after* user info is confirmed
+          if (isStudent.value) {
+            return '/student-portal/dashboard';
+          }
+          return '/dashboard';
         } else {
           console.error('[userStore loginAction] Failed to fetch user info after login.');
-          // Even if token is received, if user info cannot be fetched, login is considered failed
-          return false;
+          return null;
         }
       } else {
         const errorMsg = res?.message || '登录失败: 响应数据格式无效或缺少token';
         console.error('[userStore loginAction] Login condition failed. Error message:', errorMsg, 'Full Response Payload:', JSON.stringify(res));
-        console.log('[userStore loginAction] Returning false due to failed condition.');
-        return false;
+        console.log('[userStore loginAction] Returning null due to failed condition.');
+        return null;
       }
     } catch (error: any) {
       console.error('[userStore loginAction] Login API call failed (catch block in store):', error);
-      console.log('[userStore loginAction] Returning false due to exception.');
-      return false;
+      console.log('[userStore loginAction] Returning null due to exception.');
+      return null;
     }
   }
 
@@ -128,7 +132,7 @@ export const useUserStore = defineStore('user', () => {
       console.log('[userStore] API response for user info:', res);
 
       if (res.code === 200 && res.data) {
-        const receivedApiUserInfo = res.data; // UserInfo from API
+        const receivedApiUserInfo = res.data; 
 
         const fullUserInfo: UserInfo = {
           id: receivedApiUserInfo.id,
@@ -139,6 +143,7 @@ export const useUserStore = defineStore('user', () => {
           roles: receivedApiUserInfo.role ? [receivedApiUserInfo.role] : [],
           permissions: receivedApiUserInfo.permissions || [],
           createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
+          updateTime: receivedApiUserInfo.updateTime || new Date().toISOString(),
           displayName: receivedApiUserInfo.displayName,
           studentInfo: receivedApiUserInfo.studentInfo || null,
           phone: receivedApiUserInfo.phone || null
@@ -150,7 +155,6 @@ export const useUserStore = defineStore('user', () => {
         
         return true
       } else {
-        // Added log for failure case
         console.warn('[userStore] getUserInfoAction failed or API returned non-200 code. Response:', res);
         return false
       }
@@ -160,39 +164,28 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  // Logout Action (Keep existing logic)
+  // Logout Action
   const logoutAction = async () => {
     console.log('[userStore logoutAction] START :: Attempting to logout...');
     try {
       console.log(`[userStore logoutAction] Current token: ${token.value}, Is DEV env: ${import.meta.env.DEV}`);
       if (token.value && !import.meta.env.DEV) {
         console.log('[userStore logoutAction] TRY block :: Calling API logout...');
-        await logout(); // Calls API: import { logout } from '@/api/user'
+        await logout(); 
         console.log('[userStore logoutAction] TRY block :: API logout call finished.');
       } else {
         console.log('[userStore logoutAction] TRY block :: Skipped API logout call.');
       }
-      console.log('[userStore logoutAction] TRY block :: Successfully finished.');
     } catch (error) {
       console.error('[userStore logoutAction] CATCH block :: Logout API call failed:', error);
-      // Still proceed with local state reset even if API fails
     } finally {
       console.log('[userStore logoutAction] FINALLY block :: Entering, calling resetState().');
-      try {
-        resetState();
-        console.log('[userStore logoutAction] FINALLY block :: resetState() call completed.');
-      } catch (resetError) {
-        console.error('[userStore logoutAction] FINALLY block :: resetState() THREW an error:', resetError);
-        // This error in finally would cause the logoutAction promise to reject if not handled.
-        // However, resetState has its own internal catch for router.push.
-      }
-      console.log('[userStore logoutAction] FINALLY block :: Exiting.');
+      resetState();
     }
     console.log('[userStore logoutAction] END :: Action finished.');
-    // logoutAction implicitly returns Promise<void> which resolves if no unhandled error occurred.
   }
 
-  // Reset State (Updated)
+  // Reset State
   const resetState = () => {
     console.log('[userStore resetState] Resetting user state...');
     token.value = ''
@@ -203,157 +196,92 @@ export const useUserStore = defineStore('user', () => {
     permissions.value = []
     localStorage.removeItem('token')
     localStorage.removeItem('user_avatar_url')
-    localStorage.removeItem('user-info'); // Ensure this is here from previous steps
-    sessionStorage.removeItem(USER_INFO_KEY); // Clear sessionStorage too
+    localStorage.removeItem('user-info'); 
+    sessionStorage.removeItem(USER_INFO_KEY); 
+    console.log('[userStore resetState] State has been reset.');
+  };
 
-    console.log('[userStore resetState] State reset. Attempting to redirect to /login...');
-    router.push('/login').catch(err => {
-      console.error('[userStore resetState] Redirect to login failed:', err);
-    });
-    console.log('[userStore resetState] Redirection to login initiated (or failed if error above).');
-  }
-
-  // New: Clear All Auth Data (for testing/debugging purposes)
+  // This function is intended to be used on app initialization
   const clearAllAuthData = () => {
-    console.log('[userStore clearAllAuthData] Clearing all authentication related data...');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user_avatar_url');
-    localStorage.removeItem('user-info');
-    sessionStorage.removeItem(USER_INFO_KEY); // Assuming USER_INFO_KEY resolves to 'user_info'
-    token.value = '';
-    userInfo.value = null;
-    username.value = '';
-    avatar.value = '';
-    roles.value = [];
-    permissions.value = [];
-    console.log('[userStore clearAllAuthData] All authentication related data cleared.');
+    console.log('[userStore] Clearing all authentication data from localStorage and sessionStorage.');
+    localStorage.clear();
+    sessionStorage.clear();
+    resetState();
   };
 
-  // Attempt to load user info if token exists on initial store creation
-  // This helps maintain login state across page refreshes
-  if (token.value) {
-      console.log('Token found in localStorage, attempting to fetch user info...');
-      getUserInfoAction().then(success => {
-          if (!success) {
-              console.warn('Failed to fetch user info with existing token. Clearing state.');
-              resetState(); // Clear invalid token/state
-          }
-      });
-  }
-
-  // 设置用户信息 (ensure createTime and studentInfo)
   const setUserInfo = (receivedUser: UserInfo) => {
-    console.log('更新用户信息:', receivedUser);
-    userInfo.value = {
-      id: receivedUser.id,
-      username: receivedUser.username,
-      email: receivedUser.email,
-      avatar: receivedUser.avatar,
-      role: receivedUser.role,
-      roles: receivedUser.roles,
-      permissions: receivedUser.permissions,
-      createTime: receivedUser.createTime || new Date().toISOString(),
-      updateTime: receivedUser.updateTime || new Date().toISOString(),
-      displayName: receivedUser.displayName,
-      phone: receivedUser.phone || null,
-      studentInfo: receivedUser.studentInfo || null
-    };
-    sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo.value));
-    console.log('[User Store] User info updated in Pinia and sessionStorage:', userInfo.value);
-  };
+    userInfo.value = receivedUser;
+    username.value = receivedUser.username;
+    roles.value = receivedUser.role ? [receivedUser.role] : [];
+    permissions.value = receivedUser.permissions || [];
+    avatar.value = getFullAvatarUrl(receivedUser.avatar); // Use helper
 
-  // 从本地存储加载用户信息 (ensure createTime and studentInfo)
-  const loadUserInfo = () => {
-    const storedUserInfo = sessionStorage.getItem(USER_INFO_KEY);
-    if (storedUserInfo) {
-      try {
-        const parsedInfo = JSON.parse(storedUserInfo) as UserInfo;
-        if (parsedInfo && typeof parsedInfo === 'object' && parsedInfo.id && parsedInfo.username) {
-          userInfo.value = parsedInfo;
-          username.value = parsedInfo.username;
-          avatar.value = getFullAvatarUrl(parsedInfo.avatar); // Apply helper here
-          roles.value = parsedInfo.role ? [parsedInfo.role] : [];
-          console.log('[User Store] Rehydrated user info from sessionStorage (loadUserInfo).');
-          return true;
-        }
-      } catch(e) {
-        console.error('[User Store] Failed to parse user info from sessionStorage (loadUserInfo)', e);
-      }
+    // Also update storage for consistency
+    sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(receivedUser));
+    if(receivedUser.avatar) {
+      localStorage.setItem('user_avatar_url', getFullAvatarUrl(receivedUser.avatar)); // Use helper
     }
-    return false;
+    console.log('[userStore] setUserInfo called, state updated.');
   };
 
-  // Initial load on store creation
-  loadUserInfo();
-
-  // Action to specifically update the user's email in the store
-  const updateUserEmailAction = (newEmail: string) => {
-    if (userInfo.value) {
-      userInfo.value.email = newEmail;
-      // Optionally update sessionStorage here as well if you want this change to persist immediately
-      sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo.value));
-    }
-  };
-
-  // 获取并设置用户信息
-  async function fetchAndSetUserInfo() {
-    if (!token.value) {
-      console.log('[fetchAndSetUserInfo] No token available, skipping fetch user info.');
+  const updateUserEmailAction = async (newEmail: string) => {
+    if (!userInfo.value) {
+      ElMessage.error('用户未登录，无法更新邮箱');
       return;
     }
-    console.log('[fetchAndSetUserInfo] Token available, attempting to fetch user info.');
-    const success = await getUserInfoAction();
-    if (!success) {
-      console.warn('[fetchAndSetUserInfo] Failed to fetch user info, resetting state.');
-      resetState(); // Clear invalid token/state
-    }
-  }
-
-  // --- ADD isAdmin GETTER ---
-  const isAdmin = computed(() => {
-    console.log('[userStore] isAdmin computed. roles.value:', JSON.stringify(roles.value));
-    const result = roles.value.includes('admin');
-    console.log('[userStore] isAdmin result:', result);
-    return result;
-  });
-  const isStudent = computed(() => {
-    console.log('[userStore] isStudent computed. roles.value:', JSON.stringify(roles.value));
-    const result = roles.value.includes('student');
-    console.log('[userStore] isStudent result:', result);
-    return result;
-  });
-
-  const updateUserProfile = async (data: Partial<UserInfo>) => {
-    console.log('[User Store] Attempting to update user profile with data:', data);
     try {
-      // If the avatar data contains the full path, extract just the filename
-      if (data.avatar && data.avatar.includes('/')) {
-        data.avatar = data.avatar.split('/').pop();
-      }
-
-      const response = await apiUpdateUserProfile(data);
-      console.log('[API user.ts] API response for update user profile:', response);
-      if (response.code === 200 && response.data) {
-        console.log('[User Store] Update user profile details success, new user info:', response.data);
-        const updatedUserInfo: UserInfo = response.data;
-        if (token.value) {
-          _updateState(token.value, updatedUserInfo);
+      const response = await apiUpdateUserProfile({ id: userInfo.value.id, email: newEmail });
+      if (response && response.data) {
+        if (userInfo.value) {
+          userInfo.value.email = newEmail;
+          sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo.value));
         }
-        ElMessage.success('用户资料更新成功');
-        return true;
-      } else {
-        ElMessage.error(response.message || '更新用户资料失败');
-        return false;
+        ElMessage.success('邮箱更新成功');
       }
-    } catch (error: any) {
-      console.error('[User Store] Update user profile API call failed:', error);
-      ElMessage.error('更新用户资料失败');
-      return false;
+    } catch (error) {
+      console.error('更新邮箱失败:', error);
+      ElMessage.error('更新邮箱失败');
     }
   };
 
-  // --- RETURN ---
-  // Expose state, getters, and actions
+  // Wrapper action to simplify fetching user info from components
+  async function fetchAndSetUserInfo() {
+    await getUserInfoAction();
+  }
+  const updateUserProfile = async (data: Partial<UserInfo>) => {
+    if (!userInfo.value?.id) {
+      ElMessage.error("无法更新个人资料：缺少用户信息。");
+      return Promise.reject("缺少用户信息");
+    }
+
+    const updateData = {
+      ...data,
+      id: userInfo.value.id
+    };
+
+    try {
+      const response = await apiUpdateUserProfile(updateData);
+      if (response && response.code === 200) {
+        // Update local state with the newly provided data
+        userInfo.value = { ...userInfo.value, ...data };
+        // If avatar was part of the update, handle it via setAvatar
+        if (data.avatar) {
+          setAvatar(data.avatar);
+        }
+        sessionStorage.setItem(USER_INFO_KEY, JSON.stringify(userInfo.value));
+        ElMessage.success("个人资料更新成功！");
+        return Promise.resolve(response.data);
+      } else {
+        ElMessage.error(response.message || "更新失败");
+        return Promise.reject(response.message);
+      }
+    } catch (error) {
+      console.error("更新个人资料失败:", error);
+      ElMessage.error("更新个人资料失败，请稍后再试。");
+      return Promise.reject(error);
+    }
+  };
+
   return {
     token,
     userInfo,
@@ -361,22 +289,19 @@ export const useUserStore = defineStore('user', () => {
     avatar,
     roles,
     permissions,
-    isLoggedIn: computed(() => !!token.value),
-    isAdmin: computed(() => roles.value.includes('admin')),
-    isStudent: computed(() => roles.value.includes('student')),
-    isEmployee: computed(() => roles.value.includes('employee')),
-    login: loginAction,
-    logout: logoutAction,
-    getUserInfo: getUserInfoAction,
+    isLoggedIn,
+    isAdmin,
+    isStudent,
+    loginAction,
+    getUserInfoAction,
+    logoutAction,
+    resetState,
     setUserInfo,
-    setAvatar,
-    rehydrateStateFromSession,
     updateUserEmailAction,
-    updateUserProfile,
-    clearAllAuthData,
     fetchAndSetUserInfo,
+    updateUserProfile,
+    rehydrateStateFromSession,
+    setAvatar,
+    clearAllAuthData
   }
-}, {
-  // Optional: Enable persistence if needed, though manual localStorage is used here
-  // persist: true,
 }) 

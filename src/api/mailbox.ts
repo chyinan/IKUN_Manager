@@ -50,7 +50,7 @@ export function getAdminThreads(params?: any): Promise<ApiResponse<MailboxThread
  * @param content - The initial message content.
  */
 export function createThread(title: string, content: string): Promise<ApiResponse<MailboxThread & { id: number }>> {
-  return request.post('api/mailbox/threads', { title, content }); // Added api/
+  return request.post('api/mailbox/threads/create', { title, content }); // Added api/
 }
 
 /**
@@ -58,7 +58,7 @@ export function createThread(title: string, content: string): Promise<ApiRespons
  * @param threadId - The ID of the thread.
  */
 export function getMessagesInThread(threadId: number): Promise<ApiResponse<Message[]>> {
-  return request.get(`api/mailbox/threads/${threadId}`); // Added api/
+  return request.get(`api/mailbox/messages/thread/${threadId}`); // 修正为正确的后端接口路径
 }
 
 /**
@@ -67,7 +67,7 @@ export function getMessagesInThread(threadId: number): Promise<ApiResponse<Messa
  * @param content - The reply content.
  */
 export function replyToThread(threadId: number, content: string): Promise<ApiResponse<Message>> {
-  return request.post(`api/mailbox/threads/${threadId}/reply`, { content }); // Added api/
+  return request.post(`api/mailbox/messages/add`, { threadId, content }); // Added api/
 }
 
 /**

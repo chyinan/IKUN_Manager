@@ -11,29 +11,35 @@
         <result property="content" column="content"/>
         <result property="isRead" column="is_read"/>
         <result property="createTime" column="create_time"/>
+        <result property="senderName" column="sender_name"/>
+        <result property="senderAvatar" column="sender_avatar"/>
     </resultMap>
 
     <sql id="selectMessageSql">
         SELECT
-            id,
-            thread_id,
-            sender_user_id,
-            content,
-            is_read,
-            create_time
+            m.id,
+            m.thread_id,
+            m.sender_user_id,
+            m.content,
+            m.is_read,
+            m.create_time,
+            COALESCE(u.display_name, u.username) AS sender_name,
+            u.avatar AS sender_avatar
         FROM
-            messages
+            messages m
+        JOIN
+            user u ON m.sender_user_id = u.id
     </sql>
 
     <select id="findByThreadId" resultMap="MessageResultMap">
         <include refid="selectMessageSql"/>
-        WHERE thread_id = #{threadId}
-        ORDER BY create_time ASC
+        WHERE m.thread_id = #{threadId}
+        ORDER BY m.create_time ASC
     </select>
 
     <select id="findById" resultMap="MessageResultMap">
         <include refid="selectMessageSql"/>
-        WHERE id = #{id}
+        WHERE m.id = #{id}
     </select>
 
     <insert id="insert" parameterType="com.ikunmanager.model.Message" useGeneratedKeys="true" keyProperty="id">

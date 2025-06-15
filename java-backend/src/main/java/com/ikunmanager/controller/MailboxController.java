@@ -3,8 +3,12 @@ package com.ikunmanager.controller;
 import com.ikunmanager.common.ApiResponse;
 import com.ikunmanager.model.Message;
 import com.ikunmanager.model.MessageThread;
+import com.ikunmanager.model.User;
 import com.ikunmanager.service.MailboxService;
+import com.ikunmanager.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +19,9 @@ public class MailboxController {
 
     @Autowired
     private MailboxService mailboxService;
+
+    @Autowired
+    private UserService userService;
 
     @GetMapping("/admin-threads")
     public ApiResponse<List<MessageThread>> getAdminThreads() {
@@ -40,6 +47,15 @@ public class MailboxController {
 
     @PostMapping("/threads/create")
     public ApiResponse<MessageThread> createThread(@RequestBody MessageThread messageThread) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        User currentUser = userService.findByUsername(username);
+        if (currentUser == null) {
+            return ApiResponse.error(401, "Unauthorized: User not found.");
+        }
+        Long currentUserId = currentUser.getId();
+        messageThread.setStudentUserId(currentUserId);
+        messageThread.setStatus("open");
         MessageThread newThread = mailboxService.createMessageThread(messageThread);
         return ApiResponse.ok(newThread);
     }
@@ -64,6 +80,14 @@ public class MailboxController {
 
     @PostMapping("/messages/add")
     public ApiResponse<Message> addMessage(@RequestBody Message message) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        User currentUser = userService.findByUsername(username);
+        if (currentUser == null) {
+            return ApiResponse.error(401, "Unauthorized: User not found.");
+        }
+        message.setSenderUserId(currentUser.getId());
+        message.setIsRead(false);
         Message newMessage = mailboxService.addMessage(message);
         return ApiResponse.ok(newMessage);
     }

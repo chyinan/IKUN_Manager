@@ -125,8 +125,8 @@ const handleThemeChange = (value: boolean | string | number) => {
 
 const handleLogout = async () => {
   try {
-    await userStore.logout()
-    // No need to redirect here, the store action should handle it
+    await userStore.logoutAction()
+    router.push('/login')
   } catch (error) {
     console.error('An error occurred during logout in Navbar:', error)
   }

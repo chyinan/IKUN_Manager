@@ -89,10 +89,10 @@ const handleCommand = (command: string) => {
     }).then(async () => {
       console.log('[StudentLayout] Logout confirmed by user.');
       try {
-        await userStore.logout();
+        await userStore.logoutAction();
         console.log('[StudentLayout] userStore.logout() completed.');
         ElMessage.success('已成功退出登录');
-        // router.push('/login'); // Commented out as userStore.resetState() handles it
+        router.push('/login');
         console.log('[StudentLayout] Logout process in .then() finished.');
       } catch (error) {
         console.error('[StudentLayout] Error during userStore.logout() or subsequent steps in .then():', error);

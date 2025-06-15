@@ -12,9 +12,7 @@ public interface SystemLogMapper {
                                @Param("content") String content, 
                                @Param("operator") String operator, 
                                @Param("startDate") String startDate, 
-                               @Param("endDate") String endDate,
-                               @Param("offset") int offset, 
-                               @Param("pageSize") int pageSize);
+                               @Param("endDate") String endDate);
 
     int countByPage(@Param("type") String type, 
                     @Param("operation") String operation, 
@@ -26,4 +24,4 @@ public interface SystemLogMapper {
     int insert(SystemLog systemLog);
 
     int deleteByIds(@Param("ids") List<Long> ids);
-} 
+}

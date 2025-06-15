@@ -8,7 +8,7 @@ import type { PageInfo } from '@/types/page'
  * @param params 查询参数
  */
 export const getLogList = (params?: LogQueryParams): Promise<ApiResponse<PageInfo<LogEntry>>> => {
-  return request.get<ApiResponse<PageInfo<LogEntry>>>('log/list', { params })
+  return request.get<ApiResponse<PageInfo<LogEntry>>>('/api/log/list', { params })
     .catch(error => {
         console.error('[API log.ts] Error fetching log list:', error);
         throw error;
@@ -20,7 +20,7 @@ export const getLogList = (params?: LogQueryParams): Promise<ApiResponse<PageInf
  * @param id 日志ID
  */
 export function getLogDetail(id: number) {
-  return request.get<ApiResponse<any>>(`log/${id}`)
+  return request.get<ApiResponse<any>>(`/api/log/${id}`)
 }
 
 /**
@@ -28,7 +28,7 @@ export function getLogDetail(id: number) {
  * @param id 日志ID
  */
 export function deleteLog(id: number) {
-  return request.delete<ApiResponse<void>>(`log/${id}`)
+  return request.delete<ApiResponse<void>>(`/api/log/${id}`)
 }
 
 /**
@@ -36,7 +36,7 @@ export function deleteLog(id: number) {
  * @param ids 日志ID数组
  */
 export const batchDeleteLogs = (ids: number[]): Promise<ApiResponse<void>> => {
-  return request.delete<ApiResponse<void>>('log/batchDelete', { data: ids })
+  return request.delete<ApiResponse<void>>('/api/log/batchDelete', { data: ids })
     .catch(error => {
         console.error('[API log.ts] Error batch deleting logs:', error);
         throw error;
@@ -47,7 +47,7 @@ export const batchDeleteLogs = (ids: number[]): Promise<ApiResponse<void>> => {
  * 清空日志
  */
 export const clearLogs = (): Promise<ApiResponse<void>> => {
-  return request.delete<ApiResponse<void>>('log/clear')
+  return request.delete<ApiResponse<void>>('/api/log/clear')
     .catch(error => {
         console.error('[API log.ts] Error clearing logs:', error);
         throw error;
@@ -59,13 +59,13 @@ export const clearLogs = (): Promise<ApiResponse<void>> => {
  * @param params 查询参数
  */
 export function exportLogs(params?: any) {
-  return request.get<Blob>('log/export', {
+  return request.get<Blob>('/api/log/export', {
     params,
     responseType: 'blob'
   })
 }
 
-// Define AddLogData if it doesn\'t exist elsewhere
+// Define AddLogData if it doesn't exist elsewhere
 interface AddLogData {
   type: 'vue' | 'system' | 'database'; // Example types
   operation: string;
@@ -75,7 +75,7 @@ interface AddLogData {
 
 // 添加前端日志 (发送到后端)
 export const addFrontendLog = (logData: AddLogData): Promise<ApiResponse<void>> => {
-  return request.post<ApiResponse<void>>('log/add', logData) // Assuming endpoint exists
+  return request.post<ApiResponse<void>>('/api/log/add', logData) // Assuming endpoint exists
     .catch(error => {
       console.error('[API log.ts] Failed to send frontend log to server:', error);
       // Corrected: Return a resolved promise satisfying ApiResponse<void>

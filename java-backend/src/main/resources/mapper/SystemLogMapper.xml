@@ -48,7 +48,7 @@
             </if>
         </where>
         ORDER BY create_time DESC
-        LIMIT #{offset}, #{pageSize}
+        <!-- 移除了 LIMIT #{offset}, #{pageSize}，由 PageHelper 插件处理分页 -->
     </select>
 
     <select id="countByPage" resultType="int">
@@ -87,4 +87,4 @@
         </foreach>
     </delete>
 
-</mapper> 
+</mapper>

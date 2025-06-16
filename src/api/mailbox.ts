@@ -26,6 +26,12 @@ export interface Message {
   sender_role: ReplierRole;
   sender_name: string;
   sender_avatar: string | null;
+
+  /** 以下为前端兼容写法（转换后可用），后端可能返回 snake_case */
+  senderRole?: ReplierRole;
+  senderName?: string;
+  senderAvatar?: string | null;
+  createTime?: string;
 }
 
 /**

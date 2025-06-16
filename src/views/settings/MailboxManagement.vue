@@ -71,17 +71,17 @@
 
         <!-- Chat History -->
         <div class="chat-history" ref="chatHistoryRef">
-            <div v-for="message in messageList" :key="message.id" class="message-item" :class="{'is-self': message.sender_role === 'admin'}">
-                <el-avatar :size="40" :src="message.sender_avatar || defaultAvatar" class="avatar">
+            <div v-for="message in messageList" :key="message.id" class="message-item" :class="{'is-self': message.senderRole === 'admin'}">
+                <el-avatar :size="40" :src="message.senderAvatar || defaultAvatar" class="avatar">
                     <el-icon><UserFilled /></el-icon>
                 </el-avatar>
                 <div class="message-content">
                     <div class="message-header">
                         <span class="sender-info">
-                            <span class="role-tag">{{ message.sender_role === 'student' ? '学生' : '管理员' }}</span>
-                            <span class="sender">{{ message.sender_name }}</span>
+                            <span class="role-tag">{{ message.senderRole === 'student' ? '学生' : '管理员' }}</span>
+                            <span class="sender">{{ message.senderName }}</span>
                         </span>
-                        <span class="time">{{ formatDateTime(message.create_time) }}</span>
+                        <span class="time">{{ formatDateTime(message.createTime) }}</span>
                     </div>
                     <div class="bubble">{{ message.content }}</div>
                 </div>
@@ -120,6 +120,7 @@ import { ElMessage, ElNotification } from 'element-plus';
 import { ChatDotRound, UserFilled } from '@element-plus/icons-vue';
 import { formatDateTime } from '@/utils/date';
 import defaultAvatar from '@/assets/default-avatar.png';
+import { useUserStore } from '@/stores/user';
 
 const loading = ref(true);
 const threadList = ref<MailboxThread[]>([]);
@@ -129,6 +130,30 @@ const messageList = ref<Message[]>([]);
 const replyContent = ref('');
 const replying = ref(false);
 const chatHistoryRef = ref<HTMLDivElement | null>(null);
+
+// 当前登录用户信息，用于判断自身消息
+const userStore = useUserStore();
+
+const mapMessages = (messages: any[]): Message[] => {
+  if (!userStore.userInfo) {
+    ElMessage.error("无法解析消息：用户信息不存在。");
+    return [];
+  }
+  return messages.map((m: any) => {
+    // 安全地获取发送者ID，兼容 snake_case 和 camelCase
+    const senderId = m.senderUserId ?? m.sender_user_id;
+    const role = senderId === userStore.userInfo.id ? 'admin' : 'student';
+
+    return {
+      ...m,
+      // 统一为驼峰命名以供模板使用
+      senderRole: role,
+      senderName: m.senderName ?? m.sender_name,
+      senderAvatar: m.senderAvatar ?? m.sender_avatar,
+      createTime: m.createTime ?? m.create_time,
+    };
+  });
+};
 
 const fetchThreads = async () => {
   loading.value = true;
@@ -148,7 +173,7 @@ const handleViewDetails = async (thread: MailboxThread) => {
   dialogVisible.value = true;
   try {
     const { data } = await getMessagesInThread(thread.id);
-    messageList.value = data;
+    messageList.value = mapMessages(data);
     scrollToBottom();
   } catch (error) {
     console.error("Failed to fetch messages:", error);
@@ -184,7 +209,7 @@ const handleReplySubmit = async () => {
     await replyToThread(activeThread.value.id, replyContent.value);
     ElNotification.success('回复发送成功');
     const { data } = await getMessagesInThread(activeThread.value.id);
-    messageList.value = data;
+    messageList.value = mapMessages(data);
     scrollToBottom();
     fetchThreads();
     replyContent.value = '';
@@ -325,7 +350,9 @@ onMounted(() => {
 .bubble {
   padding: 10px 15px;
   border-radius: 15px;
-  max-width: 400px;
+  max-width: 70%;
+  display: inline-block;
+  width: fit-content;
   word-wrap: break-word;
   background-color: #ffffff;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -334,6 +361,8 @@ onMounted(() => {
 
 .message-item.is-self .bubble {
   background-color: #dcf8c6;
+  display: inline-block;
+  width: fit-content;
 }
 
 .reply-form-container {

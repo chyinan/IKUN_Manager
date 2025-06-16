@@ -88,7 +88,7 @@ const fetchSettings = async () => {
     if (response.code === 200 && response.data) {
       regexForm.studentIdRegex = response.data.studentIdRegex || '';
       regexForm.employeeIdRegex = response.data.employeeIdRegex || '';
-      regexForm.logRetentionDays = response.data.logRetentionDays || 0;
+      regexForm.logRetentionDays = Number(response.data.logRetentionDays || 0);
       
       initialForm.studentIdRegex = regexForm.studentIdRegex;
       initialForm.employeeIdRegex = regexForm.employeeIdRegex;
@@ -120,7 +120,7 @@ const handleSaveSettings = async () => {
     const response = await updateRegexConfig({
       studentIdRegex: regexForm.studentIdRegex,
       employeeIdRegex: regexForm.employeeIdRegex,
-      logRetentionDays: regexForm.logRetentionDays
+      logRetentionDays: Number(regexForm.logRetentionDays)
     });
     if (response.code === 200) {
       ElMessage.success('设置保存成功');

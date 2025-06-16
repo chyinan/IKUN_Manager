@@ -302,6 +302,7 @@ export const useUserStore = defineStore('user', () => {
     updateUserProfile,
     rehydrateStateFromSession,
     setAvatar,
+    getFullAvatarUrl,
     clearAllAuthData
   }
 }) 

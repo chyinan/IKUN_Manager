@@ -15,9 +15,9 @@ export const getSubjectList = (): Promise<ApiResponse<SubjectInfo[]>> => {
 
 /**
  * 添加新科目
- * @param data - 科目信息 { name: string, subject_code?: string }
+ * @param data - 科目信息 { subject_name: string, subject_code?: string }
  */
-export const addSubject = (data: { name: string, subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
+export const addSubject = (data: { subject_name: string; subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
   return request({
     url: '/api/subject/add', // 确保路径正确
     method: 'post',
@@ -30,7 +30,7 @@ export const addSubject = (data: { name: string, subject_code?: string }): Promi
  * @param id - 科目ID
  * @param data - 需要更新的科目信息
  */
-export const updateSubject = (id: number, data: { name: string, subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
+export const updateSubject = (id: number, data: { subject_name: string; subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
   return request({
     url: `/api/subject/update/${id}`, // 确保路径正确
     method: 'put',

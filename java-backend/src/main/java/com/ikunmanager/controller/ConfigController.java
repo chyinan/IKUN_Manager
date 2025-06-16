@@ -25,17 +25,20 @@ public class ConfigController {
         Map<String, String> regexConfigs = new HashMap<>();
         String employeeIdRegex = configMapper.findConfigValueByKey("employeeIdRegex");
         String studentIdRegex = configMapper.findConfigValueByKey("studentIdRegex");
+        String logRetentionDays = configMapper.findConfigValueByKey("logRetentionDays");
 
         regexConfigs.put("employeeIdRegex", employeeIdRegex);
         regexConfigs.put("studentIdRegex", studentIdRegex);
+        regexConfigs.put("logRetentionDays", logRetentionDays);
 
         return ApiResponse.ok(regexConfigs);
     }
 
     @PutMapping("/regex")
-    public ApiResponse<Void> updateRegexConfigs(@RequestBody Map<String, String> regexConfigs) {
-        for (Map.Entry<String, String> entry : regexConfigs.entrySet()) {
-            configMapper.updateConfigValueByKey(entry.getKey(), entry.getValue());
+    public ApiResponse<Void> updateRegexConfigs(@RequestBody Map<String, Object> regexConfigs) {
+        for (Map.Entry<String, Object> entry : regexConfigs.entrySet()) {
+            String valueStr = String.valueOf(entry.getValue());
+            configMapper.updateConfigValueByKey(entry.getKey(), valueStr);
         }
         return ApiResponse.ok(null);
     }

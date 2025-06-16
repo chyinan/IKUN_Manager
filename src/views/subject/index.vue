@@ -151,7 +151,7 @@ const handleSubmit = () => {
   formRef.value?.validate(async (valid) => {
     if (valid) {
       const payload = {
-        name: formData.value.subject_name!,
+        subject_name: formData.value.subject_name!,
         subject_code: formData.value.subject_code,
       };
 

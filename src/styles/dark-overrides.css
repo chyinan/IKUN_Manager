@@ -406,12 +406,16 @@ html.dark .message-item .bubble {
   background-color: #374151; /* Darker gray for student/other */
   color: #f3f4f6;
   box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  display: inline-block;
+  width: fit-content;
 }
 
 /* Admin/self message bubble */
 html.dark .message-item.is-self .bubble {
   background-color: #065f46; /* A slightly richer green for admin/self */
   color: #f0fdf4;
+  display: inline-block;
+  width: fit-content;
 }
 
 /* Sender/Time text color */

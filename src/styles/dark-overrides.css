@@ -8,6 +8,10 @@ html.dark {
     这是解决用户反馈背景色不一致问题的核心。
   */
   --el-bg-color-page: #1f2937 !important;
+  /* 覆盖 Element Plus 浮层/卡片等 overlay 变量，使各类 header/表格标题背景统一 */
+  --el-bg-color-overlay: #263445 !important;
+  /* 较浅边框色，用于 operation-header 及其他浅边框组件 */
+  --el-border-color-light: #374151 !important;
 }
 
 /* Primary Button Overrides */
@@ -501,4 +505,14 @@ html.dark .reply-form .el-textarea__inner:focus {
 .dark .el-pagination.is-background .el-pager li:disabled {
   background-color: #374151;
   color: #6b7280; /* 添加一个颜色，让数字更清晰 */
+}
+
+/* 轮播图管理专用：operation-header 背景、边框与文字颜色统一暗黑主题 */
+html.dark .carousel-management .operation-header {
+  background-color: var(--el-bg-color-overlay) !important;
+  border-color: var(--el-border-color-light) !important;
+}
+
+html.dark .carousel-management .interval-label {
+  color: var(--el-text-color-primary) !important;
 } 

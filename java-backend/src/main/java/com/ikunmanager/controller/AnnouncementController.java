@@ -23,7 +23,8 @@ public class AnnouncementController {
 
     @GetMapping("")
     public ApiResponse<List<Announcement>> getAnnouncementsForStudentPortal() {
-        List<Announcement> announcements = announcementService.getAllAnnouncements();
+        // 仅返回已发布的通知给学生门户
+        List<Announcement> announcements = announcementService.getPublishedAnnouncements();
         return ApiResponse.ok(announcements);
     }
 

@@ -9,6 +9,7 @@ import java.util.List;
 @Mapper
 public interface AnnouncementMapper {
     List<Announcement> findAll();
+    List<Announcement> findPublished();
     Announcement findById(@Param("id") Long id);
     int insert(Announcement announcement);
     int update(Announcement announcement);

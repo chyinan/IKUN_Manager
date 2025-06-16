@@ -36,6 +36,12 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="findPublished" resultMap="AnnouncementResultMap">
+        <include refid="selectAnnouncementSql"/>
+        WHERE status = 'published'
+        ORDER BY is_pinned DESC, published_at DESC
+    </select>
+
     <select id="findById" resultMap="AnnouncementResultMap">
         <include refid="selectAnnouncementSql"/>
         WHERE id = #{id}

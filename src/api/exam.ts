@@ -73,7 +73,7 @@ export function addExam(data: Partial<ExamFormData>): Promise<ApiResponse<ExamIn
  */
 export function updateExam(id: number, data: Partial<ExamFormData>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用updateExam API, ID:', id, '数据:', data); // 这里是修正后的行
-  return request.put<ApiResponse<ExamInfo>>(`/api/exam/${id}`, data)
+  return request.put<ApiResponse<ExamInfo>>('/api/exam/update', data)
     .catch(error => {
       console.error('更新考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -93,7 +93,7 @@ export function updateExam(id: number, data: Partial<ExamFormData>): Promise<Api
  */
 export function deleteExam(id: number): Promise<ApiResponse<void>> {
   console.log('调用deleteExam API, ID:', id); // 这里是修正后的行
-  return request.delete<ApiResponse<void>>(`/api/exam/${id}`)
+  return request.delete<ApiResponse<void>>(`/api/exam/delete/${id}`)
     .catch(error => {
       console.error('删除考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {

@@ -171,6 +171,20 @@ const paginatedExams = computed(() => {
 });
 
 // --- Mappers ---
+const convertStatus = (status: number | string): string => {
+  const code = typeof status === 'string' ? parseInt(status, 10) : status;
+  switch (code) {
+    case 0:
+      return '未开始';
+    case 1:
+      return '进行中';
+    case 2:
+      return '已结束';
+    default:
+      return String(status);
+  }
+};
+
 const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
   id: item.id,
   examName: item.exam_name,
@@ -178,7 +192,7 @@ const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
   examDate: item.exam_date, // This field should contain the full start datetime string
   startTime: item.start_time,
   duration: item.duration,
-  status: item.status,
+  status: convertStatus(item.status),
   description: item.description,
   createTime: item.create_time,
   subjects: item.subjects ? item.subjects.split(',') : [],
@@ -333,7 +347,11 @@ const handleSubmit = async () => {
           ...examForm.value,
           // Ensure subjectIds and classIds are included in the submission
           subjectIds: examForm.value.subjectIds || [],
-          classIds: examForm.value.classIds || []
+          classIds: examForm.value.classIds || [],
+          exam_date: examForm.value.exam_date ? dayjs(examForm.value.exam_date).format('YYYY-MM-DD HH:mm:ss') : null,
+          start_time: examForm.value.start_time ? dayjs(examForm.value.start_time).format('YYYY-MM-DD HH:mm:ss') : null,
+          // 默认状态：未开始(0)，除非已有
+          status: (examForm.value as any).status ?? 0
         };
         
         if (examForm.value.id) {

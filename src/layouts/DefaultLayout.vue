@@ -283,7 +283,7 @@ const handleCommand = (command: string) => {
       cancelButtonText: '取消',
       type: 'warning'
     }).then(() => {
-      userStore.logout()
+      userStore.logoutAction()
       // router.push('/login'); // logout action in store should handle redirect
     }).catch(() => {
       // 取消操作

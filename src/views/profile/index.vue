@@ -338,7 +338,7 @@ const confirmLogout = () => {
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
-    userStore.logout()
+    userStore.logoutAction()
     router.push('/login')
   })
 }
@@ -352,7 +352,7 @@ const confirmDeactivate = () => {
   }).then(() => {
     // TODO: 实现注销账户逻辑
     ElMessage.success('账户已注销')
-    userStore.logout()
+    userStore.logoutAction()
     router.push('/login')
   })
 }

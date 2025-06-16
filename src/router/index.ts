@@ -241,7 +241,7 @@ router.beforeEach(async (to, from, next) => {
         } else {
           // 如果 sessionStorage 也恢复失败，说明 token 有问题
           console.error('[Router Guard] Token exists but cannot rehydrate state. Logging out.');
-          await userStore.logout();
+          await userStore.logoutAction();
           ElMessage.error('用户会话已失效，请重新登录');
           next(`/login?redirect=${to.path}`);
         }

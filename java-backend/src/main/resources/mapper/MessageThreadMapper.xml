@@ -7,22 +7,27 @@
     <resultMap id="MessageThreadResultMap" type="com.ikunmanager.model.MessageThread">
         <id property="id" column="id"/>
         <result property="studentUserId" column="student_user_id"/>
+        <result property="studentName" column="student_name"/>
         <result property="title" column="title"/>
         <result property="status" column="status"/>
-        <result property="createTime" column="create_time"/>
+        <result property="lastReplyAt" column="last_reply_at"/>
+        <result property="createdAt" column="created_at"/>
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
     <sql id="selectMessageThreadSql">
         SELECT
-            id,
-            student_user_id,
-            title,
-            status,
-            create_time,
-            update_time
+            mt.id,
+            mt.student_user_id,
+            COALESCE(u.display_name, u.username) AS student_name,
+            mt.title,
+            mt.status,
+            (SELECT MAX(create_time) FROM messages m WHERE m.thread_id = mt.id) AS last_reply_at,
+            mt.create_time AS created_at,
+            mt.update_time
         FROM
-            message_threads
+            message_threads mt
+        LEFT JOIN `user` u ON mt.student_user_id = u.id
     </sql>
 
     <select id="findAllAdminThreads" resultMap="MessageThreadResultMap">

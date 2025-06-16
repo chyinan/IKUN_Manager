@@ -40,6 +40,7 @@ import { ref, onMounted } from 'vue';
 import { getAnnouncements } from '@/api/announcement';
 import type { Announcement } from '@/api/announcement';
 import { ElMessage } from 'element-plus';
+import dayjs from 'dayjs';
 
 const loading = ref(true);
 const announcements = ref<Announcement[]>([]);
@@ -49,7 +50,10 @@ const fetchAnnouncements = async () => {
     loading.value = true;
     const res = await getAnnouncements();
     if (res.code === 200) {
-      announcements.value = res.data;
+      announcements.value = res.data.map((a: any) => ({
+        ...a,
+        published_at: a.published_at ? dayjs(a.published_at).format('YYYY-MM-DD HH:mm:ss') : '-',
+      }));
     } else {
       ElMessage.error(res.message || '获取通知列表失败');
     }

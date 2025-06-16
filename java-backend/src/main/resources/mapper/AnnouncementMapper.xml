@@ -8,6 +8,10 @@
         <id property="id" column="id"/>
         <result property="title" column="title"/>
         <result property="content" column="content"/>
+        <result property="authorName" column="author_name"/>
+        <result property="status" column="status"/>
+        <result property="isPinned" column="is_pinned"/>
+        <result property="publishedAt" column="published_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -17,6 +21,10 @@
             id,
             title,
             content,
+            author_name,
+            status,
+            is_pinned,
+            published_at,
             created_at,
             updated_at
         FROM

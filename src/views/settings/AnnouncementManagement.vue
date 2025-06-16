@@ -25,8 +25,16 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="published_at" label="发布时间" width="180"></el-table-column>
-        <el-table-column prop="updated_at" label="最后更新" width="180"></el-table-column>
+        <el-table-column prop="published_at" label="发布时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.published_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="updated_at" label="最后更新" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.updated_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="Edit" @click="handleOpenDialog(row)">编辑</el-button>
@@ -97,6 +105,7 @@ import {
 } from '@/api/announcement';
 import type { AdminAnnouncement } from '@/api/announcement';
 import { uploadFile } from '@/api/user';
+import dayjs from 'dayjs';
 
 // Import WangEditor
 import '@wangeditor/editor/dist/css/style.css';
@@ -263,6 +272,10 @@ onBeforeUnmount(() => {
     editor.destroy();
 });
 
+const formatDate = (val: string | null) => {
+  if (!val) return '-';
+  return dayjs(val).format('YYYY-MM-DD HH:mm:ss');
+};
 
 // --- Lifecycle ---
 onMounted(() => {

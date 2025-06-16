@@ -58,7 +58,7 @@ interface CarouselIntervalConfig {
  * 获取轮播图全局切换时间配置
  */
 export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselIntervalConfig>> => {
-  return request.get<ApiResponse<CarouselIntervalConfig>>('api/config/carousel-interval') // 添加 api/
+  return request.get<ApiResponse<any>>('api/config/carousel-interval') // 添加 api/
     .catch(error => {
       console.error('[API config.ts] Error fetching carousel interval config:', error);
       throw error;

@@ -227,8 +227,12 @@ const fetchCarouselInterval = async () => {
   intervalLoading.value = true;
   try {
     const res = await getCarouselIntervalConfig();
-    if (res.code === 200 && res.data) {
-      carouselInterval.value = res.data.carouselInterval;
+    if (res.code === 200 && res.data !== null && res.data !== undefined) {
+      if (typeof res.data === 'number') {
+        carouselInterval.value = res.data;
+      } else if (typeof res.data === 'object' && 'carouselInterval' in res.data) {
+        carouselInterval.value = (res.data as any).carouselInterval;
+      }
     } else {
       ElMessage.error(res.message || '获取轮播图切换时间失败');
     }

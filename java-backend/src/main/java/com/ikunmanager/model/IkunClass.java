@@ -38,4 +38,8 @@ public class IkunClass {
     @Temporal(TemporalType.TIMESTAMP)
     @JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
     private Date updateTime;
+
+    @JsonProperty("student_count")
+    @Transient // Not mapped to DB column directly, only for query result
+    private Long studentCount;
 } 

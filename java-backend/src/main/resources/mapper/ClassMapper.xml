@@ -11,6 +11,7 @@
         <result property="description" column="description"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="studentCount" column="student_count"/>
     </resultMap>
 
     <select id="findAll" resultMap="ClassResultMap">

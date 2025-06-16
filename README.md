@@ -10,7 +10,7 @@
 
 ## 技术栈
 - **前端**: Vue 3, TypeScript, Vite, Element Plus, Pinia, Vue Router, Axios, ECharts, Socket.IO Client, Sass, Day.js, WangEditor
-- **后端**: Node.js, Express, MySQL, JSON Web Token (JWT), Socket.IO, node-cron, multer, xlsx, papaparse, body-parser, cors
+- **后端**: Java 17, Spring Boot 3, MyBatis, MySQL, Spring Security, JSON Web Token (JWT), Lombok, PageHelper, Swagger
 - **桌面端**: Electron, electron-builder
 
 ## 功能特性
@@ -71,19 +71,21 @@
 - [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin)
 
 ### 环境要求
-- Node.js 16+
+- Node.js 16+ (用于前端 Vite / Electron)
 - MySQL 8.0+
 - npm 7+ (或 pnpm/yarn)
+- JDK 17+
+- Maven 3.8+
 
 ## 项目设置
 
 ### 安装依赖
 ```sh
 npm install
-# 安装后端依赖 (如果尚未安装)
-cd src/server
-npm install
-cd ../..
+# 构建后端 (Spring Boot)
+cd java-backend
+mvn clean install -DskipTests
+cd ..
 # 安装 Electron 相关依赖 (如果尚未安装)
 npm install --save-dev electron electron-builder concurrently cross-env
 ```
@@ -116,9 +118,9 @@ npm install --save-dev electron electron-builder concurrently cross-env
 
 **方式一：Web 浏览器运行 (前后端分离)**
 ```sh
-# 1. 启动后端服务 (默认 http://localhost:3000)
-cd src/server
-node server.js # 或使用 nodemon 等工具
+# 1. 启动后端服务 (默认 http://localhost:8081)
+cd java-backend
+mvn spring-boot:run
 
 # 2. 在项目根目录启动前端服务 (默认 http://localhost:5173)
 cd ../..
@@ -180,14 +182,11 @@ IKUN_Manager/
 │   ├── types/
 │   ├── utils/
 │   └── views/
-├── src/server/              # 后端源码 (Express + Node.js)
-│   ├── uploads/            # 文件上传目录
-│   ├── config.js
-│   ├── db.js
-│   ├── services/
-│   ├── node_modules/       # 后端依赖
-│   ├── package.json        # 后端依赖配置
-│   └── server.js
+├── java-backend/              # 后端源码 (Spring Boot + MyBatis)
+│   ├── src/main/java/...
+│   ├── src/main/resources/
+│   ├── pom.xml               # Maven 配置
+│   └── target/               # 构建输出目录
 ├── .env.development
 ├── .env.production
 ├── .eslintrc.cjs
@@ -212,7 +211,7 @@ IKUN_Manager/
 
 ### Web 版本
 1.  **构建前端**: 运行 `npm run build` 生成静态文件到 `dist` 目录。
-2.  **部署后端**: 将 `src/server` 目录部署到服务器，安装依赖 (`npm install --production`) 并使用 `node server.js` 或进程管理器 (如 PM2) 启动服务。
+2.  **部署后端**: 将 `java-backend` 目录部署到服务器，安装依赖 (`mvn clean install -DskipTests`) 并使用 `mvn spring-boot:run` 启动服务。
 3.  **配置 Web 服务器 (如 Nginx)**:
     *   配置静态文件服务指向前端构建的 `dist` 目录。
     *   配置反向代理将 API 请求 (例如 `/api/*`) 转发到后端 Node.js 服务运行的端口。

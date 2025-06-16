@@ -10,7 +10,7 @@ A student/employee information management system developed based on Vue3 + Eleme
 
 ## Tech Stack
 - **Frontend**: Vue 3, TypeScript, Vite, Element Plus, Pinia, Vue Router, Axios, ECharts, Socket.IO Client, Sass, Day.js, WangEditor
-- **Backend**: Node.js, Express, MySQL, JSON Web Token (JWT), Socket.IO, node-cron, multer, xlsx, papaparse, body-parser, cors
+- **Backend**: Java 17, Spring Boot 3, MyBatis, MySQL, Spring Security, JSON Web Token (JWT), Lombok, PageHelper, Swagger
 - **Desktop**: Electron, electron-builder
 
 ## Features
@@ -71,9 +71,11 @@ A student/employee information management system developed based on Vue3 + Eleme
 - [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin)
 
 ### Environment Requirements
-- Node.js 16+
+- Node.js 16+ (for Vite / Electron frontend)
 - MySQL 8.0+
 - npm 7+ (or pnpm/yarn)
+- JDK 17+
+- Maven 3.8+
 
 ## Project Setup
 
@@ -81,9 +83,9 @@ A student/employee information management system developed based on Vue3 + Eleme
 ```sh
 npm install
 # Install backend dependencies (if not already installed)
-cd src/server
-npm install
-cd ../..
+cd java-backend
+mvn clean install -DskipTests
+cd ..
 # Install Electron-related dependencies (if not already installed)
 npm install --save-dev electron electron-builder concurrently cross-env
 ```
@@ -116,9 +118,9 @@ npm install --save-dev electron electron-builder concurrently cross-env
 
 **Method 1: Run in a Web Browser (Separated Frontend/Backend)**
 ```sh
-# 1. Start the backend service (defaults to http://localhost:3000)
-cd src/server
-node server.js # or use a tool like nodemon
+# 1. Start the backend service (defaults to http://localhost:8081)
+cd java-backend
+mvn spring-boot:run
 
 # 2. Start the frontend service from the project root (defaults to http://localhost:5173)
 cd ../..
@@ -180,14 +182,11 @@ IKUN_Manager/
 │   ├── types/
 │   ├── utils/
 │   └── views/
-├── src/server/              # Backend source code (Express + Node.js)
-│   ├── uploads/            # File upload directory
-│   ├── config.js
-│   ├── db.js
-│   ├── services/
-│   ├── node_modules/       # Backend dependencies
-│   ├── package.json        # Backend dependency config
-│   └── server.js
+├── java-backend/              # Backend source code (Spring Boot + MyBatis)
+│   ├── src/main/java/...
+│   ├── src/main/resources/
+│   ├── pom.xml               # Maven build configuration
+│   └── target/               # Build output directory
 ├── .env.development
 ├── .env.production
 ├── .eslintrc.cjs
@@ -212,26 +211,11 @@ IKUN_Manager/
 
 ### Web Version
 1.  **Build Frontend**: Run `npm run build` to generate static files in the `dist` directory.
-2.  **Deploy Backend**: Deploy the `src/server` directory to a server, install dependencies (`npm install --production`), and start the service with `node server.js` or a process manager (like PM2).
+2.  **Deploy Backend**: Deploy the `java-backend` directory to a server, build with `mvn clean install -DskipTests`, and start the service with `java -jar target/*.jar` or use `mvn spring-boot:run`.
 3.  **Configure Web Server (e.g., Nginx)**:
     *   Configure static file serving to point to the frontend's `dist` directory.
     *   Configure a reverse proxy to forward API requests (e.g., `/api/*`) to the port where the Node.js service is running.
     *   (Optional) Configure an SSL certificate to enable HTTPS.
 
 ### Desktop App Version
-1.  Run `npm run electron:build` to generate the installer for the target platform (located in the `dist_electron` directory).
-
-## Contribution Guide
-Contributions are welcome! Please follow these steps:
-1.  Fork this repository
-2.  Create a new feature branch based on `main` (e.g., `feat/add-new-feature` or `fix/resolve-bug`)
-3.  Develop and commit your code on your branch
-4.  Ensure that your code passes linting (`npm run lint`) and type checks (`npm run type-check`)
-5.  Create a Pull Request to the `main` branch with a clear description of your changes
-
-## License
-[MIT License](LICENSE)
-
-## Contact
-- Author: [chyinan]
-- Email: [chyinan2015@gmail.com] 
+1.  Run `npm run electron:build` to generate the installer for the target platform (located in the `dist_electron`

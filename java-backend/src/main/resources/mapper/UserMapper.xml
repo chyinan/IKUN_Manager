@@ -6,6 +6,7 @@
     <resultMap id="StudentInfoResultMap" type="com.ikunmanager.dto.StudentInfo">
         <result property="studentIdStr" column="student_id_str"/>
         <result property="phone" column="student_phone"/>
+        <result property="studentPk" column="student_pk"/>
     </resultMap>
 
     <!-- 更新 User 的 resultMap，包含 phone 和嵌套的 studentInfo -->
@@ -39,6 +40,7 @@
             u.role, 
             COALESCE(u.display_name, s.name) AS display_name,
             COALESCE(u.phone, s.phone) AS user_phone,
+            s.id AS student_pk,
             s.student_id AS student_id_str,
             s.phone AS student_phone
         FROM `user` u
@@ -58,6 +60,7 @@
             u.role,
             COALESCE(u.display_name, s.name) AS display_name,
             COALESCE(u.phone, s.phone) AS user_phone,
+            s.id AS student_pk,
             s.student_id AS student_id_str,
             s.phone AS student_phone
         FROM `user` u
@@ -78,6 +81,7 @@
             u.role,
             COALESCE(u.display_name, s.name) AS display_name,
             COALESCE(u.phone, s.phone) AS user_phone,
+            s.id AS student_pk,
             s.student_id AS student_id_str,
             s.phone AS student_phone
         FROM `user` u

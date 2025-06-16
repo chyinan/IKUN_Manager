@@ -102,4 +102,18 @@ public class ScoreController {
         List<ExamTaken> upcomingExams = scoreService.getStudentUpcomingExams(studentId);
         return ApiResponse.ok(upcomingExams);
     }
+
+    /**
+     * 获取学生某次考试的综合成绩报告
+     */
+    @GetMapping("/student/{studentId}/exam-report/{examId}")
+    public ApiResponse<com.ikunmanager.dto.StudentScoreReport> getStudentScoreReport(
+            @PathVariable Long studentId,
+            @PathVariable Long examId) {
+        com.ikunmanager.dto.StudentScoreReport report = scoreService.getStudentScoreReport(studentId, examId);
+        if (report == null) {
+            return ApiResponse.error(404, "未找到成绩数据");
+        }
+        return ApiResponse.ok(report);
+    }
 } 

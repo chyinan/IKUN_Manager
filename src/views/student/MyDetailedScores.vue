@@ -158,13 +158,14 @@ const barChartRef = ref<HTMLElement | null>(null);
 let barChartInstance: echarts.ECharts | null = null;
 
 const fetchExamsTaken = async () => {
-  if (!userStore.userInfo?.id) {
-    ElMessage.warning('无法获取用户信息，请重新登录或联系管理员。');
+  const studentPk = userStore.userInfo?.studentInfo?.student_pk;
+  if (!studentPk) {
+    ElMessage.warning('无法获取学生信息，请重新登录或联系管理员。');
     return;
   }
   loadingExams.value = true;
   try {
-    const res = await getStudentExamsTaken(userStore.userInfo.id);
+    const res = await getStudentExamsTaken(studentPk);
     if (res.code === 200) {
       examsTaken.value = res.data;
       if (examsTaken.value.length === 0) {

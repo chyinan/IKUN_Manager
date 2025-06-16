@@ -137,7 +137,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import {
   getExamList, addExam, updateExam, deleteExam,
-  getExamTypeOptions
+  getExamTypeOptions, getExamDetail
 } from '@/api/exam';
 import { getClassList } from '@/api/class';
 import { getSubjectList } from '@/api/subject';
@@ -316,19 +316,58 @@ const resetForm = () => {
 const handleOpenDialog = async (exam: ExamType | null = null) => {
   if (exam) {
     dialogTitle.value = '编辑考试';
-    const examDateTime = exam.examDate ? dayjs(exam.examDate).toDate() : null;
-    
-    examForm.value = {
-      id: exam.id,
-      exam_name: exam.examName,
-      exam_type: exam.examType,
-      exam_date: examDateTime,
-      start_time: examDateTime,
-      duration: exam.duration,
-      description: exam.description || '',
-      classIds: exam.classIds,
-      subjectIds: exam.subjectIds,
-    };
+
+    // 先尝试从后端获取更完整的考试详情（包含 classIds / subjectIds）
+    try {
+      const res = await getExamDetail(exam.id);
+      if (res.code === 200 && res.data) {
+        const detail: any = res.data;
+        const examDateTime = detail.examDate || detail.exam_date
+          ? dayjs(detail.examDate || detail.exam_date).toDate()
+          : null;
+
+        examForm.value = {
+          id: detail.id,
+          exam_name: detail.examName || detail.exam_name,
+          exam_type: detail.examType || detail.exam_type,
+          exam_date: examDateTime,
+          start_time: examDateTime,
+          duration: detail.duration,
+          description: detail.description || detail.remark || '',
+          classIds: detail.classIds || detail.class_ids || [],
+          subjectIds: detail.subjectIds || detail.subject_ids || [],
+        };
+      } else {
+        // 如果后端没返回预期字段，则退回使用列表行数据
+        const examDateTime = exam.examDate ? dayjs(exam.examDate).toDate() : null;
+        examForm.value = {
+          id: exam.id,
+          exam_name: exam.examName,
+          exam_type: exam.examType,
+          exam_date: examDateTime,
+          start_time: examDateTime,
+          duration: exam.duration,
+          description: exam.description || '',
+          classIds: exam.classIds || [],
+          subjectIds: exam.subjectIds || [],
+        };
+      }
+    } catch (e: any) {
+      // 网络或其它错误时降级使用已有数据
+      console.error('获取考试详情失败，降级使用列表数据:', e);
+      const examDateTime = exam.examDate ? dayjs(exam.examDate).toDate() : null;
+      examForm.value = {
+        id: exam.id,
+        exam_name: exam.examName,
+        exam_type: exam.examType,
+        exam_date: examDateTime,
+        start_time: examDateTime,
+        duration: exam.duration,
+        description: exam.description || '',
+        classIds: exam.classIds || [],
+        subjectIds: exam.subjectIds || [],
+      };
+    }
   } else {
     dialogTitle.value = '新建考试';
     resetForm();

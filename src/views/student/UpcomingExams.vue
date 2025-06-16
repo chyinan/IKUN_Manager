@@ -46,8 +46,8 @@ const loading = ref(true);
 const upcomingExams = ref<UpcomingExamViewModel[]>([]);
 
 const fetchUpcomingExams = async () => {
-  const userId = userStore.userInfo?.id;
-  if (!userId) {
+  const studentPk = userStore.userInfo?.studentInfo?.student_pk;
+  if (!studentPk) {
     ElMessage.warning('无法获取用户信息，请重新登录。');
     loading.value = false;
     return;
@@ -55,7 +55,7 @@ const fetchUpcomingExams = async () => {
 
   try {
     loading.value = true;
-    const res = await getStudentUpcomingExams(userId); // res is ApiResponse<ExamTaken[]>
+    const res = await getStudentUpcomingExams(studentPk); // res is ApiResponse<ExamTaken[]>
     if (res.code === 200) {
       upcomingExams.value = res.data.map((exam: ExamTaken): UpcomingExamViewModel => ({
         ...exam,

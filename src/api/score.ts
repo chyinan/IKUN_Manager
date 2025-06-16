@@ -437,7 +437,7 @@ export interface StudentScoreReport {
 
 export const getStudentExamsTaken = (studentId: number): Promise<ApiResponse<ExamTaken[]>> => {
   console.log('调用getStudentExamsTaken API, studentId:', studentId);
-  return request.get<ApiResponse<ExamTaken[]>>(`api/score/student/${studentId}/exams-taken`) // Added api/
+  return request.get<ApiResponse<ExamTaken[]>>(`/api/score/student/${studentId}/exams-taken`) // 修正路径，补全前导斜杠
     .catch(error => {
       console.error('[API score.ts] Error fetching student exams taken:', error);
       throw error;
@@ -446,7 +446,7 @@ export const getStudentExamsTaken = (studentId: number): Promise<ApiResponse<Exa
 
 export const getStudentScoreReport = (studentId: number, examId: number): Promise<ApiResponse<StudentScoreReport | null>> => {
   console.log(`调用getStudentScoreReport API, studentId: ${studentId}, examId: ${examId}`);
-  return request.get<ApiResponse<StudentScoreReport | null>>(`api/score/student/${studentId}/exam-report/${examId}`) // Added api/
+  return request.get<ApiResponse<StudentScoreReport | null>>(`/api/score/student/${studentId}/exam-report/${examId}`) // 修正路径，补全前导斜杠
     .catch(error => {
       console.error('[API score.ts] Error fetching student score report:', error);
       throw error;
@@ -455,7 +455,7 @@ export const getStudentScoreReport = (studentId: number, examId: number): Promis
 
 export function getStudentUpcomingExams(studentId: number): Promise<ApiResponse<ExamTaken[]>> {
   console.log('调用getStudentUpcomingExams API, studentId:', studentId);
-  return request.get<ApiResponse<ExamTaken[]>>(`api/score/student/${studentId}/upcoming-exams`) // Added api/
+  return request.get<ApiResponse<ExamTaken[]>>(`/api/score/student/${studentId}/upcoming-exams`) // 修正路径，补全前导斜杠
     .catch(error => {
       console.error('[API score.ts] Error fetching student upcoming exams:', error);
       throw error;

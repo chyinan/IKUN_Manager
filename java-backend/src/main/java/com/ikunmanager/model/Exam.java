@@ -29,6 +29,7 @@ public class Exam {
 
     private Integer status; // 0:未开始, 1:进行中, 2:已结束
 
+    @JsonProperty("description")
     private String remark;
 
     @JsonProperty("create_time")

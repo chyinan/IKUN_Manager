@@ -145,7 +145,10 @@ export const useUserStore = defineStore('user', () => {
           createTime: receivedApiUserInfo.createTime || new Date().toISOString(),
           updateTime: receivedApiUserInfo.updateTime || new Date().toISOString(),
           displayName: receivedApiUserInfo.displayName,
-          studentInfo: receivedApiUserInfo.studentInfo || null,
+          studentInfo: receivedApiUserInfo.studentInfo ? {
+            ...receivedApiUserInfo.studentInfo,
+            student_pk: receivedApiUserInfo.studentInfo.studentPk ?? (receivedApiUserInfo.studentInfo as any).student_pk
+          } : null,
           phone: receivedApiUserInfo.phone || null
         };
 

@@ -18,4 +18,12 @@ public interface ScoreService {
     List<ScoreDetailDTO> getScoresByExamAndClass(Long examId, Long classId);
     List<ExamTaken> getExamsTakenByStudentId(Long studentId);
     List<ExamTaken> getStudentUpcomingExams(Long studentId);
+
+    /**
+     * 生成学生成绩报告
+     * @param studentId 学生ID
+     * @param examId 考试ID
+     * @return 学生成绩报告 DTO
+     */
+    com.ikunmanager.dto.StudentScoreReport getStudentScoreReport(Long studentId, Long examId);
 } 

@@ -10,7 +10,7 @@
 
 ## 技术栈
 - **前端**: Vue 3, TypeScript, Vite, Element Plus, Pinia, Vue Router, Axios, ECharts, Socket.IO Client, Sass, Day.js, WangEditor
-- **后端**: Java 17, Spring Boot 3, MyBatis, MySQL, Spring Security, JSON Web Token (JWT), Lombok, PageHelper, Swagger
+- **后端**: Java 17, Spring Boot 2, MyBatis, MySQL, Spring Security, JSON Web Token (JWT), Lombok, PageHelper, Swagger
 - **桌面端**: Electron, electron-builder
 
 ## 功能特性

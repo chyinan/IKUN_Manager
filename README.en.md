@@ -10,7 +10,7 @@ A student/employee information management system developed based on Vue3 + Eleme
 
 ## Tech Stack
 - **Frontend**: Vue 3, TypeScript, Vite, Element Plus, Pinia, Vue Router, Axios, ECharts, Socket.IO Client, Sass, Day.js, WangEditor
-- **Backend**: Java 17, Spring Boot 3, MyBatis, MySQL, Spring Security, JSON Web Token (JWT), Lombok, PageHelper, Swagger
+- **Backend**: Java 17, Spring Boot 2, MyBatis, MySQL, Spring Security, JSON Web Token (JWT), Lombok, PageHelper, Swagger
 - **Desktop**: Electron, electron-builder
 
 ## Features

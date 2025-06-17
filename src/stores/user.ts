@@ -104,6 +104,9 @@ export const useUserStore = defineStore('user', () => {
           if (isStudent.value) {
             return '/student-portal/dashboard';
           }
+          if (roles.value.includes('teacher')) {
+            return '/teacher-portal/dashboard';
+          }
           return '/dashboard';
         } else {
           console.error('[userStore loginAction] Failed to fetch user info after login.');

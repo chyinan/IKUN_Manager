@@ -243,6 +243,50 @@ const router = createRouter({
       meta: { hidden: true }
     },
     {
+      path: '/teacher-portal',
+      component: () => import('@/views/teacher/TeacherLayout.vue'),
+      redirect: '/teacher-portal/dashboard',
+      meta: { requiresAuth: true, roles: ['teacher'] },
+      children: [
+        {
+          path: 'dashboard',
+          name: 'TeacherDashboard',
+          component: () => import('@/views/teacher/TeacherDashboard.vue'),
+          meta: { title: '教师首页', icon: 'House', roles: ['teacher'] }
+        },
+        {
+          path: 'students',
+          name: 'TeacherStudents',
+          component: () => import('@/views/stu/index.vue'),
+          meta: { title: '学生管理', icon: 'User', roles: ['teacher'] }
+        },
+        {
+          path: 'scores',
+          name: 'TeacherScores',
+          component: () => import('@/views/score/index.vue'),
+          meta: { title: '成绩管理', icon: 'Memo', roles: ['teacher'] }
+        },
+        {
+          path: 'exams',
+          name: 'TeacherExams',
+          component: () => import('@/views/exam/index.vue'),
+          meta: { title: '考试管理', icon: 'Calendar', roles: ['teacher'] }
+        },
+        {
+          path: 'assignments',
+          name: 'TeacherAssignments',
+          component: () => import('@/views/assignment/AssignmentList.vue'),
+          meta: { title: '作业管理', icon: 'Document', roles: ['teacher'] }
+        },
+        {
+          path: 'student-report',
+          name: 'TeacherStudentReport',
+          component: () => import('@/views/stuReport/stuReport.vue'),
+          meta: { title: '学生信息统计', icon: 'PieChart', roles: ['teacher'] }
+        }
+      ]
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/404',
       meta: { hidden: true }

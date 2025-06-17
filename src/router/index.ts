@@ -26,6 +26,13 @@ import CarouselManagement from '@/views/settings/CarouselManagement.vue'
 import AnnouncementManagement from '@/views/settings/AnnouncementManagement.vue'
 import SubjectManagement from '@/views/subject/index.vue'
 
+// 新增的作业管理组件
+import AssignmentList from '@/views/assignment/AssignmentList.vue'
+import AssignmentForm from '@/views/assignment/AssignmentForm.vue'
+import SubmissionList from '@/views/assignment/SubmissionList.vue'
+import StudentAssignments from '@/views/student/StudentAssignments.vue'
+import StudentSubmissionDetail from '@/views/student/StudentSubmissionDetail.vue'
+
 // 路由配置
 const router = createRouter({
   history: createWebHashHistory(),
@@ -94,6 +101,25 @@ const router = createRouter({
           name: 'Log',
           component: Log,
           meta: { title: '系统日志', icon: 'List', requiresAdmin: true }
+        },
+        // 作业管理 (教师/管理员)
+        {
+          path: 'assignments',
+          name: 'AssignmentList',
+          component: AssignmentList,
+          meta: { title: '作业管理', icon: 'Document' , roles: ['teacher', 'admin']}
+        },
+        {
+          path: 'assignments/form/:id?',
+          name: 'AssignmentForm',
+          component: AssignmentForm,
+          meta: { title: '发布/编辑作业', hidden: true, roles: ['teacher', 'admin'] }
+        },
+        {
+          path: 'assignments/submissions/:id',
+          name: 'SubmissionList',
+          component: SubmissionList,
+          meta: { title: '作业提交列表', hidden: true, roles: ['teacher', 'admin'] }
         },
         {
           path: 'settings',
@@ -172,6 +198,19 @@ const router = createRouter({
           component: () => import('@/views/student/Mailbox.vue'),
           meta: { title: '我的信箱', icon: 'Message' }
         },
+        // 学生作业管理
+        {
+          path: 'assignments',
+          name: 'StudentAssignments',
+          component: StudentAssignments,
+          meta: { title: '我的作业', icon: 'Document', roles: ['student'] }
+        },
+        {
+          path: 'assignments/:assignmentId/detail',
+          name: 'StudentSubmissionDetail',
+          component: StudentSubmissionDetail,
+          meta: { title: '作业详情与提交', hidden: true, roles: ['student'] }
+        },
         {
           path: 'profile-settings',
           name: 'StudentProfileSettings',
@@ -230,14 +269,33 @@ router.beforeEach(async (to, from, next) => {
       // 检查 Pinia store 中是否已有用户信息
       const hasUserInfo = userStore.userInfo && userStore.userInfo.role;
       if (hasUserInfo) {
-        // 如果有，直接放行
-        next();
+        // 检查角色权限
+        if (to.meta.roles) {
+          if (userStore.roles.some(role => to.meta.roles?.includes(role))) {
+            next();
+          } else {
+            ElMessage.error('无权限访问此页面');
+            next({ path: '/404' }); // 重定向到404或无权限页面
+          }
+        } else {
+          next(); // 没有定义roles的页面，直接放行
+        }
       } else {
         // 如果 Pinia store 中没有，尝试从 sessionStorage 恢复
         const rehydrated = userStore.rehydrateStateFromSession();
         if (rehydrated) {
           console.log('[Router Guard] Rehydrated user state from session. Proceeding.');
-          next(); // 恢复成功，放行
+          // 恢复成功后再次检查权限
+          if (to.meta.roles) {
+            if (userStore.roles.some(role => to.meta.roles?.includes(role))) {
+              next();
+            } else {
+              ElMessage.error('无权限访问此页面');
+              next({ path: '/404' });
+            }
+          } else {
+            next();
+          }
         } else {
           // 如果 sessionStorage 也恢复失败，说明 token 有问题
           console.error('[Router Guard] Token exists but cannot rehydrate state. Logging out.');
@@ -250,11 +308,9 @@ router.beforeEach(async (to, from, next) => {
   } else {
     // 2. 如果没有 token
     if (whiteList.includes(to.path)) {
-      // 如果在白名单中，直接放行
-      next();
+      next(); // 在白名单中，直接放行
     } else {
-      // 其他情况都重定向到登录页
-      next(`/login?redirect=${to.path}`);
+      next(`/login?redirect=${to.path}`); // 不在白名单中，重定向到登录页
     }
   }
 });

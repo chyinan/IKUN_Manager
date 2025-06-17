@@ -44,6 +44,10 @@
             <el-icon><Bell /></el-icon>
             <span>学校通知</span>
           </el-menu-item>
+          <el-menu-item index="/student-portal/assignments">
+            <el-icon><Document /></el-icon>
+            <span>我的作业</span>
+          </el-menu-item>
           <el-menu-item index="/student-portal/profile-settings">
             <el-icon><Setting /></el-icon>
             <span>个人设置</span>

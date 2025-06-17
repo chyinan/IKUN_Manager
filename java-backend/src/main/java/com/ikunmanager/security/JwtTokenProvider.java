@@ -1,6 +1,7 @@
 package com.ikunmanager.security;
 
 import com.ikunmanager.model.User;
+import com.ikunmanager.mapper.UserMapper;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
@@ -8,8 +9,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
 import java.security.Key;
 import java.util.Date;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +33,9 @@ public class JwtTokenProvider {
     private int jwtExpirationInMs;
     
     private Key key;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @PostConstruct
     public void init() {
@@ -76,5 +83,22 @@ public class JwtTokenProvider {
             logger.error("JWT claims string is empty.", ex);
         }
         return false;
+    }
+
+    public String getJwtFromRequest(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    public Long getUserIdFromJWT(String token) {
+        String username = getUsernameFromJWT(token);
+        User user = userMapper.findByUsername(username);
+        if (user != null) {
+            return user.getId();
+        }
+        return null;
     }
 }

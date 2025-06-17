@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.AssignmentMapper">
+
+    <resultMap id="BaseResultMap" type="com.ikunmanager.entity.Assignment">
+        <id column="id" property="id" />
+        <result column="teacher_id" property="teacherId" />
+        <result column="title" property="title" />
+        <result column="content" property="content" />
+        <result column="attachment_url" property="attachmentUrl" />
+        <result column="due_date" property="dueDate" />
+        <result column="status" property="status" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, teacher_id, title, content, attachment_url, due_date, status, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ikunmanager.entity.Assignment" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO assignments (teacher_id, title, content, attachment_url, due_date, status)
+        VALUES (#{teacherId}, #{title}, #{content}, #{attachmentUrl}, #{dueDate}, #{status})
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.entity.Assignment">
+        UPDATE assignments
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="attachmentUrl != null">attachment_url = #{attachmentUrl},</if>
+            <if test="dueDate != null">due_date = #{dueDate},</if>
+            <if test="status != null">status = #{status},</if>
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM assignments WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM assignments
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM assignments
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByTeacherId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM assignments
+        WHERE teacher_id = #{teacherId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByClassId" resultMap="BaseResultMap">
+        SELECT
+            a.id, a.teacher_id, a.title, a.content, a.attachment_url, a.due_date, a.status, a.created_at, a.updated_at
+        FROM assignments a
+        JOIN assignment_class_link acl ON a.id = acl.assignment_id
+        WHERE acl.class_id = #{classId}
+        ORDER BY a.created_at DESC
+    </select>
+
+    <!-- Assignment-Class Link Mappings -->
+    <insert id="insertAssignmentClassLink">
+        INSERT INTO assignment_class_link (assignment_id, class_id)
+        VALUES (#{assignmentId}, #{classId})
+    </insert>
+
+    <delete id="deleteAssignmentClassLinkByAssignmentId">
+        DELETE FROM assignment_class_link WHERE assignment_id = #{assignmentId}
+    </delete>
+
+    <select id="selectClassIdsByAssignmentId" resultType="java.lang.Long">
+        SELECT class_id FROM assignment_class_link WHERE assignment_id = #{assignmentId}
+    </select>
+
+</mapper> 

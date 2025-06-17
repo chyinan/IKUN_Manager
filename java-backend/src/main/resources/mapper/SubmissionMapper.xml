@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ikunmanager.mapper.SubmissionMapper">
+
+    <resultMap id="BaseResultMap" type="com.ikunmanager.entity.Submission">
+        <id column="id" property="id" />
+        <result column="assignment_id" property="assignmentId" />
+        <result column="student_id" property="studentId" />
+        <result column="submission_content" property="submissionContent" />
+        <result column="submission_file_url" property="submissionFileUrl" />
+        <result column="submitted_at" property="submittedAt" />
+        <result column="grade" property="grade" />
+        <result column="teacher_comment" property="teacherComment" />
+        <result column="status" property="status" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, assignment_id, student_id, submission_content, submission_file_url, submitted_at,
+        grade, teacher_comment, status, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.ikunmanager.entity.Submission" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO submissions (assignment_id, student_id, submission_content, submission_file_url, status)
+        VALUES (#{assignmentId}, #{studentId}, #{submissionContent}, #{submissionFileUrl}, #{status})
+    </insert>
+
+    <update id="update" parameterType="com.ikunmanager.entity.Submission">
+        UPDATE submissions
+        <set>
+            <if test="submissionContent != null">submission_content = #{submissionContent},</if>
+            <if test="submissionFileUrl != null">submission_file_url = #{submissionFileUrl},</if>
+            <if test="grade != null">grade = #{grade},</if>
+            <if test="teacherComment != null">teacher_comment = #{teacherComment},</if>
+            <if test="status != null">status = #{status},</if>
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM submissions WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM submissions
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM submissions
+        ORDER BY submitted_at DESC
+    </select>
+
+    <select id="selectByAssignmentId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM submissions
+        WHERE assignment_id = #{assignmentId}
+        ORDER BY submitted_at DESC
+    </select>
+
+    <select id="selectByAssignmentIdAndStudentId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM submissions
+        WHERE assignment_id = #{assignmentId} AND student_id = #{studentId}
+    </select>
+
+    <select id="selectByStudentId" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM submissions
+        WHERE student_id = #{studentId}
+        ORDER BY submitted_at DESC
+    </select>
+
+</mapper> 

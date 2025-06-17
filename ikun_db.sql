@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 12/06/2025 09:21:19
+ Date: 17/06/2025 22:15:29
 */
 
 SET NAMES utf8mb4;
@@ -38,8 +38,50 @@ CREATE TABLE `announcements`  (
 -- Records of announcements
 -- ----------------------------
 INSERT INTO `announcements` VALUES (1, '关于 “五一” 假期安排的通知', '<p>尊敬的全体师生：</p><p>根据国家法定节假日安排，结合我校实际情况，现将2024年“五一”劳动节放假安排通知如下：</p><p><strong>一、放假时间</strong></p><p>5月1日（星期三）至5月5日（星期日）放假调休，共5天。4月28日（星期日）、5月11日（星期六）正常上班、上课。</p><p><strong>二、注意事项</strong></p><ol><li>请各部门、各班级在放假前做好安全自查工作，关闭门窗、水电，确保校园安全。</li><li>假期期间，请同学们注意个人安全，遵守交通规则，预防网络诈骗。</li><li>假期结束后，请按时返校，无故不得缺席。</li></ol><p>祝全体师生度过一个愉快、祥和的假期！</p><p>教务处</p><p>2024年4月25日</p>', '教务处', 'published', 1, '2024-04-25 10:00:00', '2025-06-06 14:49:05', '2025-06-06 14:49:05');
-INSERT INTO `announcements` VALUES (2, '校园歌手大赛初赛通知', '<h3>校园歌手大赛初赛即将拉开帷幕！</h3><p>展现你的才华，唱响青春的旋律！</p><ul><li><strong>比赛时间：</strong> 2024年5月15日 18:30</li><li><strong>比赛地点：</strong> 学校大礼堂</li><li><strong>报名方式：</strong> 请于5月10日前到学生会办公室报名。</li></ul><p>期待你的声音！</p>', '学生会', 'published', 0, '2024-05-02 15:30:00', '2025-06-06 14:49:05', '2025-06-06 14:49:05');
+INSERT INTO `announcements` VALUES (2, '校园歌手大赛初赛通知', '<h3>校园歌手大赛初赛即将拉开帷幕！</h3><p>展现你的才华，唱响青春的旋律！</p><ul><li><strong>比赛时间：</strong> 2024年5月15日 18:30</li><li><strong>比赛地点：</strong> 学校大礼堂</li><li><strong>报名方式：</strong> 请于5月10日前到学生会办公室报名。</li></ul><p>期待你的声音！</p>', '学生会', 'published', 0, '2024-05-02 15:30:00', '2025-06-06 14:49:05', '2025-06-15 18:58:38');
 INSERT INTO `announcements` VALUES (3, '图书馆开放时间调整通知 (草稿)', '<p><br></p>', '图书馆', 'draft', 0, '2025-06-06 15:32:14', '2025-06-06 14:49:05', '2025-06-06 15:35:25');
+
+-- ----------------------------
+-- Table structure for assignment_class_link
+-- ----------------------------
+DROP TABLE IF EXISTS `assignment_class_link`;
+CREATE TABLE `assignment_class_link`  (
+  `assignment_id` bigint NOT NULL COMMENT '作业ID',
+  `class_id` bigint NOT NULL COMMENT '班级ID',
+  PRIMARY KEY (`assignment_id`, `class_id`) USING BTREE,
+  INDEX `idx_assignment_id`(`assignment_id` ASC) USING BTREE,
+  INDEX `idx_class_id`(`class_id` ASC) USING BTREE,
+  CONSTRAINT `fk_acl_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `assignments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_acl_class` FOREIGN KEY (`class_id`) REFERENCES `class` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '作业-班级关联表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of assignment_class_link
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for assignments
+-- ----------------------------
+DROP TABLE IF EXISTS `assignments`;
+CREATE TABLE `assignments`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '作业ID',
+  `teacher_id` bigint NOT NULL COMMENT '发布教师用户ID (关联user.id)',
+  `title` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '作业标题',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '作业内容描述',
+  `attachment_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '作业附件URL',
+  `due_date` datetime NOT NULL COMMENT '截止日期',
+  `status` enum('draft','published','archived') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'draft' COMMENT '作业状态',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_teacher_id`(`teacher_id` ASC) USING BTREE,
+  INDEX `idx_due_date`(`due_date` ASC) USING BTREE,
+  CONSTRAINT `fk_assignment_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '作业表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of assignments
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for carousel_images
@@ -55,14 +97,12 @@ CREATE TABLE `carousel_images`  (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '轮播图图片表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of carousel_images
 -- ----------------------------
-INSERT INTO `carousel_images` VALUES (3, 'carousel/banner-1749001721811-990541769.jpg', '', 'https://www.gzgs.edu.cn/', 0, 1, '2025-06-04 09:48:41', '2025-06-06 15:44:27');
-INSERT INTO `carousel_images` VALUES (6, 'carousel/09FC374735ADA7DDC94DB16A3A4_F86C84C5_297D2-1749196311075-505485432.jpg', '', '', 1, 1, '2025-06-06 15:51:51', '2025-06-06 15:51:51');
-INSERT INTO `carousel_images` VALUES (7, 'carousel/9F0A75F9D91DFE0A048DF29E452_153F41F9_24FE7-1749196672600-349520785.jpg', '', '', 3, 1, '2025-06-06 15:57:52', '2025-06-06 15:57:52');
+INSERT INTO `carousel_images` VALUES (12, 'carousel/8c01db08-78a7-4d46-a5a8-6383ac904671.jpg', '11', 'www.baidu.com', 1, 1, '2025-06-15 18:37:55', '2025-06-15 18:53:41');
 
 -- ----------------------------
 -- Table structure for class
@@ -99,7 +139,7 @@ CREATE TABLE `department`  (
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_dept_name`(`dept_name` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 90 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '部门表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 157 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '部门表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of department
@@ -132,7 +172,7 @@ CREATE TABLE `employee`  (
   UNIQUE INDEX `uk_emp_id`(`emp_id` ASC) USING BTREE,
   INDEX `idx_dept_id`(`dept_id` ASC) USING BTREE,
   CONSTRAINT `fk_emp_dept` FOREIGN KEY (`dept_id`) REFERENCES `department` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 89 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '员工表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 155 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '员工表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of employee
@@ -171,7 +211,7 @@ INSERT INTO `exam` VALUES (2, '2024年秋季高三期中考试', '期中', '2025
 INSERT INTO `exam` VALUES (3, '2024年秋季高三期末考试', '期末', '2025-06-07 19:35:42', 2, '语文,数学,英语,物理,化学,生物', 2, '', '2025-04-02 19:15:11', '2025-06-07 17:36:14');
 INSERT INTO `exam` VALUES (4, '2025年4月高三月考', '月考', '2025-04-15 00:00:00', 160, '语文,数学,英语,物理,化学,生物', 2, 'test', '2025-04-02 19:15:11', '2025-06-06 10:45:30');
 INSERT INTO `exam` VALUES (5, '2024年秋季高二期末考试', '期末', '2025-06-07 17:36:54', 6, '语文,数学,英语,物理,化学,生物', 0, '', '2025-04-02 19:15:11', '2025-06-07 17:37:13');
-INSERT INTO `exam` VALUES (16, '高考', '期末', '2025-06-09 01:10:21', 793, '语文,数学,英语,生物,物理,化学', 0, '111', '2025-06-06 10:46:30', '2025-06-10 16:00:56');
+INSERT INTO `exam` VALUES (16, '高考', '期末', '2025-06-23 00:00:00', 793, '生物,地理', 0, '111', '2025-06-06 10:46:30', '2025-06-17 02:00:33');
 
 -- ----------------------------
 -- Table structure for exam_class_link
@@ -215,7 +255,7 @@ CREATE TABLE `exam_subject`  (
   INDEX `idx_subject_id`(`subject_id` ASC) USING BTREE,
   CONSTRAINT `fk_es_exam` FOREIGN KEY (`exam_id`) REFERENCES `exam` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_es_subject` FOREIGN KEY (`subject_id`) REFERENCES `subject` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 198 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '考试科目关联表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 214 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '考试科目关联表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of exam_subject
@@ -278,10 +318,8 @@ INSERT INTO `exam_subject` VALUES (139, 23, 3, 100.00, 60.00, 1.00, '2025-03-17 
 INSERT INTO `exam_subject` VALUES (140, 23, 4, 100.00, 60.00, 1.00, '2025-03-17 18:33:58');
 INSERT INTO `exam_subject` VALUES (141, 23, 5, 100.00, 60.00, 1.00, '2025-03-17 18:33:58');
 INSERT INTO `exam_subject` VALUES (142, 23, 6, 100.00, 60.00, 1.00, '2025-03-17 18:33:58');
-INSERT INTO `exam_subject` VALUES (194, 16, 1, 100.00, 60.00, 1.00, '2025-06-10 16:00:56');
-INSERT INTO `exam_subject` VALUES (195, 16, 2, 100.00, 60.00, 1.00, '2025-06-10 16:00:56');
-INSERT INTO `exam_subject` VALUES (196, 16, 3, 100.00, 60.00, 1.00, '2025-06-10 16:00:56');
-INSERT INTO `exam_subject` VALUES (197, 16, 6, 100.00, 60.00, 1.00, '2025-06-10 16:00:56');
+INSERT INTO `exam_subject` VALUES (212, 16, 6, 100.00, 60.00, 1.00, '2025-06-17 02:00:33');
+INSERT INTO `exam_subject` VALUES (213, 16, 10, 100.00, 60.00, 1.00, '2025-06-17 02:00:33');
 
 -- ----------------------------
 -- Table structure for message_threads
@@ -297,12 +335,13 @@ CREATE TABLE `message_threads`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_student_user_id`(`student_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_thread_student_user` FOREIGN KEY (`student_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱主题表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱主题表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of message_threads
 -- ----------------------------
 INSERT INTO `message_threads` VALUES (1, 8, '宿舍断电', 'resolved', '2025-06-06 18:27:43', '2025-06-07 20:31:39');
+INSERT INTO `message_threads` VALUES (2, 8, '111', 'open', '2025-06-15 21:13:35', '2025-06-15 21:13:35');
 
 -- ----------------------------
 -- Table structure for messages
@@ -320,7 +359,7 @@ CREATE TABLE `messages`  (
   INDEX `idx_sender_user_id`(`sender_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_message_sender_user` FOREIGN KEY (`sender_user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_message_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 12 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生信箱消息表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of messages
@@ -329,6 +368,7 @@ INSERT INTO `messages` VALUES (1, 1, 8, '每晚11点就断电怎么行？？？�
 INSERT INTO `messages` VALUES (2, 1, 8, '请回答', 1, '2025-06-06 18:48:46');
 INSERT INTO `messages` VALUES (3, 1, 1, '好的，我已收到，马上责令学校保持不断电', 1, '2025-06-06 18:58:39');
 INSERT INTO `messages` VALUES (10, 1, 8, '感谢！', 1, '2025-06-07 20:25:11');
+INSERT INTO `messages` VALUES (11, 2, 8, '你好？', 0, '2025-06-15 21:16:17');
 
 -- ----------------------------
 -- Table structure for student
@@ -418,12 +458,12 @@ INSERT INTO `student_score` VALUES (27, 7, 3, '英语', 89.0, '2025-04-02 19:15:
 INSERT INTO `student_score` VALUES (28, 7, 3, '物理', 92.5, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student_score` VALUES (29, 7, 3, '化学', 88.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
 INSERT INTO `student_score` VALUES (30, 7, 3, '生物', 85.0, '2025-04-02 19:15:11', '2025-04-02 19:15:11');
-INSERT INTO `student_score` VALUES (43, 1, 4, '语文', 100.0, '2025-04-04 02:29:11', '2025-04-05 23:58:19');
-INSERT INTO `student_score` VALUES (44, 1, 4, '数学', 100.0, '2025-04-04 02:29:11', '2025-04-05 23:57:51');
-INSERT INTO `student_score` VALUES (45, 1, 4, '英语', 100.0, '2025-04-04 02:29:11', '2025-04-06 01:17:20');
-INSERT INTO `student_score` VALUES (46, 1, 4, '物理', 42.0, '2025-04-04 02:29:11', '2025-06-06 23:53:31');
-INSERT INTO `student_score` VALUES (47, 1, 4, '化学', 100.0, '2025-04-04 02:29:11', '2025-04-04 02:29:11');
-INSERT INTO `student_score` VALUES (48, 1, 4, '生物', 100.0, '2025-04-04 02:29:11', '2025-04-04 02:29:11');
+INSERT INTO `student_score` VALUES (43, 1, 4, '语文', 100.0, '2025-04-04 02:29:11', '2025-06-17 00:59:59');
+INSERT INTO `student_score` VALUES (44, 1, 4, '数学', 100.0, '2025-04-04 02:29:11', '2025-06-17 00:59:58');
+INSERT INTO `student_score` VALUES (45, 1, 4, '英语', 100.0, '2025-04-04 02:29:11', '2025-06-17 00:59:59');
+INSERT INTO `student_score` VALUES (46, 1, 4, '物理', 43.5, '2025-04-04 02:29:11', '2025-06-17 00:59:58');
+INSERT INTO `student_score` VALUES (47, 1, 4, '化学', 100.0, '2025-04-04 02:29:11', '2025-06-17 00:59:58');
+INSERT INTO `student_score` VALUES (48, 1, 4, '生物', 100.0, '2025-04-04 02:29:11', '2025-06-17 00:59:59');
 INSERT INTO `student_score` VALUES (49, 1, 1, '语文', 99.5, '2025-04-04 02:29:57', '2025-06-06 22:27:33');
 INSERT INTO `student_score` VALUES (50, 1, 1, '数学', 100.0, '2025-04-04 02:29:57', '2025-04-04 02:29:57');
 INSERT INTO `student_score` VALUES (51, 1, 1, '英语', 66.0, '2025-04-04 02:29:57', '2025-04-04 02:31:26');
@@ -483,9 +523,35 @@ INSERT INTO `subject` VALUES (3, '英语', 'ENGLISH', '2025-04-02 19:15:10', '20
 INSERT INTO `subject` VALUES (4, '物理', 'PHYSICS', '2025-04-02 19:15:10', '2025-04-02 19:15:10');
 INSERT INTO `subject` VALUES (5, '化学', 'CHEMISTRY', '2025-04-02 19:15:10', '2025-04-02 19:15:10');
 INSERT INTO `subject` VALUES (6, '生物', 'BIOLOGY', '2025-04-02 19:15:10', '2025-04-02 19:15:10');
-INSERT INTO `subject` VALUES (9, 'test', 'test', '2025-06-09 01:10:17', '2025-06-09 01:10:17');
 INSERT INTO `subject` VALUES (10, '地理', 'DILI', '2025-06-09 01:14:53', '2025-06-09 01:14:53');
-INSERT INTO `subject` VALUES (11, '政治', 'ZZ', '2025-06-09 01:15:04', '2025-06-09 01:15:04');
+INSERT INTO `subject` VALUES (11, '政治', 'ZZ2', '2025-06-09 01:15:04', '2025-06-16 14:52:22');
+
+-- ----------------------------
+-- Table structure for submissions
+-- ----------------------------
+DROP TABLE IF EXISTS `submissions`;
+CREATE TABLE `submissions`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '提交ID',
+  `assignment_id` bigint NOT NULL COMMENT '所属作业ID',
+  `student_id` bigint NOT NULL COMMENT '提交学生ID (关联student.id)',
+  `submission_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '提交的文字内容',
+  `submission_file_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '提交的文件URL',
+  `submitted_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
+  `grade` decimal(5, 2) NULL DEFAULT NULL COMMENT '批改分数',
+  `teacher_comment` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL COMMENT '教师评语',
+  `status` enum('submitted','graded','late') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'submitted' COMMENT '提交状态',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_assignment_student`(`assignment_id` ASC, `student_id` ASC) USING BTREE,
+  INDEX `idx_assignment_id`(`assignment_id` ASC) USING BTREE,
+  INDEX `idx_student_id`(`student_id` ASC) USING BTREE,
+  CONSTRAINT `fk_submission_assignment` FOREIGN KEY (`assignment_id`) REFERENCES `assignments` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_submission_student` FOREIGN KEY (`student_id`) REFERENCES `student` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '作业提交表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of submissions
+-- ----------------------------
 
 -- ----------------------------
 -- Table structure for system_config
@@ -504,7 +570,7 @@ CREATE TABLE `system_config`  (
 -- ----------------------------
 INSERT INTO `system_config` VALUES ('carouselInterval', '2500', 'Configuration for carouselInterval', '2025-06-04 11:18:17');
 INSERT INTO `system_config` VALUES ('employeeIdRegex', '^EMP.{3}$', '员工号正则表达式', '2025-04-28 22:31:22');
-INSERT INTO `system_config` VALUES ('logRetentionDays', '3', '日志保留天数 (0表示不自动删除)', '2025-04-28 22:31:22');
+INSERT INTO `system_config` VALUES ('logRetentionDays', '1', '日志保留天数 (0表示不自动删除)', '2025-06-15 16:24:21');
 INSERT INTO `system_config` VALUES ('studentIdRegex', '^S\\\\d{7}$', '学号正则表达式', '2025-04-28 22:31:22');
 
 -- ----------------------------
@@ -822,6 +888,7 @@ CREATE TABLE `user`  (
   `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户名',
   `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '密码',
   `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '邮箱',
+  `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
   `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '头像URL',
   `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -835,10 +902,10 @@ CREATE TABLE `user`  (
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (1, 'admin', '$2a$10$CjLJ2/QuOu3bZGzf3u4SGOvNjDSNdodT/5G.6TQFh.oUsj.MCideG', 'admin@test.com', 'avatar-1-1748925908680-419831104.png', '2025-02-20 21:45:19', '2025-06-12 09:15:13', 'admin', NULL);
-INSERT INTO `user` VALUES (2, 'test', '$2b$10$MshDQphPxvIRK6mNiVd1f.8HhPV9ysV84hyUiRglzIzdXfuB0ETeC', 'test@example.com', NULL, '2025-02-20 21:45:19', '2025-04-06 02:07:25', 'student', NULL);
-INSERT INTO `user` VALUES (3, 'chyinan', '$2b$10$LeimjP0GK2OC9DObsO9WvuvHdksCwQsXNVA3uHNjIBadcuD3nBgb6', '1817175451@qq.com', 'avatar-3-1745847609124-586820353.png', '2025-02-20 21:51:36', '2025-04-28 21:40:09', 'student', NULL);
-INSERT INTO `user` VALUES (8, 'S2023001', '$2b$10$vvCCMqjv930BKa1I6IUYKeBt5HyDktViy/4unT.mQTAKfAHE1qczW', '1011@qq.com', NULL, '2025-06-04 22:48:28', '2025-06-06 15:11:42', 'student', '张伟');
+INSERT INTO `user` VALUES (1, 'admin', '$2a$10$CjLJ2/QuOu3bZGzf3u4SGOvNjDSNdodT/5G.6TQFh.oUsj.MCideG', 'admin@test.com', NULL, 'avatar-1749983233259-9f544742.png', '2025-02-20 21:45:19', '2025-06-15 18:27:13', 'admin', NULL);
+INSERT INTO `user` VALUES (2, 'test', '$2b$10$MshDQphPxvIRK6mNiVd1f.8HhPV9ysV84hyUiRglzIzdXfuB0ETeC', 'test@example.com', NULL, NULL, '2025-02-20 21:45:19', '2025-04-06 02:07:25', 'student', NULL);
+INSERT INTO `user` VALUES (3, 'chyinan', '$2b$10$LeimjP0GK2OC9DObsO9WvuvHdksCwQsXNVA3uHNjIBadcuD3nBgb6', '1817175451@qq.com', NULL, 'avatar-3-1745847609124-586820353.png', '2025-02-20 21:51:36', '2025-04-28 21:40:09', 'student', NULL);
+INSERT INTO `user` VALUES (8, 'S2023001', '$2b$10$vvCCMqjv930BKa1I6IUYKeBt5HyDktViy/4unT.mQTAKfAHE1qczW', '1011@qq.com', NULL, NULL, '2025-06-04 22:48:28', '2025-06-06 15:11:42', 'student', '张伟');
 
 -- ----------------------------
 -- View structure for v_class_score_stats

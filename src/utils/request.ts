@@ -135,11 +135,23 @@ service.interceptors.response.use(
     // Hide loading indicator (optional)
     // NProgress.done()
 
+    // 先行判断学生提交 404 场景，避免多余日志与弹窗
+    if (error?.response?.status === 404 && (error.response.data?.message || '').includes('未找到该作业的提交记录')) {
+        return Promise.reject(error);
+    }
+
     console.error('[Response Interceptor] Network or other error:', error)
     let errorMessage = '网络错误或服务器无响应';
     if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
+        // 针对学生未提交作业的特殊业务 404，不需要重复提示
+        const bizMessage = error.response.data?.message || ''
+        if (error.response.status === 404 && bizMessage.includes('未找到该作业的提交记录')) {
+            // 让业务组件自行处理，不弹 Toast
+            return Promise.reject(error)
+        }
+
         console.error(' [Response Interceptor] Error Response Data:', error.response.data);
         console.error(' [Response Interceptor] Error Response Status:', error.response.status);
         console.error(' [Response Interceptor] Error Response Headers:', error.response.headers);

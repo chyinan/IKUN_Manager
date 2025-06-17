@@ -24,4 +24,6 @@ public interface StudentMapper {
     String getMaxStudentId();
     
     int batchInsert(@Param("students") List<Student> students);
+
+    Student selectByUserId(Long userId);
 }

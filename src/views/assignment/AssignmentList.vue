@@ -5,8 +5,9 @@ import type { AssignmentResponse } from '@/api/assignment'
 import { AssignmentStatus, getAllAssignments, deleteAssignment } from '@/api/assignment'
 import { useUserStore } from '@/stores/user'
 import AssignmentForm from './AssignmentForm.vue' // 导入作业表单组件
-import router from '@/router'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const userStore = useUserStore()
 const assignments = ref<AssignmentResponse[]>([])
 const total = ref(0)

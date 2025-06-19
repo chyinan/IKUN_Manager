@@ -91,15 +91,12 @@ onMounted(() => {
 
 <template>
   <div class="student-assignments-container">
-    <h2>我的作业</h2>
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>我的作业列表</span>
-        </div>
-      </template>
+    <el-card shadow="never" class="table-card">
+      <div class="list-header">
+        <h2>我的作业</h2>
+      </div>
 
-      <el-table v-loading="listLoading" :data="assignments" style="width: 100%" border>
+      <el-table v-loading="listLoading" :data="assignments" style="width: 100%" class="modern-table" empty-text="当前没有待完成的作业">
         <el-table-column prop="id" label="ID" width="80"></el-table-column>
         <el-table-column prop="title" label="作业标题"></el-table-column>
         <el-table-column prop="teacherName" label="发布教师" width="120"></el-table-column>
@@ -143,13 +140,111 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .student-assignments-container {
   padding: 20px;
 }
-.card-header {
+
+.table-card {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 10px;
+
+  :deep(.el-card__body) {
+    padding: 0;
+  }
+}
+
+.list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #ffffff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    margin: 0;
+  }
+}
+
+// 借鉴 mailbox.vue 的现代透明表格样式
+:deep(.modern-table) {
+  background-color: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+
+  --el-table-border-color: rgba(255, 255, 255, 0.2);
+
+  .el-table__header-wrapper th,
+  .el-table__header-wrapper tr {
+    background-color: rgb(91 161 233 / 8%) !important;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .el-table__row {
+    color: #ffffff;
+    background-color: rgb(156 229 255 / 38%) !important;
+    
+    &:hover > td {
+      background-color: rgba(156, 229, 255, 0.5) !important;
+    }
+  }
+
+  td.el-table__cell,
+  th.el-table__cell.is-leaf {
+    border-color: transparent !important;
+  }
+
+  &::before,
+  &::after {
+    display: none;
+  }
+  
+  .el-table__inner-wrapper {
+     border-radius: 12px;
+  }
+
+  .el-table__empty-text {
+    color: #c0c4cc;
+  }
+
+  // 标签样式
+  :deep(.el-tag--success),
+  :deep(.el-tag--info),
+  :deep(.el-tag--warning),
+  :deep(.el-tag--danger),
+  :deep(.el-tag) {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #e0e7ff;
+    font-weight: 500;
+  }
+
+  // 针对带 type 的 Tag（success/info/danger/warning）做统一透明化处理
+  :deep(.el-tag--success),
+  :deep(.el-tag--info),
+  :deep(.el-tag--warning),
+  :deep(.el-tag--danger) {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    color: #e0e7ff !important;
+  }
+
+  // 操作列的链接按钮颜色更加醒目
+  .el-button.is-link {
+    color: #bfe9ff;
+    &:hover, &:focus {
+      color: #e8f7ff;
+      text-decoration: underline;
+    }
+  }
 }
 </style> 

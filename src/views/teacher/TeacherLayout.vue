@@ -45,6 +45,10 @@
             <el-icon><PieChart /></el-icon>
             <span>学生信息统计</span>
           </el-menu-item>
+          <el-menu-item index="/teacher-portal/classes">
+            <el-icon><School /></el-icon>
+            <span>班级管理</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="teacher-main">
@@ -64,7 +68,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  House, User, Memo, Calendar, Document, PieChart, SwitchButton, UserFilled
+  House, User, Memo, Calendar, Document, PieChart, SwitchButton, UserFilled, School
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -104,7 +108,7 @@ const handleCommand = (command: string) => {
   min-height: 100vh;
 }
 .teacher-header {
-  background: #409eff;
+  background: #67c23ad4;
   color: #fff;
   height: 60px;
   line-height: 60px;

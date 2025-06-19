@@ -70,56 +70,37 @@ const router = createRouter({
           path: 'class',
           name: 'Class',
           component: Class,
-          meta: { title: '班级管理', icon: 'School' }
+          meta: { title: '班级管理', hidden: true }
         },
         {
           path: 'student',
           name: 'Student',
           component: Student,
-          meta: { title: '学生管理', icon: 'User' }
+          meta: { title: '学生管理', hidden: true }
         },
         {
           path: 'stu-report',
           name: 'StuReport',
           component: StuReport,
-          meta: { title: '学生信息统计', icon: 'PieChart' }
+          meta: { title: '学生信息统计', hidden: true }
         },
         {
           path: 'score',
           name: 'Score',
           component: Score,
-          meta: { title: '成绩管理', icon: 'DocumentChecked' }
+          meta: { title: '成绩管理', hidden: true }
         },
         {
           path: 'exam',
           name: 'Exam',
           component: Exam,
-          meta: { title: '考试管理', icon: 'Calendar' }
+          meta: { title: '考试管理', hidden: true }
         },
         {
           path: 'log',
           name: 'Log',
           component: Log,
           meta: { title: '系统日志', icon: 'List', requiresAdmin: true }
-        },
-        // 作业管理 (教师/管理员)
-        {
-          path: 'assignments',
-          name: 'AssignmentList',
-          component: AssignmentList,
-          meta: { title: '作业管理', icon: 'Document' , roles: ['teacher', 'admin']}
-        },
-        {
-          path: 'assignments/form/:id?',
-          name: 'AssignmentForm',
-          component: AssignmentForm,
-          meta: { title: '发布/编辑作业', hidden: true, roles: ['teacher', 'admin'] }
-        },
-        {
-          path: 'assignments/submissions/:id',
-          name: 'SubmissionList',
-          component: SubmissionList,
-          meta: { title: '作业提交列表', hidden: true, roles: ['teacher', 'admin'] }
         },
         {
           path: 'settings',
@@ -283,6 +264,12 @@ const router = createRouter({
           name: 'TeacherStudentReport',
           component: () => import('@/views/stuReport/stuReport.vue'),
           meta: { title: '学生信息统计', icon: 'PieChart', roles: ['teacher'] }
+        },
+        {
+          path: 'classes',
+          name: 'TeacherClasses',
+          component: () => import('@/views/clazz/index.vue'),
+          meta: { title: '班级管理', icon: 'School', roles: ['teacher'] }
         }
       ]
     },

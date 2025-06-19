@@ -36,4 +36,15 @@ public class GlobalExceptionHandler {
         ApiResponse<Void> body = ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误");
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
+    /**
+     * 处理 Spring Security 认证异常（例如用户名或密码错误）
+     */
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(org.springframework.security.core.AuthenticationException ex) {
+        // 记录堆栈方便调试，但不暴露给前端
+        ex.printStackTrace();
+        ApiResponse<Void> body = ApiResponse.error(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
+    }
 } 

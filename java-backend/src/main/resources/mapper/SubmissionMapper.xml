@@ -8,6 +8,24 @@
         <result column="student_id" property="studentId" />
         <result column="submission_content" property="submissionContent" />
         <result column="submission_file_url" property="submissionFileUrl" />
+        <result column="submission_file_original_name" property="submissionFileOriginalName" />
+        <result column="submitted_at" property="submittedAt" />
+        <result column="grade" property="grade" />
+        <result column="teacher_comment" property="teacherComment" />
+        <result column="status" property="status" />
+        <result column="updated_at" property="updatedAt" />
+    </resultMap>
+
+    <resultMap id="SubmissionResponseResultMap" type="com.ikunmanager.dto.SubmissionResponse">
+        <id column="submission_id" property="id" />
+        <result column="assignment_id" property="assignmentId" />
+        <result column="assignment_title" property="assignmentTitle" />
+        <result column="student_id" property="studentId" />
+        <result column="student_name" property="studentName" />
+        <result column="student_number" property="studentNumber" />
+        <result column="submission_content" property="submissionContent" />
+        <result column="submission_file_url" property="submissionFileUrl" />
+        <result column="submission_file_original_name" property="submissionFileOriginalName" />
         <result column="submitted_at" property="submittedAt" />
         <result column="grade" property="grade" />
         <result column="teacher_comment" property="teacherComment" />
@@ -16,13 +34,13 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, assignment_id, student_id, submission_content, submission_file_url, submitted_at,
+        id, assignment_id, student_id, submission_content, submission_file_url, submission_file_original_name, submitted_at,
         grade, teacher_comment, status, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.ikunmanager.entity.Submission" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO submissions (assignment_id, student_id, submission_content, submission_file_url, status)
-        VALUES (#{assignmentId}, #{studentId}, #{submissionContent}, #{submissionFileUrl}, #{status})
+        INSERT INTO submissions (assignment_id, student_id, submission_content, submission_file_url, submission_file_original_name, status)
+        VALUES (#{assignmentId}, #{studentId}, #{submissionContent}, #{submissionFileUrl}, #{submissionFileOriginalName}, #{status})
     </insert>
 
     <update id="update" parameterType="com.ikunmanager.entity.Submission">
@@ -30,6 +48,7 @@
         <set>
             <if test="submissionContent != null">submission_content = #{submissionContent},</if>
             <if test="submissionFileUrl != null">submission_file_url = #{submissionFileUrl},</if>
+            <if test="submissionFileOriginalName != null">submission_file_original_name = #{submissionFileOriginalName},</if>
             <if test="grade != null">grade = #{grade},</if>
             <if test="teacherComment != null">teacher_comment = #{teacherComment},</if>
             <if test="status != null">status = #{status},</if>
@@ -49,6 +68,33 @@
         WHERE id = #{id}
     </select>
 
+    <select id="selectSubmissionResponseById" resultMap="SubmissionResponseResultMap">
+        SELECT
+            s.id AS submission_id,
+            s.assignment_id,
+            a.title AS assignment_title,
+            s.student_id,
+            st.name AS student_name,
+            st.student_id AS student_number,
+            s.submission_content,
+            s.submission_file_url,
+            s.submission_file_original_name,
+            s.submitted_at,
+            s.grade,
+            s.teacher_comment,
+            s.status,
+            s.updated_at
+        FROM
+            submissions s
+        LEFT JOIN
+            student st ON s.student_id = st.id
+        LEFT JOIN
+            user u ON st.user_id = u.id
+        LEFT JOIN
+            assignments a ON s.assignment_id = a.id
+        WHERE s.id = #{id}
+    </select>
+
     <select id="selectAll" resultMap="BaseResultMap">
         SELECT
         <include refid="Base_Column_List" />
@@ -56,12 +102,32 @@
         ORDER BY submitted_at DESC
     </select>
 
-    <select id="selectByAssignmentId" resultMap="BaseResultMap">
+    <select id="selectByAssignmentId" resultMap="SubmissionResponseResultMap">
         SELECT
-        <include refid="Base_Column_List" />
-        FROM submissions
-        WHERE assignment_id = #{assignmentId}
-        ORDER BY submitted_at DESC
+            s.id AS submission_id,
+            s.assignment_id,
+            a.title AS assignment_title,
+            s.student_id,
+            st.name AS student_name,
+            st.student_id AS student_number,
+            s.submission_content,
+            s.submission_file_url,
+            s.submission_file_original_name,
+            s.submitted_at,
+            s.grade,
+            s.teacher_comment,
+            s.status,
+            s.updated_at
+        FROM
+            submissions s
+        LEFT JOIN
+            student st ON s.student_id = st.id
+        LEFT JOIN
+            user u ON st.user_id = u.id
+        LEFT JOIN
+            assignments a ON s.assignment_id = a.id
+        WHERE s.assignment_id = #{assignmentId}
+        ORDER BY s.submitted_at DESC
     </select>
 
     <select id="selectByAssignmentIdAndStudentId" resultMap="BaseResultMap">

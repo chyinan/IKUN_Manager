@@ -102,7 +102,7 @@ onMounted(() => {
         <el-table-column prop="teacherName" label="发布教师" width="120"></el-table-column>
         <el-table-column prop="classNames" label="所属班级">
           <template #default="scope">
-            <el-tag v-for="(name, index) in scope.row.classNames" :key="index" style="margin-right: 5px;">
+            <el-tag v-for="(name, index) in scope.row.classNames" :key="index" style="margin-right: 5px;" class="status-tag">
               {{ name }}
             </el-tag>
           </template>
@@ -114,7 +114,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-tag :type="statusTagType(scope.row.status)">
+            <el-tag :type="statusTagType(scope.row.status)" class="status-tag">
               {{ formatStatus(scope.row.status) }}
             </el-tag>
           </template>
@@ -216,35 +216,49 @@ onMounted(() => {
     color: #c0c4cc;
   }
 
-  // 标签样式
-  :deep(.el-tag--success),
-  :deep(.el-tag--info),
-  :deep(.el-tag--warning),
-  :deep(.el-tag--danger),
-  :deep(.el-tag) {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.25);
-    color: #e0e7ff;
-    font-weight: 500;
-  }
-
-  // 针对带 type 的 Tag（success/info/danger/warning）做统一透明化处理
-  :deep(.el-tag--success),
-  :deep(.el-tag--info),
-  :deep(.el-tag--warning),
-  :deep(.el-tag--danger) {
+  .status-tag {
     background-color: rgba(255, 255, 255, 0.15) !important;
     border-color: rgba(255, 255, 255, 0.25) !important;
     color: #e0e7ff !important;
+    font-weight: 500;
   }
 
   // 操作列的链接按钮颜色更加醒目
   .el-button.is-link {
-    color: #bfe9ff;
+    color: #bfe9ff !important;
     &:hover, &:focus {
-      color: #e8f7ff;
+      color: #e8f7ff !important;
       text-decoration: underline;
     }
+  }
+}
+
+// 美化弹窗样式
+:deep(.el-dialog) {
+  background-color: rgba(255, 255, 255, 0.5); // 半透明背景
+  backdrop-filter: blur(15px); // 应用背景模糊
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 15px; // 圆角
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+  .el-dialog__header {
+    .el-dialog__title {
+      color: #303133; // 深色标题以保证可读性
+      font-weight: 600;
+    }
+    .el-dialog__headerbtn .el-dialog__close {
+      color: #303133;
+      &:hover {
+        color: #409eff;
+      }
+    }
+  }
+
+  .el-dialog__body {
+    padding-top: 10px;
+    padding-bottom: 20px;
+    color: #333; // 保证弹窗内基本字体颜色
   }
 }
 </style> 

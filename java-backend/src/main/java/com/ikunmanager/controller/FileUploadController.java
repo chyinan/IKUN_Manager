@@ -47,6 +47,7 @@ public class FileUploadController {
 
             Map<String, String> responseData = new HashMap<>();
             responseData.put("filePath", fileName); // Return only the filename
+            responseData.put("originalFilename", originalFilename); // Also return the original filename
 
             return ApiResponse.ok(responseData);
         } catch (IOException e) {

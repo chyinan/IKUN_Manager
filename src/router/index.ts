@@ -256,8 +256,14 @@ const router = createRouter({
         {
           path: 'assignments',
           name: 'TeacherAssignments',
-          component: () => import('@/views/assignment/AssignmentList.vue'),
+          component: AssignmentList,
           meta: { title: '作业管理', icon: 'Document', roles: ['teacher'] }
+        },
+        {
+          path: 'assignments/:id/submissions',
+          name: 'AssignmentSubmissions',
+          component: SubmissionList,
+          meta: { title: '查看提交', hidden: true, roles: ['teacher', 'admin'] }
         },
         {
           path: 'student-report',

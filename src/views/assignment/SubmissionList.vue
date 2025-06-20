@@ -2,7 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { SubmissionResponse, SubmissionStatus } from '@/api/submission'
+import { SubmissionStatus } from '@/api/submission'
+import type { SubmissionResponse } from '@/api/submission'
 import { getSubmissionsByAssignmentId, getSubmissionDetail } from '@/api/submission'
 import type { AssignmentResponse } from '@/api/assignment'
 import { getAssignmentDetail } from '@/api/assignment'
@@ -106,18 +107,18 @@ onMounted(() => {
 
 <template>
   <div class="submission-list-container">
-    <h2>作业提交列表</h2>
+    <h2>
+      作业提交列表: <span class="assignment-title">{{ assignmentDetail?.title || '加载中...' }}</span>
+    </h2>
     <el-card class="box-card">
-      <template #header>
+       <template #header>
         <div class="card-header">
-          <span>
-            作业：<span class="assignment-title">{{ assignmentDetail?.title || '' }}</span>
-          </span>
+          <span>提交记录</span>
           <el-button @click="$router.back()">返回作业列表</el-button>
         </div>
-      </template>
+       </template>
 
-      <el-table v-loading="listLoading" :data="submissions" style="width: 100%" border>
+      <el-table v-loading="listLoading" :data="submissions" style="width: 100%" border empty-text="该作业暂无提交记录">
         <el-table-column prop="id" label="ID" width="80"></el-table-column>
         <el-table-column prop="studentName" label="学生姓名" width="120"></el-table-column>
         <el-table-column prop="studentNumber" label="学号" width="120"></el-table-column>
@@ -129,7 +130,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-tag :type="scope.row.status === SubmissionStatus.GRADED ? 'success' : (scope.row.status === SubmissionStatus.LATE ? 'danger' : 'info')">
+            <el-tag :type="scope.row.status === SubmissionStatus.GRADED ? 'success' : (scope.row.status === SubmissionStatus.LATE ? 'danger' : 'info')" class="status-tag">
               {{ formatStatus(scope.row.status) }}
             </el-tag>
           </template>
@@ -165,13 +166,17 @@ onMounted(() => {
 .submission-list-container {
   padding: 20px;
 }
+.box-card {
+  margin-top: 20px;
+}
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 .assignment-title {
-  font-weight: bold;
-  color: #409EFF;
+  font-weight: normal;
+  font-size: 0.9em;
+  color: #606266;
 }
 </style>

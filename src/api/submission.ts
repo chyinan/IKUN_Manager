@@ -11,8 +11,9 @@ export enum SubmissionStatus {
 // 定义作业提交请求体类型 (学生提交)
 export interface SubmissionRequest {
   assignmentId: number
-  submissionContent?: string
+  submissionContent: string
   submissionFileUrl?: string
+  submissionFileOriginalName?: string
 }
 
 // 定义作业批改请求体类型 (教师批改)
@@ -30,8 +31,9 @@ export interface SubmissionResponse {
   studentId: number
   studentName: string
   studentNumber: string
-  submissionContent?: string
+  submissionContent: string
   submissionFileUrl?: string
+  submissionFileOriginalName?: string
   submittedAt: string
   grade?: number
   teacherComment?: string

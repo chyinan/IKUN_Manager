@@ -164,20 +164,17 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     @Override
     public ApiResponse<SubmissionResponse> getSubmissionById(Long id) {
-        Submission submission = submissionMapper.selectById(id);
+        SubmissionResponse submission = submissionMapper.selectSubmissionResponseById(id);
         if (submission == null) {
             throw new CustomException(HttpStatus.NOT_FOUND, "提交记录不存在");
         }
-        return ApiResponse.ok(mapToSubmissionResponse(submission));
+        return ApiResponse.ok(submission);
     }
 
     @Override
     public ApiResponse<List<SubmissionResponse>> getSubmissionsByAssignmentId(Long assignmentId) {
-        List<Submission> submissions = submissionMapper.selectByAssignmentId(assignmentId);
-        List<SubmissionResponse> responses = submissions.stream()
-                .map(this::mapToSubmissionResponse)
-                .collect(Collectors.toList());
-        return ApiResponse.ok(responses);
+        List<SubmissionResponse> submissions = submissionMapper.selectByAssignmentId(assignmentId);
+        return ApiResponse.ok(submissions);
     }
 
     @Override
@@ -188,9 +185,10 @@ public class SubmissionServiceImpl implements SubmissionService {
         }
         Submission submission = submissionMapper.selectByAssignmentIdAndStudentId(assignmentId, student.getId());
         if (submission == null) {
-            throw new CustomException(HttpStatus.NOT_FOUND, "未找到该作业的提交记录");
+             return ApiResponse.ok(null); // Return null if not submitted yet, not an error
         }
-        return ApiResponse.ok(mapToSubmissionResponse(submission));
+        // Now get the full response DTO
+        return getSubmissionById(submission.getId());
     }
 
     @Override
@@ -199,9 +197,11 @@ public class SubmissionServiceImpl implements SubmissionService {
         if (student == null) {
             throw new CustomException(HttpStatus.NOT_FOUND, "学生信息不存在");
         }
+        // This is inefficient (N+1), but will work for now.
+        // A dedicated mapper method would be better.
         List<Submission> submissions = submissionMapper.selectByStudentId(student.getId());
         List<SubmissionResponse> responses = submissions.stream()
-                .map(this::mapToSubmissionResponse)
+                .map(s -> submissionMapper.selectSubmissionResponseById(s.getId()))
                 .collect(Collectors.toList());
         return ApiResponse.ok(responses);
     }
@@ -236,25 +236,5 @@ public class SubmissionServiceImpl implements SubmissionService {
         }
 
         return ApiResponse.ok("作业批改成功", existingSubmission);
-    }
-
-    private SubmissionResponse mapToSubmissionResponse(Submission submission) {
-        SubmissionResponse response = new SubmissionResponse();
-        BeanUtils.copyProperties(submission, response);
-
-        // 获取作业标题
-        Assignment assignment = assignmentMapper.selectById(submission.getAssignmentId());
-        if (assignment != null) {
-            response.setAssignmentTitle(assignment.getTitle());
-        }
-
-        // 获取学生姓名和学号
-        Student student = studentMapper.findById(submission.getStudentId());
-        if (student != null) {
-            response.setStudentName(student.getName());
-            response.setStudentNumber(student.getStudentId());
-        }
-
-        return response;
     }
 } 

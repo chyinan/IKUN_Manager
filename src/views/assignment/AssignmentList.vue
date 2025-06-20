@@ -116,7 +116,7 @@ const handleDelete = async (id: number) => {
 
 // 查看作业提交
 const handleViewSubmissions = (assignmentId: number) => {
-  router.push(`/assignment/submissions/${assignmentId}`)
+  router.push({ name: 'AssignmentSubmissions', params: { id: assignmentId } })
 }
 
 // 处理表单提交成功后的回调
@@ -169,7 +169,7 @@ onMounted(() => {
             <el-button link type="primary" size="small" @click="handleEdit(scope.row.id)" v-if="isTeacherOrAdmin && scope.row.status !== AssignmentStatus.ARCHIVED">编辑</el-button>
             <el-button link type="danger" size="small" @click="handleDelete(scope.row.id)" v-if="isTeacherOrAdmin && scope.row.status !== AssignmentStatus.ARCHIVED">删除</el-button>
             <el-button link type="primary" size="small" @click="handleViewSubmissions(scope.row.id)" v-if="isTeacherOrAdmin">查看提交</el-button>
-            <el-button link type="success" size="small" @click="handleDownloadAttachment(scope.row.attachmentUrl)" v-if="scope.row.attachmentUrl">下载附件</el-button>
+            <el-button link type="success" size="small" v-if="scope.row.attachmentUrl">下载附件</el-button>
           </template>
         </el-table-column>
       </el-table>

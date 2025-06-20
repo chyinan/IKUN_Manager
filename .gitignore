@@ -41,3 +41,8 @@ java-backend/target/*
 playwright-report/*
 test-results/*
 
+uploads_data/*
+java-backend/target/maven-status/maven-compiler-plugin/compile/default-compile/*
+java-backend/target/maven-status/maven-compiler-plugin/compile/*
+java-backend/target/maven-status/maven-compiler-plugin/*
+java-backend/target/surefire-reports/*

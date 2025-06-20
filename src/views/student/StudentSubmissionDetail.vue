@@ -20,7 +20,8 @@ const submissionDetail = ref<SubmissionResponse | null>(null)
 const submissionForm = ref<SubmissionRequest>({
   assignmentId: props.assignmentId,
   submissionContent: '',
-  submissionFileUrl: ''
+  submissionFileUrl: '',
+  submissionFileOriginalName: ''
 })
 
 const formRef = ref<any>(null)
@@ -76,7 +77,8 @@ const loadMySubmissionDetail = async () => {
       submissionForm.value = {
         assignmentId: response.data.assignmentId,
         submissionContent: response.data.submissionContent || '',
-        submissionFileUrl: response.data.submissionFileUrl || ''
+        submissionFileUrl: response.data.submissionFileUrl || '',
+        submissionFileOriginalName: response.data.submissionFileOriginalName || ''
       }
       if (response.data.submissionFileUrl) {
         imageUrl.value = response.data.submissionFileUrl;
@@ -111,30 +113,42 @@ const handleSubmit = async () => {
     if (valid) {
       const loadingInstance = ElLoading.service({ fullscreen: true, text: '提交中...' });
       try {
-        let finalSubmissionFileUrl = submissionForm.value.submissionFileUrl; // Keep existing if no new file
+        let finalSubmissionFileUrl = submissionForm.value.submissionFileUrl; // 保留已有的文件URL
+        let finalOriginalName = submissionForm.value.submissionFileOriginalName;
 
         if (submissionFile.value) {
-          // Upload new file if selected
+          // 如果选择了新文件，则上传
           const uploadResponse = await uploadFile(submissionFile.value, 'submission_files');
-          if (uploadResponse.code === 200 && uploadResponse.data) {
-            finalSubmissionFileUrl = uploadResponse.data.url;
+          // uploadFile 从 common.ts 返回 response.data, 后端返回 { filePath: '...', originalFilename: '...' }
+          if (uploadResponse && (uploadResponse as any).filePath) {
+            finalSubmissionFileUrl = `/uploads/${(uploadResponse as any).filePath}`;
+            finalOriginalName = (uploadResponse as any).originalFilename || submissionFile.value.name;
           } else {
-            ElMessage.error(uploadResponse.message || '附件上传失败');
+            console.error('File upload response did not contain filePath:', uploadResponse);
+            ElMessage.error('文件上传失败，无法获取文件路径。');
+            loadingInstance.close();
             return;
           }
         } else if (!imageUrl.value && submissionForm.value.submissionFileUrl) {
-          // If imageUrl is cleared but submissionFileUrl was present, means user removed it
+          // 如果清除了预览图且之前有URL，说明用户要删除附件
           finalSubmissionFileUrl = '';
+          finalOriginalName = '';
         }
-        submissionForm.value.submissionFileUrl = finalSubmissionFileUrl;
+
+        const payload: SubmissionRequest = {
+          assignmentId: submissionForm.value.assignmentId,
+          submissionContent: submissionForm.value.submissionContent,
+          submissionFileUrl: finalSubmissionFileUrl,
+          submissionFileOriginalName: finalOriginalName
+        };
 
         let response;
         if (isSubmitted.value) {
           // 如果已提交过，则更新
-          response = await updateSubmission(submissionDetail.value!.id, submissionForm.value);
+          response = await updateSubmission(submissionDetail.value!.id, payload);
         } else {
           // 否则，新提交
-          response = await submitAssignment(submissionForm.value);
+          response = await submitAssignment(payload);
         }
 
         if (response.code === 200) {
@@ -179,7 +193,8 @@ watch(() => props.assignmentId, (newVal) => {
     submissionForm.value = {
       assignmentId: 0, // Reset to a default or appropriate value
       submissionContent: '',
-      submissionFileUrl: ''
+      submissionFileUrl: '',
+      submissionFileOriginalName: ''
     };
     isSubmitted.value = false;
     isGraded.value = false;
@@ -193,17 +208,17 @@ watch(() => props.assignmentId, (newVal) => {
 
 <template>
   <div class="student-submission-detail-container" v-loading="loading">
-    <el-card v-if="assignmentDetail" class="assignment-info-card">
+    <el-card v-if="assignmentDetail" class="detail-card">
       <template #header>
         <div class="card-header">
           <span>作业详情</span>
         </div>
       </template>
-      <div>
+      <div class="detail-content">
         <p><strong>作业标题:</strong> {{ assignmentDetail.title }}</p>
         <p><strong>发布教师:</strong> {{ assignmentDetail.teacherName }}</p>
         <p><strong>发布班级:</strong>
-          <el-tag v-for="(name, index) in assignmentDetail.classNames" :key="index" style="margin-right: 5px;">
+          <el-tag v-for="(name, index) in assignmentDetail.classNames" :key="index" style="margin-right: 5px;" class="detail-tag">
             {{ name }}
           </el-tag>
         </p>
@@ -215,19 +230,19 @@ watch(() => props.assignmentId, (newVal) => {
       </div>
     </el-card>
 
-    <el-divider />
+    <el-divider class="custom-divider"/>
 
-    <h3>我的提交</h3>
-    <el-card v-if="isSubmitted" class="submission-info-card">
+    <h3 class="section-title">我的提交</h3>
+    <el-card v-if="isSubmitted" class="detail-card">
       <template #header>
         <div class="card-header">
           <span>已提交</span>
-          <el-tag :type="submissionDetail?.status === 'graded' ? 'success' : (submissionDetail?.status === 'late' ? 'danger' : 'info')">
+          <el-tag :type="submissionDetail?.status === 'graded' ? 'success' : (submissionDetail?.status === 'late' ? 'danger' : 'info')" class="detail-tag">
             {{ submissionDetail?.status === 'submitted' ? '已提交' : (submissionDetail?.status === 'graded' ? '已批改' : '迟交') }}
           </el-tag>
         </div>
       </template>
-      <div>
+      <div class="detail-content">
         <p><strong>提交内容:</strong> {{ submissionDetail?.submissionContent || '无' }}</p>
         <p v-if="submissionDetail?.submissionFileUrl"><strong>提交文件:</strong>
           <el-link type="primary" :href="submissionDetail.submissionFileUrl" target="_blank">点击下载</el-link>
@@ -241,11 +256,11 @@ watch(() => props.assignmentId, (newVal) => {
         </p>
       </div>
     </el-card>
-    <el-alert v-else type="info" show-icon :closable="false">您尚未提交该作业。</el-alert>
+    <el-alert v-else type="info" show-icon :closable="false" class="custom-alert">您尚未提交该作业。</el-alert>
 
-    <el-divider />
+    <el-divider class="custom-divider"/>
 
-    <h3 v-if="!isGraded">{{ isSubmitted ? '修改我的提交' : '提交作业' }}</h3>
+    <h3 v-if="!isGraded" class="section-title">{{ isSubmitted ? '修改我的提交' : '提交作业' }}</h3>
     <el-form
       v-if="!isGraded"
       ref="formRef"
@@ -266,30 +281,20 @@ watch(() => props.assignmentId, (newVal) => {
 
       <el-form-item label="提交附件" prop="submissionFileUrl">
         <el-upload
-          class="avatar-uploader"
+          class="submission-uploader"
+          action="#"
           :auto-upload="false"
-          :show-file-list="false"
           :on-change="handleFileChange"
           :before-upload="beforeFileUpload"
           :file-list="fileList"
-          accept=".pdf,.doc,.docx,.zip,.rar,.7z,.txt,.png,.jpg,.jpeg"
+          :limit="1"
         >
-          <img v-if="imageUrl" :src="imageUrl" class="avatar" alt="Submission Attachment Preview" />
-          <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
-          <template #tip>
-            <div class="el-upload__tip">
-              可上传文档 (pdf/doc/docx/txt)、压缩包 (zip/rar/7z) 或图片 (png/jpg/jpeg) 文件。
-            </div>
-            <div v-if="submissionForm.submissionFileUrl && !submissionFile" class="current-attachment">
-              当前附件: <a :href="submissionForm.submissionFileUrl" target="_blank">{{ submissionForm.submissionFileUrl.substring(submissionForm.submissionFileUrl.lastIndexOf('/') + 1) }}</a>
-              <el-button type="danger" link size="small" @click="submissionForm.submissionFileUrl = ''; imageUrl = ''; fileList = []">移除</el-button>
-            </div>
-          </template>
+          <el-icon class="uploader-icon"><Plus /></el-icon>
         </el-upload>
       </el-form-item>
 
       <el-form-item>
-        <el-button type="primary" @click="handleSubmit">{{ isSubmitted ? '更新提交' : '提交作业' }}</el-button>
+        <el-button type="primary" @click="handleSubmit">提交作业</el-button>
         <el-button @click="handleCancel">取消</el-button>
       </el-form-item>
     </el-form>
@@ -297,49 +302,105 @@ watch(() => props.assignmentId, (newVal) => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .student-submission-detail-container {
-  padding: 20px;
-}
-.assignment-info-card, .submission-info-card {
-  margin-bottom: 20px;
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: bold;
-}
-.avatar-uploader .avatar {
-  width: 178px;
-  height: 178px;
-  display: block;
-}
-.avatar-uploader .el-upload {
-  border: 1px dashed var(--el-border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: var(--el-transition-duration-fast);
-}
-.avatar-uploader .el-upload:hover {
-  border-color: var(--el-color-primary);
-}
-.el-icon.avatar-uploader-icon {
-  font-size: 28px;
-  color: #8c939d;
-  width: 178px;
-  height: 178px;
-  text-align: center;
-}
-.current-attachment {
-  margin-top: 10px;
-  color: #606266;
-  font-size: 14px;
-}
-.current-attachment a {
-  color: #409eff;
-  text-decoration: none;
+  color: #333; // 统一容器内字体颜色
+
+  .section-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+  }
+
+  .detail-card {
+    background-color: rgba(255, 255, 255, 0.4);
+    border: none;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+    .card-header {
+      font-weight: 600;
+      color: #2c3e50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .detail-content p {
+      margin: 8px 0;
+      line-height: 1.6;
+      strong {
+        color: #555;
+      }
+    }
+  }
+
+  .detail-tag {
+    background-color: rgba(64, 158, 255, 0.2);
+    border-color: rgba(64, 158, 255, 0.3);
+    color: #00529b;
+  }
+  
+  .custom-divider {
+    border-color: rgba(0, 0, 0, 0.1);
+    margin: 2rem 0;
+  }
+
+  .custom-alert {
+    background-color: rgba(230, 247, 255, 0.7);
+    border: 1px solid rgba(145, 213, 255, 0.7);
+    color: #004085;
+  }
+
+  :deep(.el-form-item__label) {
+    color: #555;
+    font-weight: 500;
+  }
+
+  :deep(.el-textarea__inner),
+  :deep(.el-input__inner) {
+    background-color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(0, 0, 0, 0.2);
+    &:focus {
+      border-color: #409eff;
+      box-shadow: 0 0 0 1px #409eff;
+    }
+  }
+
+  .submission-uploader {
+    :deep(.el-upload) {
+      background-color: rgba(255, 255, 255, 0.6);
+      border: 1px dashed rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      &:hover {
+        border-color: #409eff;
+        .uploader-icon {
+          color: #409eff;
+        }
+      }
+    }
+    :deep(.el-upload-list__item) {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+    .uploader-icon {
+      font-size: 28px;
+      color: #8c939d;
+    }
+  }
+
+  .el-button {
+    border-radius: 6px;
+  }
+  .el-button--primary {
+    background-color: #409eff;
+    border-color: #409eff;
+    &:hover {
+      background-color: #66b1ff;
+      border-color: #66b1ff;
+    }
+  }
 }
 </style> 

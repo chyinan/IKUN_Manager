@@ -26,7 +26,8 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/carousel")
-public class CarouselController {
+public class
+CarouselController {
 
     @Autowired
     private CarouselService carouselService;

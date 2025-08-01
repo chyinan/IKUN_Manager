@@ -182,7 +182,7 @@ onMounted(() => {
       width="60%"
       destroy-on-close
     >
-      <AssignmentForm :assignment-id="currentAssignmentId" @success="handleFormSuccess" @cancel="dialogVisible = false" />
+      <AssignmentForm :assignment-id="currentAssignmentId || undefined" @success="handleFormSuccess" @cancel="dialogVisible = false" />
     </el-dialog>
   </div>
 </template>

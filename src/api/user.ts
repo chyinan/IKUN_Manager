@@ -28,6 +28,7 @@ export interface PasswordForm {
 export const login = (data: LoginForm): Promise<ApiResponse<LoginData>> => {
   console.log('调用login API, 数据:', data);
   return request.post<ApiResponse<LoginData>>('api/auth/login', data)
+    .then(response => response.data)
     .catch(error => {
         console.error('[API user.ts] Login failed:', error);
         throw error;
@@ -39,6 +40,7 @@ export const login = (data: LoginForm): Promise<ApiResponse<LoginData>> => {
  */
 export const logout = (): Promise<ApiResponse<void>> => {
   return request.post<ApiResponse<void>>('api/user/logout')
+    .then(response => response.data)
     .catch(error => {
         console.error('[API user.ts] Logout request failed (may ignore):', error);
         // Corrected: Return a resolved promise satisfying ApiResponse<void>
@@ -51,6 +53,7 @@ export const logout = (): Promise<ApiResponse<void>> => {
  */
 export const getUserInfo = (): Promise<ApiResponse<UserInfo>> => {
   return request.get<ApiResponse<UserInfo>>('api/user/info')
+    .then(response => response.data)
     .catch(error => {
         console.error('[API user.ts] Fetch user info failed:', error);
         throw error;
@@ -62,6 +65,7 @@ export const getUserInfo = (): Promise<ApiResponse<UserInfo>> => {
  */
 export function updatePassword(passwordData: PasswordUpdateData): Promise<ApiResponse<any>> {
   return request.post<ApiResponse<any>>('api/user/update-password', passwordData)
+    .then(response => response.data)
     .catch(error => {
         console.error('updatePassword API catch block:', error);
         throw error; 
@@ -73,6 +77,7 @@ export function updatePassword(passwordData: PasswordUpdateData): Promise<ApiRes
  */
 export const updateUserInfo = (data: Partial<UserInfo>): Promise<ApiResponse<any>> => {
   return request.put<ApiResponse<any>>('api/user/info', data)
+    .then(response => response.data)
     .catch(error => {
         console.error('[API user.ts] Update user info failed:', error);
         throw error;
@@ -85,6 +90,7 @@ export const updateUserInfo = (data: Partial<UserInfo>): Promise<ApiResponse<any
  */
 export const updateUserProfile = (data: { email?: string; phone?: string; display_name?: string }): Promise<ApiResponse<UserInfo>> => {
   return request.put<ApiResponse<UserInfo>>('api/user/profile', data)
+    .then(response => response.data)
     .catch(error => {
         console.error('[API user.ts] Update user profile details failed:', error);
         throw error;
@@ -98,6 +104,7 @@ export const uploadFile = (file: File): Promise<ApiResponse<{ filePath: string }
   const formData = new FormData();
   formData.append('file', file); // Use 'file' to match generic backend handler
   return request.post<ApiResponse<{ filePath: string }>>('api/upload/file', formData) // Use a generic endpoint
+    .then(response => response.data)
     .catch(error => {
         console.error('[API user.ts] Upload file failed:', error);
         throw error;
@@ -109,6 +116,7 @@ export const uploadAvatar = (file: File): Promise<ApiResponse<{ filePath: string
   const formData = new FormData();
   formData.append('file', file); // Use 'file' to match generic backend handler
   return request.post<ApiResponse<{ filePath: string }>>('api/upload/avatar', formData) // Use a specific endpoint for avatars
+    .then(response => response.data)
     .catch(error => {
       console.error('[API user.ts] Upload avatar failed:', error);
       throw error;

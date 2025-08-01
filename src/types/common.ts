@@ -35,6 +35,14 @@ export interface Pagination {
   total: number
 }
 
+// 分页结果类型
+export interface PageResult<T> {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 // 学生类型 - 从后端接收的格式
 export interface StudentItemResponse extends BaseFields {
   student_id: string // snake_case

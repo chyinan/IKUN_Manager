@@ -59,7 +59,7 @@ service.interceptors.response.use(
 
     const res = response.data // res should be our { code, message, data } structure
 
-    // 特殊处理登录接口 /auth/login 和 /user/info，因为它们直接返回数据，而不是统一响应格式
+    // 特殊处理登录接口 /auth/login，因为它直接返回数据，而不是统一响应格式
     const requestUrl = response.config.url || '';
     if (requestUrl.includes('/auth/login')) {
       if (res && res.accessToken && res.tokenType) {
@@ -71,34 +71,12 @@ service.interceptors.response.use(
         return Promise.reject(new Error('登录响应格式无效'));
       }
     }
-    // Special handling for /user/info - REMOVED: Backend now returns standard ApiResponse for user info.
-    // if (requestUrl.includes('/user/info')) {
-    //   if (res && res.id && res.username) {
-    //      console.log('[Response Interceptor] User info response detected, wrapping it in standard format.');
-    //      // Manually wrap the response in the expected format for the store
-    //      return {
-    //        code: 200,
-    //        message: '成功',
-    //        data: res
-    //      };
-    //   }
-    // }
 
     // Check if it's a blob response (e.g., file download) FIRST
     if (res instanceof Blob) {
       console.log('[Response Interceptor] Blob response detected, returning it directly.');
       return res;
     }
-
-    // NEW: Generic wrapper for non-standard successful responses from Java backend - REMOVED: Backend now returns standard ApiResponse.
-    // if (response.status === 200 && res.code === undefined) {
-    //   console.log('[Response Interceptor] Non-standard success response detected, wrapping it.', res);
-    //   return {
-    //     code: 200,
-    //     message: '成功',
-    //     data: res
-    //   };
-    // }
 
     // Standard API response validation
     if (res.code !== 200) {

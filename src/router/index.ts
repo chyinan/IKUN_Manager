@@ -308,7 +308,7 @@ router.beforeEach(async (to, from, next) => {
       if (hasUserInfo) {
         // 检查角色权限
         if (to.meta.roles) {
-          if (userStore.roles.some(role => to.meta.roles?.includes(role))) {
+          if (userStore.roles.some(role => (to.meta.roles as string[])?.includes(role))) {
             next();
           } else {
             ElMessage.error('无权限访问此页面');
@@ -324,7 +324,7 @@ router.beforeEach(async (to, from, next) => {
           console.log('[Router Guard] Rehydrated user state from session. Proceeding.');
           // 恢复成功后再次检查权限
           if (to.meta.roles) {
-            if (userStore.roles.some(role => to.meta.roles?.includes(role))) {
+            if (userStore.roles.some(role => (to.meta.roles as string[])?.includes(role))) {
               next();
             } else {
               ElMessage.error('无权限访问此页面');

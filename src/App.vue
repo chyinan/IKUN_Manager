@@ -6,7 +6,7 @@ import { logger } from '@/utils/logger'; // Correct import name: logger (lowerca
 import type { BackendLogEntry, IElectronAPI } from '@/preload.d'; // Import IElectronAPI too
 
 // --- Stagewise Toolbar Integration ---
-import { StagewiseToolbar } from '@stagewise/toolbar-vue';
+// import { StagewiseToolbar } from '@stagewise/toolbar-vue';
 
 const isDev = computed(() => import.meta.env.DEV);
 const stagewiseConfig = {

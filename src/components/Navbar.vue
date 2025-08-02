@@ -16,8 +16,6 @@
         <el-switch
           :model-value="isDark"
           inline-prompt
-          :active-icon="Moon"
-          :inactive-icon="Sunny"
           @change="handleThemeChange"
           size="large"
           style="--el-switch-on-color: #2c2c2c; --el-switch-off-color: #f2f2f2;"
@@ -28,20 +26,20 @@
       <el-dropdown class="avatar-container right-menu-item" trigger="click" @command="handleCommand">
         <div class="avatar-wrapper">
           <el-avatar :size="30" :src="userStore.avatar || defaultAvatar" />
-          <span class="username">{{ userStore.userInfo?.display_name || userStore.username }}</span>
+          <span class="username">{{ userStore.userInfo?.displayName || userStore.username }}</span>
           <el-icon class="el-icon-caret-bottom">
-            <CaretBottom />
+            <!-- <CaretBottom /> -->
           </el-icon>
         </div>
 
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="profile">
-              <el-icon><User /></el-icon>
+              <el-icon><!-- <User /> --></el-icon>
               <span>个人中心</span>
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
-              <el-icon><SwitchButton /></el-icon>
+              <el-icon><!-- <SwitchButton /> --></el-icon>
               <span>退出登录</span>
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -58,16 +56,16 @@ import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 // import defaultAvatar from '@/assets/default_avatar.png' // 导入默认头像图片
 const defaultAvatar = new URL('../assets/default-avatar.png', import.meta.url).href;
-import { 
-  Expand, 
-  Fold, 
-  User, 
-  SwitchButton, 
-  CaretBottom,
-  Moon,
-  Sunny
-} from '@element-plus/icons-vue'
-import Breadcrumb from '@/components/Breadcrumb.vue'
+// import { 
+//   Expand, 
+//   Fold, 
+//   User, 
+//   SwitchButton, 
+//   CaretBottom,
+//   Moon,
+//   Sunny
+// } from '@element-plus/icons-vue'
+// import Breadcrumb from '@/components/Breadcrumb.vue'
 
 const router = useRouter()
 const userStore = useUserStore()

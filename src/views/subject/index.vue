@@ -158,7 +158,7 @@ const handleSubmit = () => {
       try {
         if (currentSubjectId !== null) {
           // 更新
-          await updateSubject(currentSubjectId, payload as { name: string; subject_code?: string });
+          await updateSubject(currentSubjectId, payload);
           ElMessage.success('更新成功');
         } else {
           // 新增

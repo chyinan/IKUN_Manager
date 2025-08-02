@@ -146,9 +146,10 @@ const fetchAssignmentCount = async () => {
 
 const fetchExamCount = async () => {
   try {
-    const res: ApiResponse<ExamStats> = await getExamStats()
-    if (res?.code === 200 && res.data) {
-      statCards.value[3].value = (res.data.total ?? 0).toString()
+    const res = await getExamStats()
+    const response = res as any;
+    if (response && response.code === 200 && response.data && response.data.total !== undefined) {
+              statCards.value[3].value = (response.data.total ?? 0).toString()
     }
   } catch (err) {
     console.error('获取考试数量失败', err)

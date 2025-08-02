@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { SubmissionStatus } from '@/api/submission'
 import type { SubmissionResponse } from '@/api/submission'
@@ -11,6 +11,7 @@ import GradeSubmission from './GradeSubmission.vue' // 导入批改组件
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 const assignmentId = computed(() => Number(route.params.id))
 
@@ -114,7 +115,7 @@ onMounted(() => {
        <template #header>
         <div class="card-header">
           <span>提交记录</span>
-          <el-button @click="$router.back()">返回作业列表</el-button>
+          <el-button @click="router.back()">返回作业列表</el-button>
         </div>
        </template>
 
@@ -157,7 +158,7 @@ onMounted(() => {
       width="50%"
       destroy-on-close
     >
-      <GradeSubmission :submission-id="currentSubmissionId" @success="handleGradeSuccess" @cancel="dialogVisible = false" />
+      <GradeSubmission :submission-id="currentSubmissionId || 0" @success="handleGradeSuccess" @cancel="dialogVisible = false" />
     </el-dialog>
   </div>
 </template>

@@ -192,7 +192,7 @@ const mapExamItemResponseToExamType = (item: ExamItemResponse): ExamType => ({
   examDate: item.exam_date, // This field should contain the full start datetime string
   startTime: item.start_time,
   duration: item.duration,
-  status: convertStatus(item.status),
+  status: Number(convertStatus(item.status)),
   description: item.description,
   createTime: item.create_time,
   subjects: item.subjects ? item.subjects.split(',') : [],
@@ -212,7 +212,7 @@ const fetchExams = async () => {
   try {
     const res = await getExamList({ page: 1, pageSize: 9999 });
     if (res.code === 200) {
-      allExams.value = res.data.map(mapExamItemResponseToExamType);
+      allExams.value = res.data.list.map(mapExamItemResponseToExamType);
       handleFilter(); // Apply initial filter
     } else {
       ElMessage.error(res.message || '获取考试列表失败');
@@ -387,8 +387,8 @@ const handleSubmit = async () => {
           // Ensure subjectIds and classIds are included in the submission
           subjectIds: examForm.value.subjectIds || [],
           classIds: examForm.value.classIds || [],
-          exam_date: examForm.value.exam_date ? dayjs(examForm.value.exam_date).format('YYYY-MM-DD HH:mm:ss') : null,
-          start_time: examForm.value.start_time ? dayjs(examForm.value.start_time).format('YYYY-MM-DD HH:mm:ss') : null,
+          exam_date: examForm.value.exam_date ? new Date(dayjs(examForm.value.exam_date).format('YYYY-MM-DD HH:mm:ss')) : null,
+          start_time: examForm.value.start_time ? new Date(dayjs(examForm.value.start_time).format('YYYY-MM-DD HH:mm:ss')) : null,
           // 默认状态：未开始(0)，除非已有
           status: (examForm.value as any).status ?? 0
         };

@@ -91,7 +91,7 @@ const populateFormFromStore = () => {
 onMounted(async () => {
   // If userInfo is not available, fetch it. The watcher will populate the form.
   if (!userStore.userInfo) {
-    await userStore.getUserInfo();
+    await userStore.getUserInfoAction();
   } else {
     populateFormFromStore();
   }
@@ -130,7 +130,7 @@ const handleSubmit = async () => {
         if (res.code === 200) {
           ElMessage.success('个人信息更新成功');
           // Update user store with new info returned from the API
-          await userStore.getUserInfo(); // Re-fetch to ensure store is synced
+          await userStore.getUserInfoAction(); // Re-fetch to ensure store is synced
         } else {
           ElMessage.error(res.message || '更新失败');
         }

@@ -267,10 +267,11 @@ const fetchExamStats = async () => {
   try {
     const response = await getExamStats()
     console.log('Exam Stats Response:', response)
-    if (response?.code === 200 && response.data) {
+    const responseData = response as any;
+    if (responseData && responseData.code === 200 && responseData.data && responseData.data.total !== undefined) {
       // Corrected: Assert type for statsData
-      const statsData: ExamStats = response.data;
-      statCards.value[3].value = statsData.total?.toString() || '0'
+              const statsData: ExamStats = responseData.data;
+        statCards.value[3].value = statsData.total?.toString() || '0'
 
       // Update chart data if typeDistribution exists
       if (Array.isArray(statsData.typeDistribution)) {
@@ -289,7 +290,7 @@ const fetchExamStats = async () => {
           console.warn('typeDistribution is missing or not an array in exam stats response');
       }
     } else {
-      console.error('获取考试统计失败:', response?.message || '未知错误')
+      console.error('获取考试统计失败:', responseData?.message || '未知错误')
     }
   } catch (error: any) {
     console.error('获取考试统计时出错:', error)

@@ -4,6 +4,7 @@ import type { StudentItemResponse, StudentSubmitData, ApiResponse } from '@/type
 // 获取学生列表
 export const getStudentList = (params?: any): Promise<ApiResponse<StudentItemResponse[]>> => {
   return request.get<ApiResponse<StudentItemResponse[]>>('/api/student/list', { params })
+    .then(response => response.data)
     .catch(error => {
         console.error('[API student.ts] Error fetching student list:', error);
         throw error;
@@ -13,6 +14,7 @@ export const getStudentList = (params?: any): Promise<ApiResponse<StudentItemRes
 // 获取学生详情
 export const getStudentDetail = (id: number): Promise<ApiResponse<StudentItemResponse>> => {
   return request.get<ApiResponse<StudentItemResponse>>(`/api/student/${id}`)
+    .then(response => response.data)
     .catch(error => {
         console.error(`[API student.ts] Error fetching student detail for ID ${id}:`, error);
         throw error;
@@ -23,6 +25,7 @@ export const getStudentDetail = (id: number): Promise<ApiResponse<StudentItemRes
 export const addStudent = (data: StudentSubmitData): Promise<ApiResponse<StudentItemResponse>> => {
   console.log('调用addStudent API, 数据:', data);
   return request.post<ApiResponse<StudentItemResponse>>('/api/student/add', data)
+    .then(response => response.data)
     .catch(error => {
         console.error('[API student.ts] Error adding student:', error);
         throw error;
@@ -33,6 +36,7 @@ export const addStudent = (data: StudentSubmitData): Promise<ApiResponse<Student
 export const updateStudent = (id: number, data: StudentSubmitData): Promise<ApiResponse<StudentItemResponse>> => {
   console.log('调用updateStudent API, ID:', id, '数据:', data);
   return request.put<ApiResponse<StudentItemResponse>>(`/api/student/${id}`, data)
+    .then(response => response.data)
     .catch(error => {
         console.error(`[API student.ts] Error updating student ID ${id}:`, error);
         throw error;
@@ -43,6 +47,7 @@ export const updateStudent = (id: number, data: StudentSubmitData): Promise<ApiR
 export const deleteStudent = (id: number): Promise<ApiResponse<void>> => {
   console.log('调用deleteStudent API, ID:', id);
   return request.delete<ApiResponse<void>>(`/api/student/${id}`)
+    .then(response => response.data)
     .catch(error => {
         console.error(`[API student.ts] Error deleting student ID ${id}:`, error);
         throw error;
@@ -52,6 +57,7 @@ export const deleteStudent = (id: number): Promise<ApiResponse<void>> => {
 // 批量删除学生
 export const batchDeleteStudent = (ids: number[]): Promise<ApiResponse<void>> => {
   return request.delete<ApiResponse<void>>('/api/student/batch', { data: { ids } })
+    .then(response => response.data)
     .catch(error => {
         console.error('[API student.ts] Error batch deleting students:', error);
         throw error;
@@ -61,6 +67,7 @@ export const batchDeleteStudent = (ids: number[]): Promise<ApiResponse<void>> =>
 // 获取学生统计数据
 export function getStudentStats(): Promise<ApiResponse<any>> {
   return request.get<ApiResponse<any>>('/api/student/stats')
+    .then(response => response.data)
     .catch(error => {
         console.error('getStudentStats API catch block:', error);
         throw error; 
@@ -86,7 +93,7 @@ export const importStudents = (file: File): Promise<ApiResponse<any>> => {
         console.log(`[API student.ts] Upload Progress: ${percentCompleted}%`);
       }
     }
-  }).catch(error => {
+  }).then(response => response.data).catch(error => {
       console.error('[API student.ts] Student import request failed:', error);
       throw error;
     });
@@ -98,7 +105,7 @@ export const exportStudents = (params?: any): Promise<Blob> => {
   return request.get<Blob>('/api/student/export', {
     params,
     responseType: 'blob' // Important: Tell Axios to expect a Blob
-  }).catch(error => {
+  }).then(response => response.data).catch(error => {
       console.error('[API student.ts] Export students request failed:', error);
       throw error;
     });
@@ -107,6 +114,7 @@ export const exportStudents = (params?: any): Promise<Blob> => {
 // 获取最大学生ID
 export const getMaxStudentId = (): Promise<ApiResponse<string>> => {
   return request.get<ApiResponse<string>>('/api/student/max-id')
+    .then(response => response.data)
     .catch(error => {
         console.error('[API student.ts] Error fetching max student ID:', error);
         throw error;

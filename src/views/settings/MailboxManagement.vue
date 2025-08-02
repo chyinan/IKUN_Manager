@@ -142,7 +142,7 @@ const mapMessages = (messages: any[]): Message[] => {
   return messages.map((m: any) => {
     // 安全地获取发送者ID，兼容 snake_case 和 camelCase
     const senderId = m.senderUserId ?? m.sender_user_id;
-    const role = senderId === userStore.userInfo.id ? 'admin' : 'student';
+    const role = senderId === userStore.userInfo?.id ? 'admin' : 'student';
 
     return {
       ...m,

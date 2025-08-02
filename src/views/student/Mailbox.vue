@@ -32,10 +32,10 @@
       <div v-else class="thread-detail-view">
         <el-page-header @back="selectedThreadId = null" :content="selectedThread?.title || '对话详情'" />
         <div class="messages-area" ref="messagesAreaRef">
-          <div v-for="message in messages" :key="message.id" class="message" :class="{ 'my-message': message.senderUserId === userStore.userInfo?.id }">
+          <div v-for="message in messages" :key="message.id" class="message" :class="{ 'my-message': message.sender_user_id === userStore.userInfo?.id }">
             <el-avatar :src="userStore.getFullAvatarUrl(message.senderAvatar)" :icon="UserFilled" size="small" />
-            <div class="message-content">
-              <div class="message-sender">{{ message.senderName }} <span class="message-time">{{ formatTime(message.createTime) }}</span></div>
+                          <div class="message-content">
+                <div class="message-sender">{{ message.sender_name }} <span class="message-time">{{ formatTime(message.create_time) }}</span></div>
               <div class="message-bubble" v-html="message.content"></div>
             </div>
           </div>

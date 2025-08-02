@@ -38,6 +38,7 @@ const rules = {
 const fileList = ref<any[]>([])
 const attachmentFile = ref<File | null>(null)
 const imageUrl = ref<string>('')
+const currentAssignmentId = ref<number | null>(null)
 
 // 处理文件选择
 const handleFileChange: UploadProps['onChange'] = (uploadFile, uploads) => {
@@ -112,10 +113,11 @@ const handleSubmit = async () => {
         if (attachmentFile.value) {
           // Upload new file if selected
           const uploadResponse = await uploadFile(attachmentFile.value, 'assignment_attachments');
-          if (uploadResponse.code === 200 && uploadResponse.data) {
-            finalAttachmentUrl = uploadResponse.data.url;
+          const response = uploadResponse as any;
+          if (response && response.code === 200 && response.data && response.data.url) {
+            finalAttachmentUrl = response.data.url;
           } else {
-            ElMessage.error(uploadResponse.message || '附件上传失败');
+            ElMessage.error(response?.message || '附件上传失败');
             return;
           }
         } else if (!imageUrl.value && assignmentForm.value.attachmentUrl) {
@@ -125,7 +127,7 @@ const handleSubmit = async () => {
 
         assignmentForm.value.attachmentUrl = finalAttachmentUrl;
 
-        let response: ApiResponse<AssignmentResponse>;
+        let response: any;
         if (props.assignmentId) {
           response = await updateAssignment(props.assignmentId, assignmentForm.value);
         } else {

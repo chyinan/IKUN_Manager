@@ -36,7 +36,7 @@ const loadSubmissionDetail = async (id: number) => {
     if (response.code === 200 && response.data) {
       submissionDetail.value = response.data
       // 如果已经有分数和评语，则填充表单
-      if (response.data.grade !== null) {
+      if (response.data.grade !== null && response.data.grade !== undefined) {
         gradeForm.value.grade = response.data.grade
       }
       if (response.data.teacherComment !== null) {
@@ -147,7 +147,7 @@ watch(() => props.submissionId, (newVal) => {
         <p><strong>提交内容:</strong> {{ submissionDetail.submissionContent || '无' }}</p>
         <p v-if="submissionDetail.submissionFileUrl">
           <strong>提交文件:</strong> 
-          <el-button type="primary" link @click="handleDownload(submissionDetail.submissionFileUrl!, submissionDetail.submissionFileOriginalName)">
+          <el-button type="primary" link @click="handleDownload(submissionDetail.submissionFileUrl as string, submissionDetail.submissionFileOriginalName || '')" v-if="submissionDetail.submissionFileUrl && submissionDetail.submissionFileOriginalName && submissionDetail.submissionFileUrl !== null">
             {{ submissionDetail.submissionFileOriginalName || '点击下载' }}
           </el-button>
         </p>

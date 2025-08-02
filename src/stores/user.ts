@@ -150,7 +150,7 @@ export const useUserStore = defineStore('user', () => {
           displayName: receivedApiUserInfo.displayName,
           studentInfo: receivedApiUserInfo.studentInfo ? {
             ...receivedApiUserInfo.studentInfo,
-            student_pk: receivedApiUserInfo.studentInfo.studentPk ?? (receivedApiUserInfo.studentInfo as any).student_pk
+            student_pk: receivedApiUserInfo.studentInfo.student_pk ?? (receivedApiUserInfo.studentInfo as any).studentPk
           } : null,
           phone: receivedApiUserInfo.phone || null
         };
@@ -236,7 +236,7 @@ export const useUserStore = defineStore('user', () => {
       return;
     }
     try {
-      const response = await apiUpdateUserProfile({ id: userInfo.value.id, email: newEmail });
+      const response = await apiUpdateUserProfile({ email: newEmail });
       if (response && response.data) {
         if (userInfo.value) {
           userInfo.value.email = newEmail;
@@ -260,9 +260,11 @@ export const useUserStore = defineStore('user', () => {
       return Promise.reject("缺少用户信息");
     }
 
+    // 过滤掉不需要的字段，只保留允许更新的字段
     const updateData = {
-      ...data,
-      id: userInfo.value.id
+      email: data.email,
+      phone: data.phone || undefined, // 将null转换为undefined
+      display_name: data.displayName
     };
 
     try {

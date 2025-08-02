@@ -518,7 +518,7 @@ const fetchStudentScores = async (studentId: number, examId: number) => {
     console.log('获取学生成绩响应:', res);
 
     if (res && res.code === 200 && Array.isArray(res.data)) {
-      const scoresList = res.data as Score[]; // Assert type as Score array
+      const scoresList = res.data as any[]; // Assert type as Score array
 
       // 1. Update active subjects and initialize scoreForm/originalScores
       const newActiveSubjects: string[] = [];

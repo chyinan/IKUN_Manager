@@ -6,7 +6,6 @@ import com.ikunmanager.dto.AssignmentCreateRequest;
 import com.ikunmanager.dto.AssignmentResponse;
 import com.ikunmanager.entity.Assignment;
 import com.ikunmanager.service.AssignmentService;
-import com.ikunmanager.model.User;
 import com.ikunmanager.security.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

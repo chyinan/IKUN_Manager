@@ -1,7 +1,6 @@
 package com.ikunmanager.common;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 public class ApiResponse<T> {
     private int code;

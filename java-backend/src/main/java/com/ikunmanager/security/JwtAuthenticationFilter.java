@@ -1,6 +1,5 @@
 package com.ikunmanager.security;
 
-import com.ikunmanager.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

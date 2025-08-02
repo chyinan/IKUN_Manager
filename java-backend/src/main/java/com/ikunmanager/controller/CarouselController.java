@@ -67,7 +67,7 @@ CarouselController {
         if (originalFilename != null && originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
-        String fileName = UUID.randomUUID().toString() + fileExtension; // 使用UUID作为文件名
+        String fileName = UUID.randomUUID() + fileExtension; // 使用UUID作为文件名
         Path filePath = carouselUploadPath.resolve(fileName);
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 

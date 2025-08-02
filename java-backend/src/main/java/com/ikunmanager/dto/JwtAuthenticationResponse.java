@@ -10,4 +10,9 @@ public class JwtAuthenticationResponse {
     public JwtAuthenticationResponse(String accessToken) {
         this.accessToken = accessToken;
     }
+
+    // Explicitly add getter for tokenType to ensure it's serialized
+    public String getTokenType() {
+        return tokenType;
+    }
 }

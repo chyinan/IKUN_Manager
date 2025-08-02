@@ -32,6 +32,7 @@ export const useConfigStore = defineStore('config', () => {
         // Use default fallbacks if fetch fails
         studentIdRegex.value = '^S\\d{8}$'; 
         employeeIdRegex.value = '^E\\d{5}$';
+        isLoaded.value = true; // Mark as loaded even on fetch failure to use fallbacks
       }
     } catch (err: any) {
       console.error('[ConfigStore] Error fetching config:', err);
@@ -39,7 +40,7 @@ export const useConfigStore = defineStore('config', () => {
       // Use default fallbacks on error
       studentIdRegex.value = '^S\\d{8}$'; 
       employeeIdRegex.value = '^E\\d{5}$';
-    } finally {
+      isLoaded.value = true; // Mark as loaded on error to use fallbacks    } finally {
       isLoading.value = false;
     }
   }

@@ -212,7 +212,7 @@ const fetchExams = async () => {
   try {
     const res = await getExamList({ page: 1, pageSize: 9999 });
     if (res.code === 200) {
-      allExams.value = res.data.list.map(mapExamItemResponseToExamType);
+      allExams.value = res.data.map(mapExamItemResponseToExamType);
       handleFilter(); // Apply initial filter
     } else {
       ElMessage.error(res.message || '获取考试列表失败');

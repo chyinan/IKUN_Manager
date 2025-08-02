@@ -10,10 +10,6 @@ import type { AxiosResponse } from 'axios'
 export function getExamList(params?: any): Promise<ApiResponse<ExamListResponse>> {
   console.log('调用getExamList API, 参数:', params);
   return request.get<ApiResponse<ExamListResponse>>('/api/exam/list', { params })
-    .then(response => {
-        console.log('[getExamList API] 完整响应:', response.data);
-        return response.data; // 确保返回完整的响应对象
-    })
     .catch(error => {
       console.error('考试列表API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -33,7 +29,6 @@ export function getExamList(params?: any): Promise<ApiResponse<ExamListResponse>
 export function getExamDetail(id: number): Promise<ApiResponse<ExamInfo>> {
   console.log('调用getExamDetail API, ID:', id); // 这里是修正后的行，注意单引号转义
   return request.get<ApiResponse<ExamInfo>>(`/api/exam/${id}`)
-    .then(response => response.data)
     .catch(error => {
       console.error('考试详情API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -54,7 +49,6 @@ export function getExamDetail(id: number): Promise<ApiResponse<ExamInfo>> {
 export function addExam(data: Partial<ExamFormData>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用addExam API, 数据:', data);
   return request.post<ApiResponse<ExamInfo>>('/api/exam/add', data)
-    .then(response => response.data)
     .catch(error => {
       console.error('添加考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -76,7 +70,6 @@ export function addExam(data: Partial<ExamFormData>): Promise<ApiResponse<ExamIn
 export function updateExam(id: number, data: Partial<ExamFormData>): Promise<ApiResponse<ExamInfo>> {
   console.log('调用updateExam API, ID:', id, '数据:', data); // 这里是修正后的行
   return request.put<ApiResponse<ExamInfo>>('/api/exam/update', data)
-    .then(response => response.data)
     .catch(error => {
       console.error('更新考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -97,7 +90,6 @@ export function updateExam(id: number, data: Partial<ExamFormData>): Promise<Api
 export function deleteExam(id: number): Promise<ApiResponse<void>> {
   console.log('调用deleteExam API, ID:', id); // 这里是修正后的行
   return request.delete<ApiResponse<void>>(`/api/exam/delete/${id}`)
-    .then(response => response.data)
     .catch(error => {
       console.error('删除考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -116,7 +108,7 @@ export function deleteExam(id: number): Promise<ApiResponse<void>> {
  */
 export function batchDeleteExam(ids: number[]): Promise<ApiResponse<void>> {
   console.log('调用batchDeleteExam API, IDs:', ids); // 这里是修正后的行
-  return request.delete<ApiResponse<void>>('/api/exam/batch', { data: { ids } }).then(response => response.data)
+  return request.delete<ApiResponse<void>>('/api/exam/batch', { data: { ids } })
     .catch(error => {
       console.error('批量删除考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -156,7 +148,7 @@ export function importExams(file: File) {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
-  }).then(response => response.data)
+  })
 }
 
 /**
@@ -178,7 +170,7 @@ export function exportExams(params?: any) {
 export function getClassOptions(): Promise<ApiResponse<{ id: number; class_name: string }[]>> {
   console.log('调用getClassOptions API');
   // 假设后端或 mock 返回 ApiResponse<{ id: number; class_name: string }[]>;
-  return request.get<ApiResponse<{ id: number; class_name: string }[]>>('/api/class/options').then(response => response.data)
+  return request.get<ApiResponse<{ id: number; class_name: string }[]>>('/api/class/options')
     .catch(error => {
       console.error('班级选项API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -197,7 +189,7 @@ export function getClassOptions(): Promise<ApiResponse<{ id: number; class_name:
  */
 export function getExamTypeOptions(): Promise<ApiResponse<string[]>> {
   console.log('调用getExamTypeOptions API');
-  return request.get<ApiResponse<string[]>>('/api/exam/types').then(response => response.data)
+  return request.get<ApiResponse<string[]>>('/api/exam/types')
     .catch(error => {
       console.error('考试类型选项API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -216,7 +208,7 @@ export function getExamTypeOptions(): Promise<ApiResponse<string[]>> {
  */
 export function publishExam(id: number): Promise<ApiResponse<null>> {
   console.log('调用publishExam API, ID:', id);
-  return request.put<ApiResponse<null>>(`/api/exam/${id}/publish`).then(response => response.data)
+  return request.put<ApiResponse<null>>(`/api/exam/${id}/publish`)
     .catch(error => {
       console.error('发布考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -235,7 +227,7 @@ export function publishExam(id: number): Promise<ApiResponse<null>> {
  */
 export function unpublishExam(id: number): Promise<ApiResponse<null>> {
   console.log('调用unpublishExam API, ID:', id);
-  return request.put<ApiResponse<null>>(`/api/exam/${id}/unpublish`).then(response => response.data)
+  return request.put<ApiResponse<null>>(`/api/exam/${id}/unpublish`)
     .catch(error => {
       console.error('取消发布考试API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -255,7 +247,7 @@ export function unpublishExam(id: number): Promise<ApiResponse<null>> {
  */
 export function updateExamStatus(id: number, status: number): Promise<ApiResponse<void>> {
   console.log('调用updateExamStatus API, ID:', id, '状态:', status);
-  return request.put<ApiResponse<void>>(`/api/exam/${id}/status`, { status }).then(response => response.data)
+  return request.put<ApiResponse<void>>(`/api/exam/${id}/status`, { status })
     .catch(error => {
       console.error('更新考试状态API请求失败:', error);
       if (error.response && error.response.data && error.response.data.message) {
@@ -275,7 +267,7 @@ export function updateExamStatus(id: number, status: number): Promise<ApiRespons
  */
 export function createExamIfNotExists(data: Partial<ExamFormData>): Promise<ApiResponse<ExamItemResponse>> {
   console.log('调用createExamIfNotExists API, 数据:', data);
-  return request.post<ApiResponse<ExamItemResponse>>('/api/exam/create-if-not-exists', data).then(response => response.data)
+  return request.post<ApiResponse<ExamItemResponse>>('/api/exam/create-if-not-exists', data)
     .catch(error => {
       console.error('创建考试（如果不存在）API请求失败:', error);
       throw error;
@@ -288,7 +280,7 @@ export function createExamIfNotExists(data: Partial<ExamFormData>): Promise<ApiR
  */
 export function getExamListByType(examType: string): Promise<ApiResponse<ExamItemResponse[]>> {
   console.log('调用getExamListByType API, 考试类型:', examType);
-  return request.get<ApiResponse<ExamItemResponse[]>>(`/api/exam/type/${examType}`).then(response => response.data)
+  return request.get<ApiResponse<ExamItemResponse[]>>(`/api/exam/type/${examType}`)
     .catch(error => {
       console.error('根据考试类型获取考试列表API请求失败:', error);
       throw error;
@@ -300,7 +292,7 @@ export function getExamListByType(examType: string): Promise<ApiResponse<ExamIte
  */
 export function getExamTypes(): Promise<ApiResponse<string[]>> {
   console.log('调用getExamTypes API');
-  return request.get<ApiResponse<string[]>>('/api/exam/types').then(response => response.data)
+  return request.get<ApiResponse<string[]>>('/api/exam/types')
     .catch(error => {
       console.error('获取考试类型API请求失败:', error);
       throw error;
@@ -312,7 +304,7 @@ export function getExamTypes(): Promise<ApiResponse<string[]>> {
  */
 export function getExamStatuses(): Promise<ApiResponse<string[]>> {
   console.log('调用getExamStatuses API');
-  return request.get<ApiResponse<string[]>>('/api/exam/statuses').then(response => response.data)
+  return request.get<ApiResponse<string[]>>('/api/exam/statuses')
     .catch(error => {
       console.error('获取考试状态API请求失败:', error);
       throw error;
@@ -324,7 +316,7 @@ export function getExamStatuses(): Promise<ApiResponse<string[]>> {
  */
 export function getExamSubjects(): Promise<ApiResponse<Subject[]>> { // <<< Ensure this export exists
   console.log('调用getExamSubjects API');
-  return request.get<ApiResponse<Subject[]>>('/api/exam/subjects').then(response => response.data)
+  return request.get<ApiResponse<Subject[]>>('/api/exam/subjects')
     .catch(error => {
       console.error('获取考试科目列表API请求失败:', error);
       throw error;
@@ -337,7 +329,7 @@ export function getExamSubjects(): Promise<ApiResponse<Subject[]>> { // <<< Ensu
  */
 export function checkExamCanDelete(id: number): Promise<ApiResponse<{ canDelete: boolean; message?: string }>> {
   console.log('调用checkExamCanDelete API, ID:', id);
-  return request.get<ApiResponse<{ canDelete: boolean; message?: string }>>(`/api/exam/${id}/can-delete`).then(response => response.data)
+  return request.get<ApiResponse<{ canDelete: boolean; message?: string }>>(`/api/exam/${id}/can-delete`)
     .catch(error => {
       console.error('检查考试是否可删除API请求失败:', error);
       throw error;

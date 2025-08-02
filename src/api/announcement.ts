@@ -16,11 +16,7 @@ export interface Announcement {
  * @returns A promise with the list of announcements.
  */
 export function getAnnouncements(params?: any): Promise<ApiResponse<Announcement[]>> {
-  return request({
-    url: 'api/announcements', // Added api/
-    method: 'get',
-    params,
-  });
+  return request.get<ApiResponse<Announcement[]>>('api/announcements', { params });
 }
 
 // --- Admin Functions ---
@@ -35,10 +31,7 @@ export interface AdminAnnouncement extends Announcement {
  * @returns A promise with all announcements.
  */
 export function getAllAnnouncementsAdmin(): Promise<ApiResponse<AdminAnnouncement[]>> {
-  return request({
-    url: 'api/announcements/all', // Added api/
-    method: 'get',
-  });
+  return request.get<ApiResponse<AdminAnnouncement[]>>('api/announcements/all');
 }
 
 /**
@@ -47,11 +40,7 @@ export function getAllAnnouncementsAdmin(): Promise<ApiResponse<AdminAnnouncemen
  * @returns A promise with the created announcement.
  */
 export function createAnnouncement(data: Partial<AdminAnnouncement>): Promise<ApiResponse<Announcement>> {
-  return request({
-    url: 'api/announcements', // Added api/
-    method: 'post',
-    data,
-  });
+  return request.post<ApiResponse<Announcement>>('api/announcements', data);
 }
 
 /**
@@ -61,11 +50,7 @@ export function createAnnouncement(data: Partial<AdminAnnouncement>): Promise<Ap
  * @returns A promise with the updated announcement.
  */
 export function updateAnnouncement(id: number, data: Partial<AdminAnnouncement>): Promise<ApiResponse<Announcement>> {
-  return request({
-    url: `api/announcements/${id}`, // Added api/
-    method: 'put',
-    data,
-  });
+  return request.put<ApiResponse<Announcement>>(`api/announcements/${id}`, data);
 }
 
 /**
@@ -74,8 +59,5 @@ export function updateAnnouncement(id: number, data: Partial<AdminAnnouncement>)
  * @returns A promise.
  */
 export function deleteAnnouncement(id: number): Promise<ApiResponse<null>> {
-  return request({
-    url: `api/announcements/${id}`, // Added api/
-    method: 'delete',
-  });
+  return request.delete<ApiResponse<null>>(`api/announcements/${id}`);
 }

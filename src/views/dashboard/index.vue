@@ -46,7 +46,7 @@
           <div class="shortcut-grid">
             <template v-for="(item, index) in shortcuts" :key="index">
               <div 
-                v-if="item.path !== '/log' || (item.path === '/log' && userInfo?.username === 'admin')" 
+                v-if="!(['/class', '/student', '/dept', '/exam'].includes(item.path) && userInfo?.role === 'admin') && (item.path !== '/log' || (item.path === '/log' && userInfo?.role === 'admin'))" 
                 class="shortcut-item"
                 @click="navigateTo(item.path)"
               >

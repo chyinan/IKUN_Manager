@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { login, logout, getUserInfo, updateUserProfile as apiUpdateUserProfile } from '@/api/user'
 import { ElMessage } from 'element-plus'
 import type { LoginData, UserInfo, ApiResponse } from '@/types/common'
+import { useAppStore } from './app';
 
 const USER_INFO_KEY = 'user_info';
 // The base URL for accessing uploaded files from the backend.
@@ -194,16 +195,23 @@ export const useUserStore = defineStore('user', () => {
   // Reset State
   const resetState = () => {
     console.log('[userStore resetState] Resetting user state...');
+    const appStore = useAppStore(); // Get app store instance
+    
     token.value = ''
     userInfo.value = null
     username.value = ''
     avatar.value = ''
     roles.value = []
     permissions.value = []
+    
     localStorage.removeItem('token')
     localStorage.removeItem('user_avatar_url')
     localStorage.removeItem('user-info'); 
+    localStorage.removeItem('theme'); // Remove theme from storage
     sessionStorage.removeItem(USER_INFO_KEY); 
+    
+    appStore.toggleDarkMode(false); // Explicitly set to light mode
+    
     console.log('[userStore resetState] State has been reset.');
   };
 
@@ -313,4 +321,4 @@ export const useUserStore = defineStore('user', () => {
     getFullAvatarUrl,
     clearAllAuthData
   }
-}) 
+})

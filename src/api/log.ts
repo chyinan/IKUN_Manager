@@ -9,7 +9,6 @@ import type { PageInfo } from '@/types/page'
  */
 export const getLogList = (params?: LogQueryParams): Promise<ApiResponse<PageInfo<LogEntry>>> => {
   return request.get<ApiResponse<PageInfo<LogEntry>>>('/api/log/list', { params })
-    .then(response => response.data)
     .catch(error => {
         console.error('[API log.ts] Error fetching log list:', error);
         throw error;
@@ -21,7 +20,7 @@ export const getLogList = (params?: LogQueryParams): Promise<ApiResponse<PageInf
  * @param id 日志ID
  */
 export function getLogDetail(id: number) {
-  return request.get<ApiResponse<any>>(`/api/log/${id}`).then(response => response.data)
+  return request.get<ApiResponse<any>>(`/api/log/${id}`)
 }
 
 /**
@@ -29,7 +28,7 @@ export function getLogDetail(id: number) {
  * @param id 日志ID
  */
 export function deleteLog(id: number) {
-  return request.delete<ApiResponse<void>>(`/api/log/${id}`).then(response => response.data)
+  return request.delete<ApiResponse<void>>(`/api/log/${id}`)
 }
 
 /**
@@ -37,7 +36,7 @@ export function deleteLog(id: number) {
  * @param ids 日志ID数组
  */
 export const batchDeleteLogs = (ids: number[]): Promise<ApiResponse<void>> => {
-  return request.delete<ApiResponse<void>>('/api/log/batchDelete', { data: ids }).then(response => response.data)
+  return request.delete<ApiResponse<void>>('/api/log/batchDelete', { data: ids })
     .catch(error => {
         console.error('[API log.ts] Error batch deleting logs:', error);
         throw error;
@@ -48,7 +47,7 @@ export const batchDeleteLogs = (ids: number[]): Promise<ApiResponse<void>> => {
  * 清空日志
  */
 export const clearLogs = (): Promise<ApiResponse<void>> => {
-  return request.delete<ApiResponse<void>>('/api/log/clear').then(response => response.data)
+  return request.delete<ApiResponse<void>>('/api/log/clear')
     .catch(error => {
         console.error('[API log.ts] Error clearing logs:', error);
         throw error;
@@ -76,7 +75,7 @@ interface AddLogData {
 
 // 添加前端日志 (发送到后端)
 export const addFrontendLog = (logData: AddLogData): Promise<ApiResponse<void>> => {
-  return request.post<ApiResponse<void>>('/api/log/add', logData).then(response => response.data) // Assuming endpoint exists
+  return request.post<ApiResponse<void>>('/api/log/add', logData) // Assuming endpoint exists
     .catch(error => {
       console.error('[API log.ts] Failed to send frontend log to server:', error);
       // Corrected: Return a resolved promise satisfying ApiResponse<void>

@@ -7,10 +7,7 @@ import type { SubjectInfo } from '@/types/subject';
  * 获取所有科目的列表
  */
 export const getSubjectList = (): Promise<ApiResponse<SubjectInfo[]>> => {
-  return request({
-    url: '/api/subject/list', // 确保路径正确
-    method: 'get',
-  });
+  return request.get<ApiResponse<SubjectInfo[]>>('/api/subject/list');
 };
 
 /**
@@ -18,11 +15,7 @@ export const getSubjectList = (): Promise<ApiResponse<SubjectInfo[]>> => {
  * @param data - 科目信息 { subject_name: string, subject_code?: string }
  */
 export const addSubject = (data: { subject_name: string; subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
-  return request({
-    url: '/api/subject/add', // 确保路径正确
-    method: 'post',
-    data,
-  });
+  return request.post<ApiResponse<SubjectInfo>>('/api/subject/add', data);
 };
 
 /**
@@ -31,11 +24,7 @@ export const addSubject = (data: { subject_name: string; subject_code?: string }
  * @param data - 需要更新的科目信息
  */
 export const updateSubject = (id: number, data: { subject_name: string; subject_code?: string }): Promise<ApiResponse<SubjectInfo>> => {
-  return request({
-    url: `/api/subject/update/${id}`, // 确保路径正确
-    method: 'put',
-    data,
-  });
+  return request.put<ApiResponse<SubjectInfo>>(`/api/subject/update/${id}`, data);
 };
 
 /**
@@ -43,8 +32,5 @@ export const updateSubject = (id: number, data: { subject_name: string; subject_
  * @param id - 科目ID
  */
 export const deleteSubject = (id: number): Promise<ApiResponse<null>> => {
-  return request({
-    url: `/api/subject/delete/${id}`, // 确保路径正确
-    method: 'delete',
-  });
+  return request.delete<ApiResponse<null>>(`/api/subject/delete/${id}`);
 };

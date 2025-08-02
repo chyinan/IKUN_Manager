@@ -30,11 +30,14 @@ interface RegexConfig {
  * 获取正则表达式配置
  */
 export const getRegexConfig = (): Promise<ApiResponse<RegexConfig>> => {
-  return request.get<ApiResponse<RegexConfig>>('api/config/regex').then(response => response.data) // 添加 api/
+  return request.get<ApiResponse<RegexConfig>>('/api/config/regex')
     .catch(error => {
         console.error('[API config.ts] Error fetching regex config:', error);
-        // 直接抛出错误，让上层调用者（如 store 的 fetchAndSetConfig）处理
-        throw error;
+        return {
+            code: error.response?.status || 500,
+            message: error.response?.data?.message || error.message || '获取配置失败',
+            data: null
+        } as any;
     });
 }
 
@@ -43,10 +46,14 @@ export const getRegexConfig = (): Promise<ApiResponse<RegexConfig>> => {
  * @param config 配置对象
  */
 export const updateRegexConfig = (config: RegexConfig): Promise<ApiResponse<void>> => {
-  return request.put<ApiResponse<void>>('api/config/regex', config).then(response => response.data) // 添加 api/
+  return request.put<ApiResponse<void>>('/api/config/regex', config).then(response => response.data)
     .catch(error => {
       console.error('[API config.ts] Error updating regex config:', error);
-      throw error;
+      return {
+            code: error.response?.status || 500,
+            message: error.response?.data?.message || error.message || '更新配置失败',
+            data: null
+      } as any;
     });
 }
 
@@ -58,7 +65,7 @@ interface CarouselIntervalConfig {
  * 获取轮播图全局切换时间配置
  */
 export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselIntervalConfig>> => {
-  return request.get<ApiResponse<any>>('api/config/carousel-interval').then(response => response.data) // 添加 api/
+  return request.get<ApiResponse<any>>('/api/config/carousel-interval')
     .catch(error => {
       console.error('[API config.ts] Error fetching carousel interval config:', error);
       throw error;
@@ -71,11 +78,10 @@ export const getCarouselIntervalConfig = (): Promise<ApiResponse<CarouselInterva
  */
 export const updateCarouselIntervalConfig = (interval: number): Promise<ApiResponse<void>> => {
   return request.put<ApiResponse<void>>(
-    'api/config/carousel-interval', 
+    '/api/config/carousel-interval', 
     JSON.stringify(interval), // 将数字转换为JSON字符串
     { headers: { 'Content-Type': 'application/json' } } // 显式设置Content-Type
   )
-    .then(response => response.data)
     .catch(error => {
       console.error('[API config.ts] Error updating carousel interval config:', error);
       throw error;

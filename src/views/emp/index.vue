@@ -613,7 +613,26 @@ const fetchData = async () => {
     const res = await getEmployeeList()
     console.log('员工列表API响应:', res)
     
-    if (res && res.code === 200 && Array.isArray(res.data)) {
+    if (res && Array.isArray(res)) {
+      tableData.value = res.map((item: EmployeeItemResponse): EmployeeItem => ({
+        id: item.id,
+        empId: item.emp_id,
+        name: item.name,
+        gender: item.gender,
+        age: item.age,
+        position: item.position,
+        deptName: item.dept_name,
+        salary: Number(item.salary) || 0,
+        status: item.status,
+        phone: item.phone || '',
+        email: item.email || '',
+        joinDate: item.join_date ? dayjs(item.join_date).format('YYYY-MM-DD') : '-',
+        createTime: item.create_time ? dayjs(item.create_time).format('YYYY-MM-DD HH:mm:ss') : '-'
+      }))
+      
+      pagination.total = res.length
+      console.log('成功获取员工数据:', tableData.value)
+    } else if (res && res.code === 200 && Array.isArray(res.data)) {
       tableData.value = res.data.map((item: EmployeeItemResponse): EmployeeItem => ({
         id: item.id,
         empId: item.emp_id,

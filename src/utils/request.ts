@@ -120,31 +120,40 @@ service.interceptors.response.use(
 
     console.error('[Response Interceptor] Network or other error:', error)
     let errorMessage = '网络错误或服务器无响应';
+
     if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
-        // 针对学生未提交作业的特殊业务 404，不需要重复提示
-        const bizMessage = error.response.data?.message || ''
-        if (error.response.status === 404 && bizMessage.includes('未找到该作业的提交记录')) {
-            // 让业务组件自行处理，不弹 Toast
-            return Promise.reject(error)
+        const { status, data } = error.response;
+        errorMessage = data?.message || `请求失败，状态码：${status}`;
+
+        console.error(` [Response Interceptor] Error Status: ${status}, Message: ${errorMessage}`);
+        console.error(' [Response Interceptor] Full Error Response Data:', data);
+
+        // **处理 Token 过期或无效 (401) 或无权限 (403)**
+        if (status === 401 || status === 403) {
+            console.warn(`[Response Interceptor] HTTP ${status} detected. Rejecting promise for caller to handle.`);
+            // 特殊处理401，可以触发重新登录的逻辑
+            if (status === 401) {
+                 ElMessageBox.confirm(
+                   '您的登录已过期或无效，请重新登录。',
+                   '认证失败',
+                   {
+                     confirmButtonText: '重新登录',
+                     cancelButtonText: '取消',
+                     type: 'warning',
+                   }
+                 ).then(() => {
+                   // 清除本地 token 并跳转到登录页
+                   useUserStore().logoutAction();
+                 })
+            } else {
+                ElMessage.error(errorMessage);
+            }
+        } else {
+            // 对于其他所有服务端错误 (如 404, 500), 显示错误消息
+            ElMessage.error(errorMessage);
         }
-
-        console.error(' [Response Interceptor] Error Response Data:', error.response.data);
-        console.error(' [Response Interceptor] Error Response Status:', error.response.status);
-        console.error(' [Response Interceptor] Error Response Headers:', error.response.headers);
-
-        // **处理 Token 过期或无效**
-        // The interceptor's job is to report the error, not handle application logic.
-        // The caller (e.g., router guard's getInfo call) will catch this and decide to logout.
-        if (error.response.status === 401 || error.response.status === 403) {
-            console.warn('[Response Interceptor] HTTP 401/403 detected. Rejecting promise for caller to handle.');
-            // Do NOT handle logout here. Just pass the error along.
-        }
-
-        // 显示通用错误消息 (如果不是 Token 问题)
-        errorMessage = error.response.data?.message || `请求失败，状态码：${error.response.status}`;
-        ElMessage.error(errorMessage);
 
     } else if (error.request) {
         // The request was made but no response was received
@@ -158,7 +167,7 @@ service.interceptors.response.use(
         ElMessage.error(errorMessage);
     }
 
-    // Reject with the original Axios error object for more context
+    // 无论哪种错误，都reject，让上层业务逻辑能捕获到
     return Promise.reject(error);
   }
 )

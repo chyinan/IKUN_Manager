@@ -57,7 +57,7 @@ public class SystemLogController {
         }
         int affectedRows = systemLogService.deleteLogs(ids);
         if (affectedRows > 0) {
-            return ApiResponse.<Void>ok("成功删除 " + affectedRows + " 条日志", null);
+            return ApiResponse.ok("成功删除 " + affectedRows + " 条日志", null);
         } else {
             return ApiResponse.error(500, "删除失败或未找到匹配日志");
         }
